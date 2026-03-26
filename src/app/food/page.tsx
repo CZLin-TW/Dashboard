@@ -68,7 +68,7 @@ export default function FoodPage() {
         quantity: Number(newFood.quantity) || 1,
         unit: newFood.unit,
         expiry: newFood.expiry,
-        addedBy: currentUser.name,
+        person: currentUser.name,
       }),
     }).then(() => {
       setNewFood({ name: "", quantity: "", unit: "個", expiry: "" });
@@ -77,8 +77,8 @@ export default function FoodPage() {
     });
   }
 
-  function deleteFood(index: number) {
-    fetch(`/api/food?index=${index}`, { method: "DELETE" }).then(() => fetchFood());
+  function deleteFood(name: string) {
+    fetch(`/api/food?name=${encodeURIComponent(name)}`, { method: "DELETE" }).then(() => fetchFood());
   }
 
   function startEdit(item: FoodItem, sheetIndex: number) {
@@ -98,16 +98,11 @@ export default function FoodPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        index: editIndex,
-        values: [
-          editFood.name,
-          editFood.quantity,
-          editFood.unit,
-          editFood.expiry,
-          original["新增日"],
-          original["新增者"],
-          original["狀態"],
-        ],
+        name: original["品名"],
+        name_new: editFood.name !== original["品名"] ? editFood.name : undefined,
+        quantity: editFood.quantity !== original["數量"] ? Number(editFood.quantity) : undefined,
+        unit: editFood.unit !== original["單位"] ? editFood.unit : undefined,
+        expiry: editFood.expiry !== original["過期日"] ? editFood.expiry : undefined,
       }),
     }).then(() => {
       setEditIndex(null);
@@ -280,7 +275,7 @@ export default function FoodPage() {
                         ✎
                       </button>
                       <button
-                        onClick={() => deleteFood(sheetIndex)}
+                        onClick={() => deleteFood(item["品名"])}
                         className="text-gray-500 hover:text-red-400 transition-colors"
                       >
                         ✕

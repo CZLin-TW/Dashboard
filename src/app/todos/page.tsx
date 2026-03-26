@@ -81,17 +81,12 @@ export default function TodosPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        index: editIndex,
-        values: [
-          editTodo.item,
-          editTodo.date,
-          editTodo.time,
-          original["負責人"],
-          original["狀態"],
-          editTodo.type,
-          original["來源"],
-          original["屬性"],
-        ],
+        item: original["事項"],
+        item_new: editTodo.item !== original["事項"] ? editTodo.item : undefined,
+        date: editTodo.date !== original["日期"] ? editTodo.date : undefined,
+        time: editTodo.time !== original["時間"] ? editTodo.time : undefined,
+        type: editTodo.type !== original["類型"] ? editTodo.type : undefined,
+        requester: currentUser.name,
       }),
     }).then(() => {
       setEditIndex(null);
@@ -99,8 +94,8 @@ export default function TodosPage() {
     });
   }
 
-  function deleteTodo(index: number) {
-    fetch(`/api/todos?index=${index}`, { method: "DELETE" }).then(() => fetchTodos());
+  function deleteTodo(item: string) {
+    fetch(`/api/todos?item=${encodeURIComponent(item)}`, { method: "DELETE" }).then(() => fetchTodos());
   }
 
   function getSheetIndex(todo: TodoItem): number {
@@ -119,6 +114,7 @@ export default function TodosPage() {
         </button>
       </div>
 
+      {/* Filter */}
       <div className="flex gap-2">
         <button onClick={() => setFilter("mine")}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${filter === "mine" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"}`}>
@@ -130,48 +126,65 @@ export default function TodosPage() {
         </button>
       </div>
 
+      {/* Add Form */}
       {showAdd && (
         <Card>
           <div className="space-y-3">
-            <input type="text" value={newTodo.item}
+            <input
+              type="text"
+              value={newTodo.item}
               onChange={(e) => setNewTodo((p) => ({ ...p, item: e.target.value }))}
               placeholder="待辦事項內容"
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none" />
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+            />
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="text-xs text-gray-400">日期 *</label>
-                <input type="date" value={newTodo.date}
+                <input
+                  type="date"
+                  value={newTodo.date}
                   onChange={(e) => setNewTodo((p) => ({ ...p, date: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none" />
+                  className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                />
               </div>
               <div>
                 <label className="text-xs text-gray-400">時間（選填）</label>
-                <input type="time" value={newTodo.time}
+                <input
+                  type="time"
+                  value={newTodo.time}
                   onChange={(e) => setNewTodo((p) => ({ ...p, time: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none" />
+                  className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                />
               </div>
               <div>
                 <label className="text-xs text-gray-400">類型</label>
-                <select value={newTodo.type}
+                <select
+                  value={newTodo.type}
                   onChange={(e) => setNewTodo((p) => ({ ...p, type: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none">
+                  className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                >
                   <option value="私人">私人</option>
                   <option value="公開">公開</option>
                 </select>
               </div>
             </div>
-            <button onClick={addTodo}
+            <button
+              onClick={addTodo}
               disabled={!newTodo.item.trim() || !newTodo.date}
-              className="w-full rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 transition-colors">
+              className="w-full rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 transition-colors"
+            >
               確認新增
             </button>
           </div>
         </Card>
       )}
 
+      {/* Todo List */}
       <Card>
         <CardHeader>
-          <CardTitle>{filter === "mine" ? `${currentUser?.name ?? ""} 的待辦` : "所有待辦"}</CardTitle>
+          <CardTitle>
+            {filter === "mine" ? `${currentUser?.name ?? ""} 的待辦` : "所有待辦"}
+          </CardTitle>
           <span className="text-xs text-gray-500">{filteredTodos.length} 項</span>
         </CardHeader>
         {loading ? (
@@ -206,15 +219,18 @@ export default function TodosPage() {
                       </select>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={saveEdit} className="rounded-lg bg-green-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-green-700">儲存</button>
-                      <button onClick={() => setEditIndex(null)} className="rounded-lg bg-gray-600 px-4 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-500">取消</button>
+                      <button onClick={saveEdit}
+                        className="rounded-lg bg-green-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-green-700">儲存</button>
+                      <button onClick={() => setEditIndex(null)}
+                        className="rounded-lg bg-gray-600 px-4 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-500">取消</button>
                     </div>
                   </li>
                 );
               }
 
               return (
-                <li key={sheetIndex} className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-gray-800/50 transition-colors">
+                <li key={sheetIndex}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-gray-800/50 transition-colors">
                   <span className="flex-shrink-0 text-lg text-gray-500">☐</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-200">
@@ -228,11 +244,15 @@ export default function TodosPage() {
                       {todo["來源"] !== "本地" && ` · 來自 ${todo["來源"]}`}
                     </p>
                   </div>
-                  <span className="rounded-md bg-gray-800 px-2 py-0.5 text-xs text-gray-400">{todo["類型"]}</span>
+                  <span className="rounded-md bg-gray-800 px-2 py-0.5 text-xs text-gray-400">
+                    {todo["類型"]}
+                  </span>
                   {!isReadonly && (
                     <div className="flex gap-1">
-                      <button onClick={() => startEdit(todo, sheetIndex)} className="text-gray-500 hover:text-blue-400 transition-colors text-xs">✎</button>
-                      <button onClick={() => deleteTodo(sheetIndex)} className="text-gray-500 hover:text-red-400 transition-colors">✕</button>
+                      <button onClick={() => startEdit(todo, sheetIndex)}
+                        className="text-gray-500 hover:text-blue-400 transition-colors text-xs">✎</button>
+                      <button onClick={() => deleteTodo(todo["事項"])}
+                        className="text-gray-500 hover:text-red-400 transition-colors">✕</button>
                     </div>
                   )}
                 </li>
