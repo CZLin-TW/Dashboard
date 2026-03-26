@@ -1,53 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface DeviceState {
+  id: string;
   name: string;
   type: "ac" | "dehumidifier" | "ir";
   icon: string;
-  active: boolean;
   detail: string;
   temperature?: number;
   mode?: string;
   fanSpeed?: string;
   humidity?: number;
+  active?: boolean;
+  buttons?: { key: string; label: string }[];
 }
 
 const initialDevices: DeviceState[] = [
   {
+    id: "ac",
     name: "客廳冷氣",
     type: "ac",
     icon: "❄️",
-    active: true,
     detail: "冷氣模式",
     temperature: 26,
     mode: "cool",
     fanSpeed: "auto",
+    active: true,
   },
   {
+    id: "dehumidifier",
     name: "除濕機",
     type: "dehumidifier",
     icon: "💨",
-    active: true,
     detail: "自動模式",
     mode: "auto",
     humidity: 60,
+    active: true,
   },
   {
+    id: "fan",
     name: "電扇",
     type: "ir",
     icon: "🌀",
-    active: false,
-    detail: "",
-  },
-  {
-    name: "音響",
-    type: "ir",
-    icon: "🔊",
-    active: false,
-    detail: "",
+    detail: "IR 遙控",
+    buttons: [
+      { key: "power", label: "電源" },
+      { key: "speed", label: "風速" },
+      { key: "swing", label: "擺頭" },
+      { key: "timer", label: "定時" },
+    ],
   },
 ];
 
@@ -74,8 +78,27 @@ const DEHUMIDIFIER_MODES = [
   { value: "air_purify", label: "淨化" },
 ];
 
+function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
+  const searchParams = useSearchParams();
+  const targetDevice = searchParams.get("target");
+
+  useEffect(() => {
+    if (targetDevice && deviceRefs.current?.[targetDevice]) {
+      deviceRefs.current[targetDevice]?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const el = deviceRefs.current[targetDevice];
+      if (el) {
+        el.classList.add("ring-2", "ring-blue-500");
+        setTimeout(() => el.classList.remove("ring-2", "ring-blue-500"), 2000);
+      }
+    }
+  }, [targetDevice, deviceRefs]);
+
+  return null;
+}
+
 export default function DevicesPage() {
   const [devices, setDevices] = useState(initialDevices);
+  const deviceRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   function toggleDevice(index: number) {
     setDevices((prev) =>
@@ -89,8 +112,16 @@ export default function DevicesPage() {
     );
   }
 
+  function sendIrCommand(deviceName: string, button: string) {
+    // TODO: Call SwitchBot API to send IR command
+    console.log(`Sending IR command: ${deviceName} \u2192 ${button}`);
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
+      <Suspense>
+        <DeviceScrollTarget deviceRefs={deviceRefs} />
+      </Suspense>
       <h1 className="text-2xl font-bold">📱 裝置控制</h1>
 
       {/* Sensor */}
@@ -113,136 +144,164 @@ export default function DevicesPage() {
       {/* Device Cards */}
       <div className="grid gap-4 sm:grid-cols-2">
         {devices.map((device, index) => (
-          <Card key={device.name} className={device.active ? "border-blue-500/30" : ""}>
-            <CardHeader>
-              <CardTitle>
-                {device.icon} {device.name}
-              </CardTitle>
-              <button
-                onClick={() => toggleDevice(index)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                  device.active
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                }`}
-              >
-                {device.active ? "ON" : "OFF"}
-              </button>
-            </CardHeader>
+          <div
+            key={device.id}
+            ref={(el) => { deviceRefs.current[device.id] = el; }}
+            className="transition-all duration-300"
+          >
+            <Card className={device.active ? "border-blue-500/30" : ""}>
+              <CardHeader>
+                <CardTitle>
+                  {device.icon} {device.name}
+                </CardTitle>
+                {device.type !== "ir" && (
+                  <button
+                    onClick={() => toggleDevice(index)}
+                    className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                      device.active
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    {device.active ? "ON" : "OFF"}
+                  </button>
+                )}
+              </CardHeader>
 
-            {device.active && device.type === "ac" && (
-              <div className="space-y-4">
-                {/* Temperature */}
-                <div>
-                  <label className="text-xs text-gray-400">溫度</label>
-                  <div className="mt-1 flex items-center gap-3">
-                    <button
-                      onClick={() => updateDevice(index, { temperature: Math.max(16, (device.temperature ?? 26) - 1) })}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600"
-                    >
-                      −
-                    </button>
-                    <span className="w-16 text-center text-xl font-bold">{device.temperature}°C</span>
-                    <button
-                      onClick={() => updateDevice(index, { temperature: Math.min(30, (device.temperature ?? 26) + 1) })}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600"
-                    >
-                      +
-                    </button>
+              {device.active && device.type === "ac" && (
+                <div className="space-y-4">
+                  {/* Temperature */}
+                  <div>
+                    <label className="text-xs text-gray-400">溫度</label>
+                    <div className="mt-1 flex items-center gap-3">
+                      <button
+                        onClick={() => updateDevice(index, { temperature: Math.max(16, (device.temperature ?? 26) - 1) })}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600"
+                      >
+                        −
+                      </button>
+                      <span className="w-16 text-center text-xl font-bold">{device.temperature}°C</span>
+                      <button
+                        onClick={() => updateDevice(index, { temperature: Math.min(30, (device.temperature ?? 26) + 1) })}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  {/* Mode */}
+                  <div>
+                    <label className="text-xs text-gray-400">模式</label>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {AC_MODES.map((m) => (
+                        <button
+                          key={m.value}
+                          onClick={() => updateDevice(index, { mode: m.value })}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                            device.mode === m.value
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Fan Speed */}
+                  <div>
+                    <label className="text-xs text-gray-400">風速</label>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {FAN_SPEEDS.map((s) => (
+                        <button
+                          key={s.value}
+                          onClick={() => updateDevice(index, { fanSpeed: s.value })}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                            device.fanSpeed === s.value
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                          }`}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                {/* Mode */}
+              )}
+
+              {!device.active && device.type === "ac" && (
+                <p className="text-sm text-gray-500">裝置已關閉</p>
+              )}
+
+              {device.active && device.type === "dehumidifier" && (
+                <div className="space-y-4">
+                  {/* Mode */}
+                  <div>
+                    <label className="text-xs text-gray-400">模式</label>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {DEHUMIDIFIER_MODES.map((m) => (
+                        <button
+                          key={m.value}
+                          onClick={() => updateDevice(index, { mode: m.value })}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                            device.mode === m.value
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Target Humidity */}
+                  <div>
+                    <label className="text-xs text-gray-400">目標濕度</label>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {[40, 45, 50, 55, 60, 65, 70].map((h) => (
+                        <button
+                          key={h}
+                          onClick={() => updateDevice(index, { humidity: h })}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                            device.humidity === h
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                          }`}
+                        >
+                          {h}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!device.active && device.type === "dehumidifier" && (
+                <p className="text-sm text-gray-500">裝置已關閉</p>
+              )}
+
+              {device.type === "ir" && device.buttons && (
                 <div>
-                  <label className="text-xs text-gray-400">模式</label>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {AC_MODES.map((m) => (
+                  <label className="text-xs text-gray-400">遙控按鈕</label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {device.buttons.map((btn) => (
                       <button
-                        key={m.value}
-                        onClick={() => updateDevice(index, { mode: m.value })}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                          device.mode === m.value
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
+                        key={btn.key}
+                        onClick={() => sendIrCommand(device.name, btn.key)}
+                        className="rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-gray-600 active:bg-gray-500 transition-colors"
                       >
-                        {m.label}
+                        {btn.label}
                       </button>
                     ))}
                   </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    IR 遙控為單向發送，不會回傳裝置狀態
+                  </p>
                 </div>
-                {/* Fan Speed */}
-                <div>
-                  <label className="text-xs text-gray-400">風速</label>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {FAN_SPEEDS.map((s) => (
-                      <button
-                        key={s.value}
-                        onClick={() => updateDevice(index, { fanSpeed: s.value })}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                          device.fanSpeed === s.value
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
-                      >
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {device.active && device.type === "dehumidifier" && (
-              <div className="space-y-4">
-                {/* Mode */}
-                <div>
-                  <label className="text-xs text-gray-400">模式</label>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {DEHUMIDIFIER_MODES.map((m) => (
-                      <button
-                        key={m.value}
-                        onClick={() => updateDevice(index, { mode: m.value })}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                          device.mode === m.value
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
-                      >
-                        {m.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* Target Humidity */}
-                <div>
-                  <label className="text-xs text-gray-400">目標濕度</label>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {[40, 45, 50, 55, 60, 65, 70].map((h) => (
-                      <button
-                        key={h}
-                        onClick={() => updateDevice(index, { humidity: h })}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                          device.humidity === h
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
-                      >
-                        {h}%
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {device.active && device.type === "ir" && (
-              <p className="text-sm text-gray-400">IR 遙控裝置 — 點擊 ON/OFF 切換電源</p>
-            )}
-
-            {!device.active && (
-              <p className="text-sm text-gray-500">裝置已關閉</p>
-            )}
-          </Card>
+              )}
+            </Card>
+          </div>
         ))}
       </div>
     </div>

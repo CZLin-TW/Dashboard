@@ -19,9 +19,9 @@ const mockIndoor = {
 };
 
 const mockDevices = [
-  { name: "冷氣", status: "運轉中", detail: "26°C 冷氣模式", icon: "❄️", active: true },
-  { name: "除濕機", status: "運轉中", detail: "自動 60%", icon: "💨", active: true },
-  { name: "電扇", status: "關閉", detail: "", icon: "🌀", active: false },
+  { id: "ac", name: "冷氣", status: "運轉中", detail: "26°C 冷氣模式", icon: "❄️", active: true },
+  { id: "dehumidifier", name: "除濕機", status: "運轉中", detail: "自動 60%", icon: "💨", active: true },
+  { id: "fan", name: "電扇", status: "", detail: "", icon: "🌀", active: false },
 ];
 
 const mockTodos = [
@@ -88,8 +88,9 @@ export default function HomePage() {
         </CardHeader>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {mockDevices.map((device) => (
-            <button
-              key={device.name}
+            <Link
+              key={device.id}
+              href={`/devices?target=${device.id}`}
               className={`flex flex-col items-center gap-2 rounded-xl border p-4 transition-colors ${
                 device.active
                   ? "border-blue-500/30 bg-blue-500/10"
@@ -98,13 +99,15 @@ export default function HomePage() {
             >
               <span className="text-2xl">{device.icon}</span>
               <span className="text-sm font-medium">{device.name}</span>
-              <span className={`text-xs ${device.active ? "text-blue-400" : "text-gray-500"}`}>
-                {device.status}
-              </span>
+              {device.status && (
+                <span className={`text-xs ${device.active ? "text-blue-400" : "text-gray-500"}`}>
+                  {device.status}
+                </span>
+              )}
               {device.detail && (
                 <span className="text-xs text-gray-400">{device.detail}</span>
               )}
-            </button>
+            </Link>
           ))}
         </div>
       </Card>
