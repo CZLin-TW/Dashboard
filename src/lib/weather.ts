@@ -1,7 +1,6 @@
 const CWA_API_KEY = process.env.CWA_API_KEY ?? "";
 const API_BASE = "https://opendata.cwa.gov.tw/api/v1/rest/datastore";
 
-// City to dataset ID mapping
 const CITY_MAP: Record<string, string> = {
   "臺北市": "F-D0047-063", "新北市": "F-D0047-071", "桃園市": "F-D0047-007",
   "臺中市": "F-D0047-075", "臺南市": "F-D0047-079", "高雄市": "F-D0047-067",
@@ -28,7 +27,6 @@ export async function getWeather(city: string, location?: string): Promise<{
   location: string;
   periods: WeatherPeriod[];
 } | { error: string }> {
-  // Normalize 台 → 臺
   const normalizedCity = city.replace(/台/g, "臺");
   const dataId = CITY_MAP[normalizedCity];
   if (!dataId) return { error: `找不到城市: ${city}` };

@@ -62,9 +62,8 @@ async function apiRequest(
 
   let data = await doRequest();
 
-  // Token expired — try refresh then retry
   if (data.StateMsg && typeof data.StateMsg === "string" &&
-      (data.StateMsg.includes("RefreshToken") || data.StateMsg.includes("CPToken") || data.StateMsg.includes("逾時"))) {
+      (data.StateMsg.includes("RefreshToken") || data.StateMsg.includes("CPToken") || data.StateMsg.includes("逎時"))) {
     const refreshed = await refresh();
     if (!refreshed) await login();
     data = await doRequest();
