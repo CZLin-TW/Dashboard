@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { DesktopNav } from "@/components/layout/desktop-nav";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { MobileNav } from "@/components/layout/mobile-nav";
-import { UserPickerModal } from "@/components/layout/user-picker-modal";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,7 +23,6 @@ export default function RootLayout({
           {children}
         </main>
         <MobileNav />
-        <UserPickerModal />
       </body>
     </html>
   );
