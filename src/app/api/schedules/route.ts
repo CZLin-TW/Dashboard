@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSheetData, deleteSheetRow } from "@/lib/sheets";
+import { butlerGet, butlerDelete } from "@/lib/butler";
 
 export async function GET() {
   try {
-    const schedules = await getSheetData("排程指令");
-    return NextResponse.json(schedules);
+    const data = await butlerGet("/api/schedules");
+    return NextResponse.json(data);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -13,13 +13,9 @@ export async function GET() {
 
 export async function DELETE(request: Request) {
   try {
-    const url = new URL(request.url);
-    const index = parseInt(url.searchParams.get("index") ?? "-1");
-    if (index < 0) {
-      return NextResponse.json({ error: "missing index" }, { status: 400 });
-    }
-    await deleteSheetRow("排程指令", index);
-    return NextResponse.json({ ok: true });
+    const body = await request.json();
+    const data = await butlerDelete("/api/schedules", body);
+    return NextResponse.json(data);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });

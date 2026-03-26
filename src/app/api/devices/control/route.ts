@@ -1,40 +1,37 @@
 import { NextResponse } from "next/server";
-import { getSheetData } from "@/lib/sheets";
-import { controlAc, controlIr } from "@/lib/switchbot";
-import { controlDehumidifier } from "@/lib/panasonic";
+import { butlerPost } from "@/lib/butler";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { deviceName, action, params } = body;
 
-    const devices = await getSheetData("智能居家");
-    const device = devices.find((d) => d["狀態"] === "啟用" && d["名稱"] === deviceName);
-
-    if (!device) {
-      return NextResponse.json({ error: `找不到裝置: ${deviceName}` }, { status: 404 });
+    let result;
+    if (action === "setAll") {
+      result = await butlerPost("/api/devices/control/ac", {
+        device_name: deviceName,
+        power: params.power ? "on" : "off",
+        temperature: params.temperature,
+        mode: params.mode,
+        fan_speed: params.fanSpeed,
+      });
+    } else if (action === "ir") {
+      result = await butlerPost("/api/devices/control/ir", {
+        device_name: deviceName,
+        button: params.button,
+      });
+    } else if (action === "dehumidifier") {
+      result = await butlerPost("/api/devices/control/dehumidifier", {
+        device_name: deviceName,
+        power: params.power !== undefined ? (params.power ? "on" : "off") : undefined,
+        mode: params.mode,
+        humidity: params.humidity,
+      });
+    } else {
+      return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
 
-    const deviceId = device["Device ID"];
-    const deviceType = device["類型"];
-
-    if (deviceType === "空調" && action === "setAll") {
-      await controlAc(deviceId, params);
-      return NextResponse.json({ ok: true });
-    }
-
-    if (deviceType === "IR" && action === "ir") {
-      await controlIr(deviceId, params.button);
-      return NextResponse.json({ ok: true });
-    }
-
-    if (deviceType === "除濕機") {
-      const auth = device["Auth"] ?? "";
-      await controlDehumidifier(auth, deviceId, params);
-      return NextResponse.json({ ok: true });
-    }
-
-    return NextResponse.json({ error: `不支援的操作: ${deviceType}/${action}` }, { status: 400 });
+    return NextResponse.json(result);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });

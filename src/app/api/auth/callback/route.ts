@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createSession, getSessionCookieOptions } from "@/lib/auth";
-import { getFamilyMembers } from "@/lib/sheets";
+import { butlerGet } from "@/lib/butler";
 
 const LINE_TOKEN_URL = "https://api.line.me/oauth2/v2.1/token";
 const LINE_PROFILE_URL = "https://api.line.me/v2/profile";
@@ -18,6 +18,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login?error=denied", url.origin));
   }
 
+  // Verify state
   const cookieStore = await cookies();
   const savedState = cookieStore.get("oauth_state")?.value;
   if (!state || state !== savedState) {
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login?error=no_code", url.origin));
   }
 
+  // Exchange code for token
   const callbackUrl = `${url.origin}/api/auth/callback`;
   const tokenRes = await fetch(LINE_TOKEN_URL, {
     method: "POST",
@@ -46,6 +48,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login?error=token_failed", url.origin));
   }
 
+  // Get LINE profile
   const profileRes = await fetch(LINE_PROFILE_URL, {
     headers: { Authorization: `Bearer ${tokenData.access_token}` },
   });
@@ -55,11 +58,10 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login?error=profile_failed", url.origin));
   }
 
+  // Check if user is a family member
   try {
-    const members = await getFamilyMembers();
-    const member = members.find((m) =>
-      m["Line User ID"] === profile.userId || m["LINE User ID"] === profile.userId
-    );
+    const members = await butlerGet("/api/members") as Array<{ name: string; lineUserId: string }>;
+    const member = members.find((m) => m.lineUserId === profile.userId);
 
     if (!member) {
       return NextResponse.redirect(new URL("/login?error=not_member", url.origin));
@@ -67,7 +69,7 @@ export async function GET(request: Request) {
 
     const sessionToken = await createSession({
       lineUserId: profile.userId,
-      name: member["姓名"] ?? member["名稱"] ?? profile.displayName,
+      name: member.name ?? profile.displayName,
       picture: profile.pictureUrl,
     });
 

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSheetData, appendSheetRow, updateSheetRow, deleteSheetRow } from "@/lib/sheets";
+import { butlerGet, butlerPost, butlerPatch, butlerDelete } from "@/lib/butler";
 
 export async function GET() {
   try {
-    const todos = await getSheetData("待辦事項");
-    return NextResponse.json(todos);
+    const data = await butlerGet("/api/todos");
+    return NextResponse.json(data);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -14,17 +14,8 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    await appendSheetRow("待辦事項", [
-      body.item,
-      body.date,
-      body.time ?? "",
-      body.person,
-      "待辦",
-      body.type ?? "私人",
-      "本地",
-      "讀寫",
-    ]);
-    return NextResponse.json({ ok: true });
+    const data = await butlerPost("/api/todos", body);
+    return NextResponse.json(data);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -34,12 +25,8 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { index, values } = body;
-    if (index === undefined || !values) {
-      return NextResponse.json({ error: "missing index or values" }, { status: 400 });
-    }
-    await updateSheetRow("待辦事項", index, values);
-    return NextResponse.json({ ok: true });
+    const data = await butlerPatch("/api/todos", body);
+    return NextResponse.json(data);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -49,12 +36,9 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const url = new URL(request.url);
-    const index = parseInt(url.searchParams.get("index") ?? "-1");
-    if (index < 0) {
-      return NextResponse.json({ error: "missing index" }, { status: 400 });
-    }
-    await deleteSheetRow("待辦事項", index);
-    return NextResponse.json({ ok: true });
+    const item = url.searchParams.get("item") ?? "";
+    const data = await butlerDelete("/api/todos", { item });
+    return NextResponse.json(data);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });
