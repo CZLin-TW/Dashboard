@@ -14,8 +14,17 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, quantity, unit, expiry, addedBy } = body;
-    await appendSheetRow("食品庫存", [name, String(quantity), unit, expiry, addedBy, "正常"]);
+    const today = new Date().toISOString().split("T")[0];
+    // Columns: 品名, 數量, 單位, 過期日, 新增日, 新增者, 狀態
+    await appendSheetRow("食品庫存", [
+      body.name,
+      String(body.quantity),
+      body.unit,
+      body.expiry,
+      today,
+      body.addedBy,
+      "有效",
+    ]);
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

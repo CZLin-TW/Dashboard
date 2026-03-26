@@ -14,9 +14,17 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { item, date, time, person, type } = body;
-    // Append: match sheet column order from home-butler
-    await appendSheetRow("待辦事項", [item, date, time ?? "", person, type ?? "其他", ""]);
+    // Columns: 事項, 日期, 時間, 負責人, 狀態, 類型, 來源, 屬性
+    await appendSheetRow("待辦事項", [
+      body.item,
+      body.date,
+      body.time ?? "",
+      body.person,
+      "待辦",
+      body.type ?? "私人",
+      "本地",
+      "讀寫",
+    ]);
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
