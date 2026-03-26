@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import fs from "fs";
 
 let sheetsClient: ReturnType<typeof google.sheets> | null = null;
 let clientInitTime = 0;
@@ -13,7 +14,6 @@ function getClient() {
   let credsRaw = process.env.GOOGLE_CREDENTIALS ?? "{}";
   // Support file path: if value starts with { it's inline JSON, otherwise read from file
   if (!credsRaw.startsWith("{")) {
-    const fs = require("fs");
     credsRaw = fs.readFileSync(credsRaw, "utf-8");
   }
   const creds = JSON.parse(credsRaw);
@@ -76,6 +76,7 @@ export async function updateSheetRow(
 
 export async function deleteSheetRow(sheetName: string, rowIndex: number): Promise<void> {
   const client = getClient();
+  // Get sheet ID first
   const meta = await client.spreadsheets.get({
     spreadsheetId: SPREADSHEET_ID,
     fields: "sheets.properties",
@@ -94,7 +95,7 @@ export async function deleteSheetRow(sheetName: string, rowIndex: number): Promi
             range: {
               sheetId: sheet.properties.sheetId,
               dimension: "ROWS",
-              startIndex: rowIndex + 1,
+              startIndex: rowIndex + 1, // +1 for header
               endIndex: rowIndex + 2,
             },
           },
