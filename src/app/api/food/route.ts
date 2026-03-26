@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSheetData, appendSheetRow, deleteSheetRow } from "@/lib/sheets";
+import { getSheetData, appendSheetRow, updateSheetRow, deleteSheetRow } from "@/lib/sheets";
 
 export async function GET() {
   try {
@@ -15,7 +15,6 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const today = new Date().toISOString().split("T")[0];
-    // Columns: 品名, 數量, 單位, 過期日, 新增日, 新增者, 狀態
     await appendSheetRow("食品庫存", [
       body.name,
       String(body.quantity),
@@ -25,6 +24,21 @@ export async function POST(request: Request) {
       body.addedBy,
       "有效",
     ]);
+    return NextResponse.json({ ok: true });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { index, values } = body;
+    if (index === undefined || !values) {
+      return NextResponse.json({ error: "missing index or values" }, { status: 400 });
+    }
+    await updateSheetRow("食品庫存", index, values);
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
