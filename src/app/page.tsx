@@ -3,46 +3,85 @@
 import Link from "next/link";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
+import { useEffect, useState } from "react";
 
-// --- Mock data (will be replaced by API calls) ---
-const mockWeather = {
-  location: "台北市",
-  temperature: 28,
-  description: "多雲",
-  rainProbability: 20,
-};
+interface WeatherData {
+  city: string;
+  location: string;
+  periods: Array<{
+    weather: string;
+    minTemp: string;
+    maxTemp: string;
+    rainProb: string;
+  }>;
+}
 
-const mockIndoor = {
-  temperature: 27.5,
-  humidity: 65,
-  sensor: "SwitchBot Hub",
-};
+interface DeviceData {
+  name: string;
+  type: string;
+  temperature?: number;
+  humidity?: number;
+  power?: boolean;
+  mode?: string;
+}
 
-const mockDevices = [
-  { id: "ac", name: "冷氣", status: "運轉中", detail: "26°C 冷氣模式", icon: "❄️", active: true },
-  { id: "dehumidifier", name: "除濕機", status: "運轉中", detail: "自動 60%", icon: "💨", active: true },
-  { id: "fan", name: "電扇", status: "", detail: "", icon: "🌀", active: false },
-];
+interface TodoData {
+  "事項": string;
+  "日期": string;
+  "時間": string;
+  "負責人": string;
+  "狀態": string;
+  "屬性": string;
+}
 
-const mockTodos = [
-  { item: "繳電費", date: "今天", person: "小明", done: false },
-  { item: "看牙醫 14:00", date: "今天", person: "小華", done: false },
-  { item: "倒垃圾", date: "今天", person: "小明", done: true },
-];
+interface FoodData {
+  "品名": string;
+  "數量": string;
+  "單位": string;
+  "過期日": string;
+}
 
-const mockFoodAlerts = [
-  { name: "牛奶", expiry: "明天到期", urgent: true },
-  { name: "雞蛋 x6", expiry: "後天到期", urgent: true },
-  { name: "高麗菜", expiry: "3天後", urgent: false },
-];
+function daysUntilExpiry(expiry: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((new Date(expiry).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
 
-// --- Page ---
 export default function HomePage() {
   const { currentUser } = useUser();
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [devices, setDevices] = useState<DeviceData[]>([]);
+  const [todos, setTodos] = useState<TodoData[]>([]);
+  const [food, setFood] = useState<FoodData[]>([]);
 
-  const myTodos = currentUser
-    ? mockTodos.filter((t) => t.person === currentUser.name)
-    : mockTodos;
+  useEffect(() => {
+    fetch("/api/weather?city=臺北市").then(r => r.json()).then(setWeather).catch(() => {});
+    fetch("/api/devices").then(r => r.json()).then(setDevices).catch(() => {});
+    fetch("/api/todos").then(r => r.json()).then(setTodos).catch(() => {});
+    fetch("/api/food").then(r => r.json()).then(setFood).catch(() => {});
+  }, []);
+
+  const sensor = devices.find(d => d.type === "感應器");
+  const todayStr = new Date().toISOString().split("T")[0];
+  const myTodos = todos.filter(t =>
+    t["狀態"] === "待辦" && (
+      !currentUser || t["負責人"] === currentUser.name ||
+      t["負責人"] === currentUser.name.substring(0, 2)
+    )
+  ).slice(0, 5);
+
+  const urgentFood = food.filter(f => {
+    const days = daysUntilExpiry(f["過期日"]);
+    return days >= 0 && days <= 3;
+  });
+
+  const currentWeather = weather?.periods?.[0];
+
+  const deviceIcons: Record<string, string> = {
+    "空調": "❄️", "IR": "🌀", "除濕機": "💨", "感應器": "🌡️",
+  };
+
+  const controllableDevices = devices.filter(d => d.type !== "感應器");
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -52,29 +91,41 @@ export default function HomePage() {
           <CardHeader>
             <CardTitle>🌤️ 天氣</CardTitle>
           </CardHeader>
-          <div className="flex items-baseline gap-3">
-            <span className="text-3xl font-bold">{mockWeather.temperature}°C</span>
-            <span className="text-gray-400">{mockWeather.description}</span>
-          </div>
-          <p className="mt-1 text-sm text-gray-500">
-            📍 {mockWeather.location} ・ 降雨機率 {mockWeather.rainProbability}%
-          </p>
+          {currentWeather ? (
+            <>
+              <div className="flex items-baseline gap-3">
+                <span className="text-3xl font-bold">{currentWeather.maxTemp}°C</span>
+                <span className="text-gray-400">{currentWeather.weather}</span>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                📍 {weather?.location} ・ {currentWeather.minTemp}~{currentWeather.maxTemp}°C ・ 降雨 {currentWeather.rainProb}%
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500">載入中...</p>
+          )}
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>🌡️ 室內環境</CardTitle>
           </CardHeader>
-          <div className="flex items-baseline gap-6">
-            <div>
-              <span className="text-3xl font-bold">{mockIndoor.temperature}°C</span>
-            </div>
-            <div>
-              <span className="text-3xl font-bold">{mockIndoor.humidity}%</span>
-              <span className="ml-1 text-sm text-gray-400">濕度</span>
-            </div>
-          </div>
-          <p className="mt-1 text-sm text-gray-500">{mockIndoor.sensor}</p>
+          {sensor ? (
+            <>
+              <div className="flex items-baseline gap-6">
+                <div>
+                  <span className="text-3xl font-bold">{sensor.temperature}°C</span>
+                </div>
+                <div>
+                  <span className="text-3xl font-bold">{sensor.humidity}%</span>
+                  <span className="ml-1 text-sm text-gray-400">濕度</span>
+                </div>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">{sensor.name}</p>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500">載入中...</p>
+          )}
         </Card>
       </div>
 
@@ -87,26 +138,14 @@ export default function HomePage() {
           </Link>
         </CardHeader>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {mockDevices.map((device) => (
+          {controllableDevices.map((device) => (
             <Link
-              key={device.id}
-              href={`/devices?target=${device.id}`}
-              className={`flex flex-col items-center gap-2 rounded-xl border p-4 transition-colors ${
-                device.active
-                  ? "border-blue-500/30 bg-blue-500/10"
-                  : "border-gray-700 bg-gray-800/50 hover:bg-gray-800"
-              }`}
+              key={device.name}
+              href={`/devices?target=${encodeURIComponent(device.name)}`}
+              className="flex flex-col items-center gap-2 rounded-xl border border-gray-700 bg-gray-800/50 hover:bg-gray-800 p-4 transition-colors"
             >
-              <span className="text-2xl">{device.icon}</span>
+              <span className="text-2xl">{deviceIcons[device.type] ?? "📱"}</span>
               <span className="text-sm font-medium">{device.name}</span>
-              {device.status && (
-                <span className={`text-xs ${device.active ? "text-blue-400" : "text-gray-500"}`}>
-                  {device.status}
-                </span>
-              )}
-              {device.detail && (
-                <span className="text-xs text-gray-400">{device.detail}</span>
-              )}
             </Link>
           ))}
         </div>
@@ -116,26 +155,26 @@ export default function HomePage() {
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>☑️ 今日待辦</CardTitle>
+            <CardTitle>☑️ 待辦事項</CardTitle>
             <Link href="/todos" className="text-sm text-blue-400 hover:text-blue-300">
               查看全部 →
             </Link>
           </CardHeader>
-          <ul className="space-y-2">
-            {myTodos.map((todo) => (
-              <li key={todo.item} className="flex items-center gap-3 text-sm">
-                <span className={`flex-shrink-0 ${todo.done ? "text-green-400" : "text-gray-500"}`}>
-                  {todo.done ? "☑" : "☐"}
-                </span>
-                <span className={todo.done ? "text-gray-500 line-through" : "text-gray-200"}>
-                  {todo.item}
-                </span>
-                <span className="ml-auto text-xs text-gray-500">{todo.person}</span>
-              </li>
-            ))}
-          </ul>
-          {myTodos.length === 0 && (
-            <p className="text-sm text-gray-500">今天沒有待辦事項 🎉</p>
+          {myTodos.length > 0 ? (
+            <ul className="space-y-2">
+              {myTodos.map((todo, i) => (
+                <li key={i} className="flex items-center gap-3 text-sm">
+                  <span className="flex-shrink-0 text-gray-500">☐</span>
+                  <span className="text-gray-200">
+                    {todo["事項"]}
+                    {todo["時間"] && <span className="ml-1 text-gray-500">{todo["時間"]}</span>}
+                  </span>
+                  <span className="ml-auto text-xs text-gray-500">{todo["日期"]}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-500">沒有待辦事項</p>
           )}
         </Card>
 
@@ -146,16 +185,22 @@ export default function HomePage() {
               查看全部 →
             </Link>
           </CardHeader>
-          <ul className="space-y-2">
-            {mockFoodAlerts.map((food) => (
-              <li key={food.name} className="flex items-center justify-between text-sm">
-                <span className="text-gray-200">{food.name}</span>
-                <span className={`text-xs ${food.urgent ? "text-red-400" : "text-yellow-400"}`}>
-                  {food.expiry}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {urgentFood.length > 0 ? (
+            <ul className="space-y-2">
+              {urgentFood.map((f, i) => {
+                const days = daysUntilExpiry(f["過期日"]);
+                const label = days === 0 ? "今天到期" : days === 1 ? "明天到期" : `${days}天後到期`;
+                return (
+                  <li key={i} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-200">{f["品名"]} {f["數量"]}{f["單位"]}</span>
+                    <span className="text-xs text-red-400">{label}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-500">沒有即期食品</p>
+          )}
         </Card>
       </div>
 

@@ -1,74 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
 
 interface TodoItem {
-  id: string;
-  item: string;
-  date: string;
-  time: string;
-  person: string;
-  type: string;
-  source: string;
-  done: boolean;
-  readonly: boolean;
+  "事項": string;
+  "日期": string;
+  "時間": string;
+  "負責人": string;
+  "狀態": string;
+  "類型": string;
+  "來源": string;
+  "屬性": string;
 }
-
-const mockTodos: TodoItem[] = [
-  { id: "1", item: "繳電費", date: "2026-03-26", time: "", person: "使用者 1", type: "家務", source: "", done: false, readonly: false },
-  { id: "2", item: "看牙醫", date: "2026-03-26", time: "14:00", person: "使用者 2", type: "個人", source: "", done: false, readonly: false },
-  { id: "3", item: "倒垃圾", date: "2026-03-26", time: "21:00", person: "使用者 1", type: "家務", source: "", done: true, readonly: false },
-  { id: "4", item: "專案會議", date: "2026-03-27", time: "10:00", person: "使用者 1", type: "工作", source: "Notion", done: false, readonly: true },
-  { id: "5", item: "買日用品", date: "2026-03-27", time: "", person: "使用者 2", type: "家務", source: "", done: false, readonly: false },
-];
 
 type FilterTab = "mine" | "all";
 
 export default function TodosPage() {
   const { currentUser } = useUser();
-  const [todos, setTodos] = useState(mockTodos);
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterTab>("mine");
   const [newItem, setNewItem] = useState("");
 
-  const filteredTodos =
-    filter === "mine" && currentUser
-      ? todos.filter((t) => t.person === currentUser.name)
-      : todos;
+  const fetchTodos = useCallback(() => {
+    fetch("/api/todos")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setTodos(data); })
+      .finally(() => setLoading(false));
+  }, []);
 
-  function toggleTodo(id: string) {
-    setTodos((prev) =>
-      prev.map((t) => (t.id === id && !t.readonly ? { ...t, done: !t.done } : t))
-    );
-  }
+  useEffect(() => { fetchTodos(); }, [fetchTodos]);
+
+  const filteredTodos = todos.filter((t) => {
+    if (t["狀態"] !== "待辦") return false;
+    if (filter === "mine" && currentUser) {
+      const name = currentUser.name;
+      return t["負責人"] === name || t["負責人"] === name.substring(0, 2);
+    }
+    return true;
+  });
 
   function addTodo() {
     if (!newItem.trim() || !currentUser) return;
-    const todo: TodoItem = {
-      id: Date.now().toString(),
-      item: newItem.trim(),
-      date: new Date().toISOString().split("T")[0],
-      time: "",
-      person: currentUser.name,
-      type: "其他",
-      source: "",
-      done: false,
-      readonly: false,
-    };
-    setTodos((prev) => [...prev, todo]);
-    setNewItem("");
+    const today = new Date().toISOString().split("T")[0];
+    fetch("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        item: newItem.trim(),
+        date: today,
+        person: currentUser.name,
+      }),
+    }).then(() => {
+      setNewItem("");
+      fetchTodos();
+    });
   }
 
-  function deleteTodo(id: string) {
-    setTodos((prev) => prev.filter((t) => t.id !== id));
+  function deleteTodo(index: number) {
+    fetch(`/api/todos?index=${index}`, { method: "DELETE" }).then(() => fetchTodos());
+  }
+
+  // Find the real sheet index for a filtered todo
+  function getSheetIndex(todo: TodoItem): number {
+    return todos.indexOf(todo);
   }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold">☑️ 待辦清單</h1>
 
-      {/* Filter Tabs */}
       <div className="flex gap-2">
         <button
           onClick={() => setFilter("mine")}
@@ -88,7 +91,6 @@ export default function TodosPage() {
         </button>
       </div>
 
-      {/* Add Todo */}
       <Card>
         <div className="flex gap-2">
           <input
@@ -108,7 +110,6 @@ export default function TodosPage() {
         </div>
       </Card>
 
-      {/* Todo List */}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -116,49 +117,47 @@ export default function TodosPage() {
           </CardTitle>
           <span className="text-xs text-gray-500">{filteredTodos.length} 項</span>
         </CardHeader>
-        {filteredTodos.length === 0 ? (
+        {loading ? (
+          <p className="text-sm text-gray-500">載入中...</p>
+        ) : filteredTodos.length === 0 ? (
           <p className="text-sm text-gray-500">沒有待辦事項 🎉</p>
         ) : (
           <ul className="space-y-1">
-            {filteredTodos.map((todo) => (
-              <li
-                key={todo.id}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-gray-800/50 transition-colors"
-              >
-                <button
-                  onClick={() => toggleTodo(todo.id)}
-                  disabled={todo.readonly}
-                  className={`flex-shrink-0 text-lg ${
-                    todo.readonly ? "cursor-not-allowed opacity-50" : "cursor-pointer"
-                  }`}
+            {filteredTodos.map((todo) => {
+              const isReadonly = todo["屬性"] === "唯讀";
+              const sheetIndex = getSheetIndex(todo);
+              return (
+                <li
+                  key={sheetIndex}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-gray-800/50 transition-colors"
                 >
-                  {todo.done ? "☑" : "☐"}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm ${todo.done ? "text-gray-500 line-through" : "text-gray-200"}`}>
-                    {todo.item}
-                    {todo.readonly && <span className="ml-2 text-xs text-gray-500">🔒</span>}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {todo.date}
-                    {todo.time && ` ${todo.time}`}
-                    {filter === "all" && ` · ${todo.person}`}
-                    {todo.source && ` · 來自 ${todo.source}`}
-                  </p>
-                </div>
-                <span className="rounded-md bg-gray-800 px-2 py-0.5 text-xs text-gray-400">
-                  {todo.type}
-                </span>
-                {!todo.readonly && (
-                  <button
-                    onClick={() => deleteTodo(todo.id)}
-                    className="text-gray-500 hover:text-red-400 transition-colors"
-                  >
-                    ✕
-                  </button>
-                )}
-              </li>
-            ))}
+                  <span className="flex-shrink-0 text-lg text-gray-500">☐</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-200">
+                      {todo["事項"]}
+                      {isReadonly && <span className="ml-2 text-xs text-gray-500">🔒</span>}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {todo["日期"]}
+                      {todo["時間"] && ` ${todo["時間"]}`}
+                      {filter === "all" && ` · ${todo["負責人"]}`}
+                      {todo["來源"] !== "本地" && ` · 來自 ${todo["來源"]}`}
+                    </p>
+                  </div>
+                  <span className="rounded-md bg-gray-800 px-2 py-0.5 text-xs text-gray-400">
+                    {todo["類型"]}
+                  </span>
+                  {!isReadonly && (
+                    <button
+                      onClick={() => deleteTodo(sheetIndex)}
+                      className="text-gray-500 hover:text-red-400 transition-colors"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>
