@@ -59,6 +59,7 @@ export async function sendDeviceCommand(
   return data.body;
 }
 
+// AC mode/fan mappings (matching home-butler)
 const AC_MODE_MAP: Record<string, number> = {
   auto: 1, cool: 2, dry: 3, fan: 4, heat: 5,
 };

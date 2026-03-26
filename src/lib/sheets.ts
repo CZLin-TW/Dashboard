@@ -70,6 +70,7 @@ export async function updateSheetRow(
 
 export async function deleteSheetRow(sheetName: string, rowIndex: number): Promise<void> {
   const client = getClient();
+  // Get sheet ID first
   const meta = await client.spreadsheets.get({
     spreadsheetId: SPREADSHEET_ID,
     fields: "sheets.properties",
@@ -88,7 +89,7 @@ export async function deleteSheetRow(sheetName: string, rowIndex: number): Promi
             range: {
               sheetId: sheet.properties.sheetId,
               dimension: "ROWS",
-              startIndex: rowIndex + 1,
+              startIndex: rowIndex + 1, // +1 for header
               endIndex: rowIndex + 2,
             },
           },
