@@ -4,6 +4,13 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
+interface AcPendingState {
+  power: boolean;
+  temperature: number;
+  mode: string;
+  fanSpeed: string;
+}
+
 interface DeviceState {
   id: string;
   name: string;
@@ -100,10 +107,33 @@ export default function DevicesPage() {
   const [devices, setDevices] = useState(initialDevices);
   const deviceRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  function toggleDevice(index: number) {
+  // AC: pending state for staging before send
+  const acDevice = devices.find((d) => d.type === "ac");
+  const [acPending, setAcPending] = useState<AcPendingState>({
+    power: acDevice?.active ?? false,
+    temperature: acDevice?.temperature ?? 26,
+    mode: acDevice?.mode ?? "cool",
+    fanSpeed: acDevice?.fanSpeed ?? "auto",
+  });
+  const [acDirty, setAcDirty] = useState(false);
+
+  function updateAcPending(updates: Partial<AcPendingState>) {
+    setAcPending((prev) => ({ ...prev, ...updates }));
+    setAcDirty(true);
+  }
+
+  function sendAcCommand() {
+    // TODO: Call SwitchBot API to send full AC state
+    console.log("Sending AC command:", acPending);
+    // Update displayed state to match what was sent
     setDevices((prev) =>
-      prev.map((d, i) => (i === index ? { ...d, active: !d.active } : d))
+      prev.map((d) =>
+        d.type === "ac"
+          ? { ...d, active: acPending.power, temperature: acPending.temperature, mode: acPending.mode, fanSpeed: acPending.fanSpeed }
+          : d
+      )
     );
+    setAcDirty(false);
   }
 
   function updateDevice(index: number, updates: Partial<DeviceState>) {
@@ -154,9 +184,9 @@ export default function DevicesPage() {
                 <CardTitle>
                   {device.icon} {device.name}
                 </CardTitle>
-                {device.type !== "ir" && (
+                {device.type === "dehumidifier" && (
                   <button
-                    onClick={() => toggleDevice(index)}
+                    onClick={() => updateDevice(index, { active: !device.active })}
                     className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                       device.active
                         ? "bg-blue-600 text-white hover:bg-blue-700"
@@ -168,21 +198,47 @@ export default function DevicesPage() {
                 )}
               </CardHeader>
 
-              {device.active && device.type === "ac" && (
+              {device.type === "ac" && (
                 <div className="space-y-4">
+                  {/* Power */}
+                  <div>
+                    <label className="text-xs text-gray-400">電源</label>
+                    <div className="mt-1 flex gap-2">
+                      <button
+                        onClick={() => updateAcPending({ power: true })}
+                        className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                          acPending.power
+                            ? "bg-blue-600 text-white"
+                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        }`}
+                      >
+                        ON
+                      </button>
+                      <button
+                        onClick={() => updateAcPending({ power: false })}
+                        className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                          !acPending.power
+                            ? "bg-red-600 text-white"
+                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        }`}
+                      >
+                        OFF
+                      </button>
+                    </div>
+                  </div>
                   {/* Temperature */}
                   <div>
                     <label className="text-xs text-gray-400">溫度</label>
                     <div className="mt-1 flex items-center gap-3">
                       <button
-                        onClick={() => updateDevice(index, { temperature: Math.max(16, (device.temperature ?? 26) - 1) })}
+                        onClick={() => updateAcPending({ temperature: Math.max(16, acPending.temperature - 1) })}
                         className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600"
                       >
                         −
                       </button>
-                      <span className="w-16 text-center text-xl font-bold">{device.temperature}°C</span>
+                      <span className="w-16 text-center text-xl font-bold">{acPending.temperature}°C</span>
                       <button
-                        onClick={() => updateDevice(index, { temperature: Math.min(30, (device.temperature ?? 26) + 1) })}
+                        onClick={() => updateAcPending({ temperature: Math.min(30, acPending.temperature + 1) })}
                         className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600"
                       >
                         +
@@ -196,9 +252,9 @@ export default function DevicesPage() {
                       {AC_MODES.map((m) => (
                         <button
                           key={m.value}
-                          onClick={() => updateDevice(index, { mode: m.value })}
+                          onClick={() => updateAcPending({ mode: m.value })}
                           className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                            device.mode === m.value
+                            acPending.mode === m.value
                               ? "bg-blue-600 text-white"
                               : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                           }`}
@@ -215,9 +271,9 @@ export default function DevicesPage() {
                       {FAN_SPEEDS.map((s) => (
                         <button
                           key={s.value}
-                          onClick={() => updateDevice(index, { fanSpeed: s.value })}
+                          onClick={() => updateAcPending({ fanSpeed: s.value })}
                           className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                            device.fanSpeed === s.value
+                            acPending.fanSpeed === s.value
                               ? "bg-blue-600 text-white"
                               : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                           }`}
@@ -227,11 +283,21 @@ export default function DevicesPage() {
                       ))}
                     </div>
                   </div>
+                  {/* Send Button */}
+                  <button
+                    onClick={sendAcCommand}
+                    className={`w-full rounded-lg py-2.5 text-sm font-bold transition-colors ${
+                      acDirty
+                        ? "bg-green-600 text-white hover:bg-green-700"
+                        : "bg-gray-700 text-gray-400"
+                    }`}
+                  >
+                    {acDirty ? "送出設定" : "未變更"}
+                  </button>
+                  <p className="text-xs text-gray-500">
+                    調整上方設定後按「送出」，才會實際發送 IR 指令
+                  </p>
                 </div>
-              )}
-
-              {!device.active && device.type === "ac" && (
-                <p className="text-sm text-gray-500">裝置已關閉</p>
               )}
 
               {device.active && device.type === "dehumidifier" && (
