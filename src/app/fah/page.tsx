@@ -43,7 +43,6 @@ export default function FahPage() {
             title="Folding@Home Machines"
             className="h-[600px] w-full md:h-[750px] border-0 rounded-xl"
             onError={() => setIframeError(true)}
-            sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
           />
         </Card>
       ) : (

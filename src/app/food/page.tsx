@@ -38,6 +38,8 @@ export default function FoodPage() {
   const [filter, setFilter] = useState<FilterTab>("all");
   const [showAdd, setShowAdd] = useState(false);
   const [newFood, setNewFood] = useState({ name: "", quantity: "", unit: "個", expiry: "" });
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [editFood, setEditFood] = useState({ name: "", quantity: "", unit: "個", expiry: "" });
 
   const fetchFood = useCallback(() => {
     fetch("/api/food")
@@ -77,6 +79,40 @@ export default function FoodPage() {
 
   function deleteFood(index: number) {
     fetch(`/api/food?index=${index}`, { method: "DELETE" }).then(() => fetchFood());
+  }
+
+  function startEdit(item: FoodItem, sheetIndex: number) {
+    setEditIndex(sheetIndex);
+    setEditFood({
+      name: item["品名"],
+      quantity: item["數量"],
+      unit: item["單位"],
+      expiry: item["過期日"],
+    });
+  }
+
+  function saveEdit() {
+    if (editIndex === null) return;
+    const original = items[editIndex];
+    fetch("/api/food", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        index: editIndex,
+        values: [
+          editFood.name,
+          editFood.quantity,
+          editFood.unit,
+          editFood.expiry,
+          original["新增日"],
+          original["新增者"],
+          original["狀態"],
+        ],
+      }),
+    }).then(() => {
+      setEditIndex(null);
+      fetchFood();
+    });
   }
 
   function getSheetIndex(item: FoodItem): number {
@@ -184,6 +220,41 @@ export default function FoodPage() {
               .map((item) => {
                 const exp = expiryLabel(item["過期日"]);
                 const sheetIndex = getSheetIndex(item);
+                const isEditing = editIndex === sheetIndex;
+
+                if (isEditing) {
+                  return (
+                    <div key={sheetIndex} className="rounded-lg bg-gray-800/50 px-3 py-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="text" value={editFood.name}
+                          onChange={(e) => setEditFood((p) => ({ ...p, name: e.target.value }))}
+                          className="rounded-lg border border-gray-600 bg-gray-700 px-3 py-1.5 text-sm text-white focus:outline-none" placeholder="品名" />
+                        <div className="flex gap-1">
+                          <input type="number" value={editFood.quantity}
+                            onChange={(e) => setEditFood((p) => ({ ...p, quantity: e.target.value }))}
+                            className="w-16 rounded-lg border border-gray-600 bg-gray-700 px-2 py-1.5 text-sm text-white focus:outline-none" />
+                          <select value={editFood.unit}
+                            onChange={(e) => setEditFood((p) => ({ ...p, unit: e.target.value }))}
+                            className="rounded-lg border border-gray-600 bg-gray-700 px-2 py-1.5 text-sm text-white focus:outline-none">
+                            {["個", "顆", "瓶", "包", "盒", "小罐", "g", "kg", "ml", "L"].map((u) => (
+                              <option key={u} value={u}>{u}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <input type="date" value={editFood.expiry}
+                          onChange={(e) => setEditFood((p) => ({ ...p, expiry: e.target.value }))}
+                          className="flex-1 rounded-lg border border-gray-600 bg-gray-700 px-3 py-1.5 text-sm text-white focus:outline-none" />
+                        <button onClick={saveEdit}
+                          className="rounded-lg bg-green-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-green-700">儲存</button>
+                        <button onClick={() => setEditIndex(null)}
+                          className="rounded-lg bg-gray-600 px-4 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-500">取消</button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     key={sheetIndex}
@@ -201,12 +272,20 @@ export default function FoodPage() {
                       </p>
                     </div>
                     <span className={`text-xs font-medium ${exp.color}`}>{exp.text}</span>
-                    <button
-                      onClick={() => deleteFood(sheetIndex)}
-                      className="text-gray-500 hover:text-red-400 transition-colors"
-                    >
-                      ✕
-                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => startEdit(item, sheetIndex)}
+                        className="text-gray-500 hover:text-blue-400 transition-colors text-xs"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        onClick={() => deleteFood(sheetIndex)}
+                        className="text-gray-500 hover:text-red-400 transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 );
               })}
