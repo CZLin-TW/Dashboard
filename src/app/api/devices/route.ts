@@ -16,25 +16,28 @@ export async function GET() {
         location: d["位置"] ?? "",
         deviceId: d["Device ID"],
         auth: d["Auth"] ?? "",
+        buttons: d["按鈕"] ?? "",
       };
 
-      // Fetch live status for sensors
       if (d["類型"] === "感應器" && d["Device ID"]) {
         try {
           const status = await getSensorStatus(d["Device ID"]);
           device.temperature = status.temperature;
           device.humidity = status.humidity;
-        } catch { /* skip */ }
+        } catch (e) {
+          console.error(`Sensor ${d["名稱"]} error:`, e);
+        }
       }
 
-      // Fetch dehumidifier status
       if (d["類型"] === "除濕機" && d["Auth"] && d["Device ID"]) {
         try {
           const status = await getDehumidifierStatus(d["Auth"], d["Device ID"]);
           device.power = status.power;
           device.mode = status.mode;
-          device.humidity = status.humidity;
-        } catch { /* skip */ }
+          device.targetHumidity = status.humidity;
+        } catch (e) {
+          console.error(`Dehumidifier ${d["名稱"]} error:`, e);
+        }
       }
 
       result.push(device);

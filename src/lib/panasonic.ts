@@ -73,9 +73,9 @@ async function apiRequest(
 }
 
 const MODE_MAP: Record<string, number> = {
-  continuous: 0, auto: 1, "anti-mildew": 2, fan: 3,
-  target: 4, air_purify: 5, "ai-comfort": 6,
-  eco: 7, quick: 8, silent: 9, clothes_dry: 10, mite_removal: 11,
+  "連續除濕": 0, "自動除濕": 1, "防黴": 2, "送風": 3,
+  "目標濕度": 4, "空氣清淨": 5, "AI舒適": 6,
+  "省電": 7, "快速除濕": 8, "靜音除濕": 9, "衣物乾燥": 10, "除螨": 11,
 };
 
 const HUMIDITY_MAP: Record<number, number> = {
