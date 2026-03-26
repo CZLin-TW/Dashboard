@@ -77,7 +77,9 @@ export async function GET(request: Request) {
     response.cookies.delete("oauth_state");
 
     return response;
-  } catch {
-    return NextResponse.redirect(new URL("/login?error=sheets_failed", url.origin));
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Auth callback error:", msg);
+    return NextResponse.redirect(new URL(`/login?error=sheets_failed&detail=${encodeURIComponent(msg)}`, url.origin));
   }
 }
