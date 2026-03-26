@@ -21,7 +21,6 @@ function LoginContent() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Check if already logged in
     fetch("/api/auth/me")
       .then((res) => {
         if (res.ok) router.replace("/");
