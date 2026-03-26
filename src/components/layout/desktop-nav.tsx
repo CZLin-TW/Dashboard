@@ -8,6 +8,8 @@ import { UserSelector } from "./user-selector";
 export function DesktopNav() {
   const pathname = usePathname();
 
+  if (pathname === "/login") return null;
+
   return (
     <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-3">
       <div className="flex items-center gap-8">
