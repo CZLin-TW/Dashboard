@@ -146,7 +146,7 @@ export default function TodosPage() {
               placeholder="待辦事項內容"
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
             />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-gray-400">日期 *</label>
                 <input
@@ -157,7 +157,7 @@ export default function TodosPage() {
                 />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between">
                   <label className="text-xs text-gray-400">時間</label>
                   <button
                     type="button"
@@ -165,31 +165,33 @@ export default function TodosPage() {
                       setHasTime(!hasTime);
                       if (hasTime) setNewTodo((p) => ({ ...p, time: "" }));
                     }}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${hasTime ? "bg-blue-600" : "bg-gray-600"}`}
+                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${hasTime ? "bg-blue-600" : "bg-gray-600"}`}
                   >
-                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${hasTime ? "translate-x-4" : "translate-x-0.5"}`} />
+                    <span className={`inline-block h-3 w-3 rounded-full bg-white transition-transform ${hasTime ? "translate-x-3.5" : "translate-x-0.5"}`} />
                   </button>
                 </div>
-                {hasTime && (
+                {hasTime ? (
                   <input
                     type="time"
                     value={newTodo.time}
                     onChange={(e) => setNewTodo((p) => ({ ...p, time: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
                   />
+                ) : (
+                  <div className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800/30 px-3 py-2 text-sm text-gray-600">不指定</div>
                 )}
               </div>
-              <div>
-                <label className="text-xs text-gray-400">類型</label>
-                <select
-                  value={newTodo.type}
-                  onChange={(e) => setNewTodo((p) => ({ ...p, type: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="私人">私人</option>
-                  <option value="公開">公開</option>
-                </select>
-              </div>
+            </div>
+            <div>
+              <label className="text-xs text-gray-400">類型</label>
+              <select
+                value={newTodo.type}
+                onChange={(e) => setNewTodo((p) => ({ ...p, type: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+              >
+                <option value="私人">私人</option>
+                <option value="公開">公開</option>
+              </select>
             </div>
             <button
               onClick={addTodo}
