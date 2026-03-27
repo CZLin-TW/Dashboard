@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
+import { useCachedFetch } from "@/hooks/use-cached-fetch";
 
 interface FoodItem {
   "品名": string;
@@ -33,22 +34,12 @@ function expiryLabel(expiry: string): { text: string; color: string } {
 
 export default function FoodPage() {
   const { currentUser } = useUser();
-  const [items, setItems] = useState<FoodItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items, loading, refetch: fetchFood } = useCachedFetch<FoodItem[]>("/api/food", []);
   const [filter, setFilter] = useState<FilterTab>("all");
   const [showAdd, setShowAdd] = useState(false);
   const [newFood, setNewFood] = useState({ name: "", quantity: "", unit: "個", expiry: "" });
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editFood, setEditFood] = useState({ name: "", quantity: "", unit: "個", expiry: "" });
-
-  const fetchFood = useCallback(() => {
-    fetch("/api/food")
-      .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setItems(data); })
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { fetchFood(); }, [fetchFood]);
 
   const filtered = items.filter((item) => {
     if (item["狀態"] !== "有效") return false;
@@ -119,7 +110,7 @@ export default function FoodPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">🧊 冰箱庫存</h1>
+        <h1 className="text-2xl font-bold">🧃 冰箱庫存</h1>
         <button
           onClick={() => setShowAdd(!showAdd)}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
