@@ -24,25 +24,22 @@ interface DeviceData {
   buttons?: string;
 }
 
-const AC_MODES = [
-  { value: "cool", label: "冷氣" },
-  { value: "heat", label: "暖氣" },
-  { value: "auto", label: "自動" },
-  { value: "dry", label: "除濕" },
-  { value: "fan", label: "送風" },
-];
+interface DeviceOptions {
+  ac: {
+    modes: Array<{ value: string; label: string }>;
+    fan_speeds: Array<{ value: string; label: string }>;
+    temperature: { min: number; max: number };
+  };
+  dehumidifier: {
+    modes: Array<{ value: string; label: string }>;
+    humidity: number[];
+  };
+}
 
-const FAN_SPEEDS = [
-  { value: "auto", label: "自動" },
-  { value: "low", label: "低" },
-  { value: "medium", label: "中" },
-  { value: "high", label: "高" },
-];
-
-const DEHUMIDIFIER_MODES = [
-  "連續除濕", "自動除濕", "防黴", "送風", "目標濕度",
-  "空氣清淨", "AI舒適", "省電", "快速除濕", "靜音除濕",
-];
+const DEFAULT_OPTIONS: DeviceOptions = {
+  ac: { modes: [], fan_speeds: [], temperature: { min: 16, max: 30 } },
+  dehumidifier: { modes: [], humidity: [] },
+};
 
 function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
   const searchParams = useSearchParams();
@@ -64,6 +61,7 @@ function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record
 
 export default function DevicesPage() {
   const [devices, setDevices] = useState<DeviceData[]>([]);
+  const [options, setOptions] = useState<DeviceOptions>(DEFAULT_OPTIONS);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const deviceRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -82,7 +80,10 @@ export default function DevicesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { fetchDevices(); }, [fetchDevices]);
+  useEffect(() => {
+    fetchDevices();
+    fetch("/api/devices/options").then(r => r.json()).then(setOptions).catch(() => {});
+  }, [fetchDevices]);
 
   function updateAcPending(updates: Partial<AcPendingState>) {
     setAcPending((prev) => ({ ...prev, ...updates }));
@@ -195,17 +196,17 @@ export default function DevicesPage() {
                   <div>
                     <label className="text-xs text-gray-400">溫度</label>
                     <div className="mt-1 flex items-center gap-3">
-                      <button onClick={() => updateAcPending({ temperature: Math.max(16, acPending.temperature - 1) })}
+                      <button onClick={() => updateAcPending({ temperature: Math.max(options.ac.temperature.min, acPending.temperature - 1) })}
                         className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">−</button>
                       <span className="w-16 text-center text-xl font-bold">{acPending.temperature}°C</span>
-                      <button onClick={() => updateAcPending({ temperature: Math.min(30, acPending.temperature + 1) })}
+                      <button onClick={() => updateAcPending({ temperature: Math.min(options.ac.temperature.max, acPending.temperature + 1) })}
                         className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">+</button>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-gray-400">模式</label>
                     <div className="mt-1 flex flex-wrap gap-2">
-                      {AC_MODES.map((m) => (
+                      {options.ac.modes.map((m) => (
                         <button key={m.value} onClick={() => updateAcPending({ mode: m.value })}
                           className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${acPending.mode === m.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{m.label}</button>
                       ))}
@@ -214,7 +215,7 @@ export default function DevicesPage() {
                   <div>
                     <label className="text-xs text-gray-400">風速</label>
                     <div className="mt-1 flex flex-wrap gap-2">
-                      {FAN_SPEEDS.map((s) => (
+                      {options.ac.fan_speeds.map((s) => (
                         <button key={s.value} onClick={() => updateAcPending({ fanSpeed: s.value })}
                           className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${acPending.fanSpeed === s.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{s.label}</button>
                       ))}
@@ -250,16 +251,16 @@ export default function DevicesPage() {
                   <div>
                     <label className="text-xs text-gray-400">模式</label>
                     <div className="mt-1 flex flex-wrap gap-2">
-                      {DEHUMIDIFIER_MODES.map((m) => (
-                        <button key={m} onClick={() => sendDehumidifierCommand(device.name, { mode: m })} disabled={sending}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${device.mode === m ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{m}</button>
+                      {options.dehumidifier.modes.map((m) => (
+                        <button key={m.value} onClick={() => sendDehumidifierCommand(device.name, { mode: m.value })} disabled={sending}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${device.mode === m.label ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{m.label}</button>
                       ))}
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-gray-400">目標濕度</label>
                     <div className="mt-1 flex flex-wrap gap-2">
-                      {[40, 45, 50, 55, 60, 65, 70].map((h) => (
+                      {options.dehumidifier.humidity.map((h) => (
                         <button key={h} onClick={() => sendDehumidifierCommand(device.name, { humidity: h })} disabled={sending}
                           className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${device.targetHumidity === h ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{h}%</button>
                       ))}
