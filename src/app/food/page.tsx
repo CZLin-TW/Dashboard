@@ -111,7 +111,7 @@ export default function FoodPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">🧊 冰箱庫存</h1>
+        <h1 className="text-2xl font-bold">🍎 食品庫存</h1>
         <button
           onClick={() => setShowAdd(!showAdd)}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
