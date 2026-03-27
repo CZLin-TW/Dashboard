@@ -24,6 +24,7 @@ export default function TodosPage() {
   const [filter, setFilter] = useState<FilterTab>("mine");
   const [showAdd, setShowAdd] = useState(false);
   const [newTodo, setNewTodo] = useState({ item: "", date: "", time: "", type: "私人" });
+  const [hasTime, setHasTime] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editTodo, setEditTodo] = useState({ item: "", date: "", time: "", type: "私人" });
   const [completingItems, setCompletingItems] = useState<Set<string>>(new Set());
@@ -55,6 +56,7 @@ export default function TodosPage() {
       }),
     }).then(() => {
       setNewTodo({ item: "", date: "", time: "", type: "私人" });
+      setHasTime(false);
       setShowAdd(false);
       fetchTodos();
     });
@@ -144,7 +146,7 @@ export default function TodosPage() {
               placeholder="待辦事項內容"
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
             />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <label className="text-xs text-gray-400">日期 *</label>
                 <input
@@ -155,13 +157,27 @@ export default function TodosPage() {
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-400">時間（選填）</label>
-                <input
-                  type="time"
-                  value={newTodo.time}
-                  onChange={(e) => setNewTodo((p) => ({ ...p, time: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                />
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-400">時間</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHasTime(!hasTime);
+                      if (hasTime) setNewTodo((p) => ({ ...p, time: "" }));
+                    }}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${hasTime ? "bg-blue-600" : "bg-gray-600"}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${hasTime ? "translate-x-4" : "translate-x-0.5"}`} />
+                  </button>
+                </div>
+                {hasTime && (
+                  <input
+                    type="time"
+                    value={newTodo.time}
+                    onChange={(e) => setNewTodo((p) => ({ ...p, time: e.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                  />
+                )}
               </div>
               <div>
                 <label className="text-xs text-gray-400">類型</label>
