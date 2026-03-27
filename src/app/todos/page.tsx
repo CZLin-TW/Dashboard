@@ -94,6 +94,7 @@ export default function TodosPage() {
   }
 
   function deleteTodo(item: string) {
+    if (!confirm(`確定要刪除「${item}」嗎？`)) return;
     fetch(`/api/todos?item=${encodeURIComponent(item)}`, { method: "DELETE" }).then(() => fetchTodos());
   }
 
@@ -251,11 +252,13 @@ export default function TodosPage() {
                     {todo["類型"]}
                   </span>
                   {!isReadonly && (
-                    <div className="flex gap-1">
+                    <div className="flex gap-3">
                       <button onClick={() => startEdit(todo, sheetIndex)}
-                        className="text-gray-500 hover:text-blue-400 transition-colors text-xs">✎</button>
+                        className="rounded px-2 py-1 text-xs text-gray-400 hover:text-blue-400 hover:bg-blue-400/10 transition-colors"
+                        title="編輯">✎</button>
                       <button onClick={() => deleteTodo(todo["事項"])}
-                        className="text-gray-500 hover:text-red-400 transition-colors">✕</button>
+                        className="rounded px-2 py-1 text-xs text-gray-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                        title="刪除">✕</button>
                     </div>
                   )}
                 </li>

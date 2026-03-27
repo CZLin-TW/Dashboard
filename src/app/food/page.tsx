@@ -69,6 +69,7 @@ export default function FoodPage() {
   }
 
   function deleteFood(name: string) {
+    if (!confirm(`確定要刪除「${name}」嗎？`)) return;
     fetch(`/api/food?name=${encodeURIComponent(name)}`, { method: "DELETE" }).then(() => fetchFood());
   }
 
@@ -110,7 +111,7 @@ export default function FoodPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">🧃 冰箱庫存</h1>
+        <h1 className="text-2xl font-bold">🧊 冰箱庫存</h1>
         <button
           onClick={() => setShowAdd(!showAdd)}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
@@ -258,16 +259,18 @@ export default function FoodPage() {
                       </p>
                     </div>
                     <span className={`text-xs font-medium ${exp.color}`}>{exp.text}</span>
-                    <div className="flex gap-1">
+                    <div className="flex gap-3">
                       <button
                         onClick={() => startEdit(item, sheetIndex)}
-                        className="text-gray-500 hover:text-blue-400 transition-colors text-xs"
+                        className="rounded px-2 py-1 text-xs text-gray-400 hover:text-blue-400 hover:bg-blue-400/10 transition-colors"
+                        title="編輯"
                       >
                         ✎
                       </button>
                       <button
                         onClick={() => deleteFood(item["品名"])}
-                        className="text-gray-500 hover:text-red-400 transition-colors"
+                        className="rounded px-2 py-1 text-xs text-gray-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                        title="刪除"
                       >
                         ✕
                       </button>
