@@ -197,26 +197,6 @@ export default function HomePage() {
           )}
         </Card>
       </div>
-
-      {/* F@H Mini Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle>🧬 Folding@Home</CardTitle>
-          <Link href="/fah" className="text-sm text-blue-400 hover:text-blue-300">
-            查看詳情 →
-          </Link>
-        </CardHeader>
-        <div className="grid grid-cols-2 gap-4 text-center">
-          <div className="rounded-lg bg-gray-800/50 p-4">
-            <p className="text-xs text-gray-400">A7600X_N4070Ti</p>
-            <p className="mt-1 text-sm font-medium text-green-400">運算中</p>
-          </div>
-          <div className="rounded-lg bg-gray-800/50 p-4">
-            <p className="text-xs text-gray-400">Xeon-1230V2</p>
-            <p className="mt-1 text-sm font-medium text-gray-500">No work</p>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }

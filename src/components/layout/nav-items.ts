@@ -10,5 +10,4 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/todos", label: "待辦", icon: "☑️" },
   { href: "/food", label: "冰箱庫存", icon: "🧊" },
   { href: "/schedules", label: "排程", icon: "⏰" },
-  { href: "/fah", label: "F@H", icon: "🧬" },
 ];
