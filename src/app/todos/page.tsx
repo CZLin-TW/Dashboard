@@ -146,49 +146,47 @@ export default function TodosPage() {
               placeholder="待辦事項內容"
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
             />
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-gray-400">日期 *</label>
+            <div>
+              <label className="text-xs text-gray-400">日期 *</label>
+              <input
+                type="date"
+                value={newTodo.date}
+                onChange={(e) => setNewTodo((p) => ({ ...p, date: e.target.value }))}
+                className="mt-1 w-full max-w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none appearance-none"
+              />
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                 <input
-                  type="date"
-                  value={newTodo.date}
-                  onChange={(e) => setNewTodo((p) => ({ ...p, date: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                  type="checkbox"
+                  checked={hasTime}
+                  onChange={() => {
+                    setHasTime(!hasTime);
+                    if (hasTime) setNewTodo((p) => ({ ...p, time: "" }));
+                  }}
+                  className="rounded border-gray-600"
                 />
-              </div>
-              <div>
-                <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={hasTime}
-                    onChange={() => {
-                      setHasTime(!hasTime);
-                      if (hasTime) setNewTodo((p) => ({ ...p, time: "" }));
-                    }}
-                    className="rounded border-gray-600"
-                  />
-                  指定時間
-                </label>
-                {hasTime && (
-                  <input
-                    type="time"
-                    value={newTodo.time}
-                    onChange={(e) => setNewTodo((p) => ({ ...p, time: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                  />
-                )}
-              </div>
-              <div>
-                <label className="text-xs text-gray-400">類型</label>
-                <select
-                  value={newTodo.type}
-                  onChange={(e) => setNewTodo((p) => ({ ...p, type: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="私人">私人</option>
-                  <option value="公開">公開</option>
-                </select>
-              </div>
+                指定時間
+              </label>
+              {hasTime && (
+                <input
+                  type="time"
+                  value={newTodo.time}
+                  onChange={(e) => setNewTodo((p) => ({ ...p, time: e.target.value }))}
+                  className="mt-1 w-full max-w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none appearance-none"
+                />
+              )}
+            </div>
+            <div>
+              <label className="text-xs text-gray-400">類型</label>
+              <select
+                value={newTodo.type}
+                onChange={(e) => setNewTodo((p) => ({ ...p, type: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none"
+              >
+                <option value="私人">私人</option>
+                <option value="公開">公開</option>
+              </select>
             </div>
             <button
               onClick={addTodo}
