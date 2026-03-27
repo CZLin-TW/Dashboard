@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense, useCallback } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCachedFetch } from "@/hooks/use-cached-fetch";
 
 interface AcPendingState {
   power: boolean;
@@ -60,9 +61,8 @@ function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record
 }
 
 export default function DevicesPage() {
-  const [devices, setDevices] = useState<DeviceData[]>([]);
-  const [options, setOptions] = useState<DeviceOptions>(DEFAULT_OPTIONS);
-  const [loading, setLoading] = useState(true);
+  const { data: devices, loading, refetch: fetchDevices } = useCachedFetch<DeviceData[]>("/api/devices", []);
+  const { data: options } = useCachedFetch<DeviceOptions>("/api/devices/options", DEFAULT_OPTIONS);
   const [sending, setSending] = useState(false);
   const deviceRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -70,20 +70,6 @@ export default function DevicesPage() {
     power: false, temperature: 26, mode: "cool", fanSpeed: "auto",
   });
   const [acDirty, setAcDirty] = useState(false);
-
-  const fetchDevices = useCallback(() => {
-    fetch("/api/devices")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setDevices(data);
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    fetchDevices();
-    fetch("/api/devices/options").then(r => r.json()).then(setOptions).catch(() => {});
-  }, [fetchDevices]);
 
   function updateAcPending(updates: Partial<AcPendingState>) {
     setAcPending((prev) => ({ ...prev, ...updates }));

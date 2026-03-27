@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
+import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useEffect, useState } from "react";
 
 interface WeatherData {
@@ -49,17 +50,10 @@ function daysUntilExpiry(expiry: string): number {
 
 export default function HomePage() {
   const { currentUser } = useUser();
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [devices, setDevices] = useState<DeviceData[]>([]);
-  const [todos, setTodos] = useState<TodoData[]>([]);
-  const [food, setFood] = useState<FoodData[]>([]);
-
-  useEffect(() => {
-    fetch("/api/weather?city=臺北市").then(r => r.json()).then(setWeather).catch(() => {});
-    fetch("/api/devices").then(r => r.json()).then(setDevices).catch(() => {});
-    fetch("/api/todos").then(r => r.json()).then(setTodos).catch(() => {});
-    fetch("/api/food").then(r => r.json()).then(setFood).catch(() => {});
-  }, []);
+  const { data: weather } = useCachedFetch<WeatherData | null>("/api/weather?date=today", null);
+  const { data: devices } = useCachedFetch<DeviceData[]>("/api/devices", []);
+  const { data: todos } = useCachedFetch<TodoData[]>("/api/todos", []);
+  const { data: food } = useCachedFetch<FoodData[]>("/api/food", []);
 
   const sensor = devices.find(d => d.type === "感應器");
   const todayStr = new Date().toISOString().split("T")[0];

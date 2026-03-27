@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
+import { useCachedFetch } from "@/hooks/use-cached-fetch";
 
 interface TodoItem {
   "事項": string;
@@ -19,22 +20,12 @@ type FilterTab = "mine" | "all";
 
 export default function TodosPage() {
   const { currentUser } = useUser();
-  const [todos, setTodos] = useState<TodoItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: todos, loading, refetch: fetchTodos } = useCachedFetch<TodoItem[]>("/api/todos", []);
   const [filter, setFilter] = useState<FilterTab>("mine");
   const [showAdd, setShowAdd] = useState(false);
   const [newTodo, setNewTodo] = useState({ item: "", date: "", time: "", type: "私人" });
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editTodo, setEditTodo] = useState({ item: "", date: "", time: "", type: "私人" });
-
-  const fetchTodos = useCallback(() => {
-    fetch("/api/todos")
-      .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setTodos(data); })
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { fetchTodos(); }, [fetchTodos]);
 
   const filteredTodos = todos.filter((t) => {
     if (t["狀態"] !== "待辦") return false;
