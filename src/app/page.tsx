@@ -4,17 +4,19 @@ import Link from "next/link";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 interface WeatherData {
-  city: string;
   location: string;
-  periods: Array<{
-    weather: string;
-    minTemp: string;
-    maxTemp: string;
-    rainProb: string;
-  }>;
+  city: string;
+  date_label: string;
+  date: string;
+  wx: string;
+  min_t: number | null;
+  max_t: number | null;
+  min_at: number | null;
+  max_at: number | null;
+  pop: number | null;
 }
 
 interface DeviceData {
@@ -24,6 +26,8 @@ interface DeviceData {
   humidity?: number;
   power?: boolean;
   mode?: string;
+  targetHumidity?: string;
+  buttons?: string;
 }
 
 interface TodoData {
@@ -32,7 +36,6 @@ interface TodoData {
   "時間": string;
   "負責人": string;
   "狀態": string;
-  "屬性": string;
 }
 
 interface FoodData {
@@ -51,12 +54,16 @@ function daysUntilExpiry(expiry: string): number {
 export default function HomePage() {
   const { currentUser } = useUser();
   const { data: weather } = useCachedFetch<WeatherData | null>("/api/weather?date=today", null);
-  const { data: devices } = useCachedFetch<DeviceData[]>("/api/devices", []);
-  const { data: todos } = useCachedFetch<TodoData[]>("/api/todos", []);
-  const { data: food } = useCachedFetch<FoodData[]>("/api/food", []);
+  const { data: rawDevices } = useCachedFetch<DeviceData[]>("/api/devices", []);
+  const { data: rawTodos } = useCachedFetch<TodoData[]>("/api/todos", []);
+  const { data: rawFood } = useCachedFetch<FoodData[]>("/api/food", []);
+
+  // Guard against non-array responses (e.g. error objects)
+  const devices = Array.isArray(rawDevices) ? rawDevices : [];
+  const todos = Array.isArray(rawTodos) ? rawTodos : [];
+  const food = Array.isArray(rawFood) ? rawFood : [];
 
   const sensor = devices.find(d => d.type === "感應器");
-  const todayStr = new Date().toISOString().split("T")[0];
   const myTodos = todos.filter(t =>
     t["狀態"] === "待辦" && (
       !currentUser || t["負責人"] === currentUser.name ||
@@ -73,13 +80,15 @@ export default function HomePage() {
     return days >= 0 && days <= 3;
   });
 
-  const currentWeather = weather?.periods?.[0];
-
+  const controllableDevices = devices.filter(d => d.type !== "感應器");
   const deviceIcons: Record<string, string> = {
-    "空調": "❄️", "IR": "🌀", "除濕機": "💨", "感應器": "🌡️",
+    "空調": "❄️", "IR": "🌀", "除濕機": "💨",
   };
 
-  const controllableDevices = devices.filter(d => d.type !== "感應器");
+  // Complete todo
+  function completeTodo(item: string) {
+    fetch(`/api/todos?item=${encodeURIComponent(item)}`, { method: "DELETE" });
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -89,14 +98,17 @@ export default function HomePage() {
           <CardHeader>
             <CardTitle>🌤️ 天氣</CardTitle>
           </CardHeader>
-          {currentWeather ? (
+          {weather && !("error" in weather) ? (
             <>
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-bold">{currentWeather.maxTemp}°C</span>
-                <span className="text-gray-400">{currentWeather.weather}</span>
+                <span className="text-3xl font-bold">
+                  {weather.max_t !== null ? `${weather.max_t}°C` : "--"}
+                </span>
+                <span className="text-gray-400">{weather.wx}</span>
               </div>
               <p className="mt-1 text-sm text-gray-500">
-                📍 {weather?.location} ・ {currentWeather.minTemp}~{currentWeather.maxTemp}°C ・ 降雨 {currentWeather.rainProb}%
+                📍 {weather.city}{weather.location} ・ {weather.min_t}~{weather.max_t}°C
+                {weather.pop !== null && ` ・ 降雨 ${weather.pop}%`}
               </p>
             </>
           ) : (
@@ -162,7 +174,11 @@ export default function HomePage() {
             <ul className="space-y-2">
               {myTodos.map((todo, i) => (
                 <li key={i} className="flex items-center gap-3 text-sm">
-                  <span className="flex-shrink-0 w-4 h-4 rounded border-2 border-gray-500 inline-block" />
+                  <button
+                    onClick={() => completeTodo(todo["事項"])}
+                    className="flex-shrink-0 w-4 h-4 rounded border-2 border-gray-500 hover:border-green-400 hover:bg-green-400/20 transition-colors"
+                    title="標記完成"
+                  />
                   <span className="text-gray-200">
                     {todo["事項"]}
                     {todo["時間"] && <span className="ml-1 text-gray-500">{todo["時間"]}</span>}
