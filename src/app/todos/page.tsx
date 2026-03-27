@@ -34,6 +34,10 @@ export default function TodosPage() {
       return t["負責人"] === name || t["負責人"] === name.substring(0, 2);
     }
     return true;
+  }).sort((a, b) => {
+    const dateA = `${a["日期"]} ${a["時間"] || "99:99"}`;
+    const dateB = `${b["日期"]} ${b["時間"] || "99:99"}`;
+    return dateA.localeCompare(dateB);
   });
 
   function addTodo() {

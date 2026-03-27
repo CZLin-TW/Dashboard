@@ -8,16 +8,20 @@ import { useState, useEffect, useCallback } from "react";
  */
 export function useCachedFetch<T>(url: string, fallback: T) {
   const cacheKey = `cache:${url}`;
-  const [data, setData] = useState<T>(() => {
-    if (typeof window === "undefined") return fallback;
-    try {
-      const cached = sessionStorage.getItem(cacheKey);
-      return cached ? JSON.parse(cached) : fallback;
-    } catch {
-      return fallback;
-    }
-  });
+  const [data, setData] = useState<T>(fallback);
   const [loading, setLoading] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Load cache after hydration to avoid SSR mismatch
+  useEffect(() => {
+    if (!hydrated) {
+      try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) setData(JSON.parse(cached));
+      } catch { /* ignore */ }
+      setHydrated(true);
+    }
+  }, [cacheKey, hydrated]);
 
   const refetch = useCallback(() => {
     setLoading(true);

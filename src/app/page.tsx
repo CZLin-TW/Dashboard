@@ -62,7 +62,11 @@ export default function HomePage() {
       !currentUser || t["負責人"] === currentUser.name ||
       t["負責人"] === currentUser.name.substring(0, 2)
     )
-  ).slice(0, 5);
+  ).sort((a, b) => {
+    const dateA = `${a["日期"]} ${a["時間"] || "99:99"}`;
+    const dateB = `${b["日期"]} ${b["時間"] || "99:99"}`;
+    return dateA.localeCompare(dateB);
+  }).slice(0, 5);
 
   const urgentFood = food.filter(f => {
     const days = daysUntilExpiry(f["過期日"]);
@@ -158,7 +162,7 @@ export default function HomePage() {
             <ul className="space-y-2">
               {myTodos.map((todo, i) => (
                 <li key={i} className="flex items-center gap-3 text-sm">
-                  <span className="flex-shrink-0 text-gray-500">☐</span>
+                  <span className="flex-shrink-0 w-4 h-4 rounded border-2 border-gray-500 inline-block" />
                   <span className="text-gray-200">
                     {todo["事項"]}
                     {todo["時間"] && <span className="ml-1 text-gray-500">{todo["時間"]}</span>}
