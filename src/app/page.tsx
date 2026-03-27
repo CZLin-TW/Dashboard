@@ -71,7 +71,12 @@ const DEFAULT_OPTIONS: DeviceOptions = {
 
 export default function HomePage() {
   const { currentUser } = useUser();
-  const { data: weather } = useCachedFetch<WeatherData | null>("/api/weather?date=today", null);
+  const { data: weatherToday } = useCachedFetch<WeatherData | null>("/api/weather?date=today", null);
+  const { data: weatherTomorrow } = useCachedFetch<WeatherData | null>("/api/weather?date=tomorrow", null);
+
+  // If today's weather has no data (late night), show tomorrow's
+  const todayHasData = weatherToday && !("error" in weatherToday) && weatherToday.max_t !== null;
+  const weather = todayHasData ? weatherToday : weatherTomorrow;
   const { data: rawDevices, refetch: refetchDevices } = useCachedFetch<DeviceData[]>("/api/devices", []);
   const { data: rawTodos, refetch: refetchTodos } = useCachedFetch<TodoData[]>("/api/todos", []);
   const { data: rawFood } = useCachedFetch<FoodData[]>("/api/food", []);
@@ -161,14 +166,12 @@ export default function HomePage() {
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>🌤️ 天氣</CardTitle>
+            <CardTitle>🌤️ 天氣{weather?.date_label && !todayHasData ? `（${weather.date_label}）` : ""}</CardTitle>
           </CardHeader>
-          {weather && !("error" in weather) ? (
+          {weather && !("error" in weather) && weather.max_t !== null ? (
             <>
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-bold">
-                  {weather.max_t !== null ? `${weather.max_t}°C` : "--"}
-                </span>
+                <span className="text-3xl font-bold">{weather.max_t}°C</span>
                 <span className="text-gray-400">{weather.wx}</span>
               </div>
               <p className="mt-1 text-sm text-gray-500">
