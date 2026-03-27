@@ -165,6 +165,7 @@ export default function DevicesPage() {
               <CardHeader>
                 <CardTitle>
                   {deviceIcons[device.type] ?? "📱"} {device.name}
+                  {device.location && <span className="ml-2 text-xs font-normal text-gray-500">{device.location}</span>}
                 </CardTitle>
               </CardHeader>
 

@@ -22,6 +22,7 @@ interface WeatherData {
 interface DeviceData {
   name: string;
   type: string;
+  location?: string;
   temperature?: number;
   humidity?: number;
   power?: boolean;
@@ -224,6 +225,9 @@ export default function HomePage() {
             >
               <span className="text-2xl">{deviceIcons[device.type] ?? "📱"}</span>
               <span className="text-sm font-medium">{device.name}</span>
+              {device.location && (
+                <span className="text-xs text-gray-500">{device.location}</span>
+              )}
             </button>
           ))}
         </div>
@@ -238,6 +242,7 @@ export default function HomePage() {
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-200">
                   {deviceIcons[device.type]} {device.name}
+                  {device.location && <span className="ml-2 text-xs font-normal text-gray-500">{device.location}</span>}
                 </h3>
                 <button onClick={() => setExpandedDevice(null)}
                   className="text-xs text-gray-500 hover:text-gray-300">收合 ▲</button>
