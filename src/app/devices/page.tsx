@@ -66,6 +66,7 @@ export default function DevicesPage() {
   const devices = Array.isArray(rawDevices) ? rawDevices : [];
   const [sending, setSending] = useState(false);
   const [dhPending, setDhPending] = useState<{ type: string; value: unknown } | null>(null);
+  const [dhFailed, setDhFailed] = useState<{ type: string; value: unknown } | null>(null);
   const deviceRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const [acPending, setAcPending] = useState<AcPendingState>({
@@ -95,19 +96,48 @@ export default function DevicesPage() {
   }
 
   async function sendDehumidifierCommand(deviceName: string, params: Record<string, unknown>) {
-    // Optimistic: show pending state immediately
-    if (params.power !== undefined) setDhPending({ type: "power", value: params.power });
-    else if (params.mode !== undefined) setDhPending({ type: "mode", value: params.mode });
-    else if (params.humidity !== undefined) setDhPending({ type: "humidity", value: params.humidity });
+    const expected: { type: string; value: unknown } =
+      params.power !== undefined ? { type: "power", value: params.power } :
+      params.mode !== undefined ? { type: "mode", value: params.mode } :
+      { type: "humidity", value: params.humidity };
 
+    setDhPending(expected);
+    setDhFailed(null);
     setSending(true);
+
     try {
       await fetch("/api/devices/control", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceName, action: "dehumidifier", params }),
       });
-      setTimeout(() => { fetchDevices(); setDhPending(null); }, 2000);
+
+      for (let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+          const res = await fetch("/api/devices");
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            const dh = data.find((d: DeviceData) => d.name === deviceName);
+            if (dh) {
+              const matched =
+                (expected.type === "power" && dh.power === expected.value) ||
+                (expected.type === "mode" && dh.mode === expected.value) ||
+                (expected.type === "humidity" && dh.targetHumidity === expected.value);
+              if (matched) {
+                setDhPending(null);
+                fetchDevices();
+                return;
+              }
+            }
+          }
+        } catch { /* continue polling */ }
+      }
+
+      setDhPending(null);
+      setDhFailed(expected);
+      setTimeout(() => setDhFailed(null), 2000);
+      fetchDevices();
     } finally {
       setSending(false);
     }
@@ -135,7 +165,6 @@ export default function DevicesPage() {
       </Suspense>
       <h1 className="text-2xl font-bold">📱 裝置控制</h1>
 
-      {/* Sensor */}
       <Card>
         <CardHeader>
           <CardTitle>🌡️ 環境感測器</CardTitle>
@@ -158,14 +187,9 @@ export default function DevicesPage() {
         )}
       </Card>
 
-      {/* Device Cards */}
       <div className="grid gap-4 sm:grid-cols-2">
         {controllable.map((device) => (
-          <div
-            key={device.name}
-            ref={(el) => { deviceRefs.current[device.name] = el; }}
-            className="transition-all duration-300"
-          >
+          <div key={device.name} ref={(el) => { deviceRefs.current[device.name] = el; }} className="transition-all duration-300">
             <Card>
               <CardHeader>
                 <CardTitle>
@@ -174,120 +198,78 @@ export default function DevicesPage() {
                 </CardTitle>
               </CardHeader>
 
-              {/* AC */}
               {device.type === "空調" && (
                 <div className="space-y-4">
                   <div>
                     <label className="text-xs text-gray-400">電源</label>
                     <div className="mt-1 flex gap-2">
-                      <button onClick={() => updateAcPending({ power: true })}
-                        className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${acPending.power ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>ON</button>
-                      <button onClick={() => updateAcPending({ power: false })}
-                        className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${!acPending.power ? "bg-red-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>OFF</button>
+                      <button onClick={() => updateAcPending({ power: true })} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${acPending.power ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>ON</button>
+                      <button onClick={() => updateAcPending({ power: false })} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${!acPending.power ? "bg-red-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>OFF</button>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-gray-400">溫度</label>
                     <div className="mt-1 flex items-center gap-3">
-                      <button onClick={() => updateAcPending({ temperature: Math.max(options.ac.temperature.min, acPending.temperature - 1) })}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">−</button>
+                      <button onClick={() => updateAcPending({ temperature: Math.max(options.ac.temperature.min, acPending.temperature - 1) })} className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">−</button>
                       <span className="w-16 text-center text-xl font-bold">{acPending.temperature}°C</span>
-                      <button onClick={() => updateAcPending({ temperature: Math.min(options.ac.temperature.max, acPending.temperature + 1) })}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">+</button>
+                      <button onClick={() => updateAcPending({ temperature: Math.min(options.ac.temperature.max, acPending.temperature + 1) })} className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">+</button>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-gray-400">模式</label>
                     <div className="mt-1 flex flex-wrap gap-2">
-                      {options.ac.modes.map((m) => (
-                        <button key={m.value} onClick={() => updateAcPending({ mode: m.value })}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${acPending.mode === m.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{m.label}</button>
-                      ))}
+                      {options.ac.modes.map((m) => (<button key={m.value} onClick={() => updateAcPending({ mode: m.value })} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${acPending.mode === m.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{m.label}</button>))}
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-gray-400">風速</label>
                     <div className="mt-1 flex flex-wrap gap-2">
-                      {options.ac.fan_speeds.map((s) => (
-                        <button key={s.value} onClick={() => updateAcPending({ fanSpeed: s.value })}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${acPending.fanSpeed === s.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{s.label}</button>
-                      ))}
+                      {options.ac.fan_speeds.map((s) => (<button key={s.value} onClick={() => updateAcPending({ fanSpeed: s.value })} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${acPending.fanSpeed === s.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{s.label}</button>))}
                     </div>
                   </div>
-                  <button onClick={sendAcCommand} disabled={sending}
-                    className={`w-full rounded-lg py-2.5 text-sm font-bold transition-colors ${acDirty ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-700 text-gray-400"}`}>
+                  <button onClick={sendAcCommand} disabled={sending} className={`w-full rounded-lg py-2.5 text-sm font-bold transition-colors ${acDirty ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-700 text-gray-400"}`}>
                     {sending ? "送出中..." : acDirty ? "送出設定" : "未變更"}
                   </button>
                   <p className="text-xs text-gray-500">調整上方設定後按「送出」，才會實際發送 IR 指令</p>
                 </div>
               )}
 
-              {/* Dehumidifier */}
               {device.type === "除濕機" && (() => {
-                const isPending = (type: string, value: unknown) =>
-                  dhPending?.type === type && dhPending?.value === value;
+                const isPending = (type: string, value: unknown) => dhPending?.type === type && dhPending?.value === value;
+                const isFailed = (type: string, value: unknown) => dhFailed?.type === type && dhFailed?.value === value;
                 const btnClass = (type: string, value: unknown, isActive: boolean) =>
-                  `rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                    isPending(type, value) ? "bg-amber-500 text-white animate-pulse"
-                    : isActive ? "bg-blue-600 text-white"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  }`;
+                  `rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${isFailed(type, value) ? "bg-red-500 text-white animate-pulse" : isPending(type, value) ? "bg-amber-500 text-white animate-pulse" : isActive ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`;
                 return (
                 <div className="space-y-4">
-                  {device.power !== undefined && (
-                    <p className="text-xs text-gray-400">
-                      目前狀態：{device.power ? "🟢 運轉中" : "⚪ 關閉"}
-                      {device.mode && ` · ${device.mode}`}
-                      {device.targetHumidity && ` · 目標 ${device.targetHumidity}%`}
-                    </p>
-                  )}
+                  {device.power !== undefined && (<p className="text-xs text-gray-400">目前狀態：{device.power ? "🟢 運轉中" : "⚪ 關閉"}{device.mode && ` · ${device.mode}`}{device.targetHumidity && ` · 目標 ${device.targetHumidity}%`}</p>)}
                   <div>
                     <label className="text-xs text-gray-400">電源</label>
                     <div className="mt-1 flex gap-2">
-                      <button onClick={() => sendDehumidifierCommand(device.name, { power: true })} disabled={sending}
-                        className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
-                          isPending("power", true) ? "bg-amber-500 text-white animate-pulse"
-                          : device.power ? "bg-blue-600 text-white"
-                          : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}>ON</button>
-                      <button onClick={() => sendDehumidifierCommand(device.name, { power: false })} disabled={sending}
-                        className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
-                          isPending("power", false) ? "bg-amber-500 text-white animate-pulse"
-                          : device.power === false ? "bg-red-600 text-white"
-                          : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}>OFF</button>
+                      <button onClick={() => sendDehumidifierCommand(device.name, { power: true })} disabled={sending} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${isFailed("power", true) ? "bg-red-500 text-white animate-pulse" : isPending("power", true) ? "bg-amber-500 text-white animate-pulse" : device.power ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>ON</button>
+                      <button onClick={() => sendDehumidifierCommand(device.name, { power: false })} disabled={sending} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${isFailed("power", false) ? "bg-red-500 text-white animate-pulse" : isPending("power", false) ? "bg-amber-500 text-white animate-pulse" : device.power === false ? "bg-red-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>OFF</button>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-gray-400">模式</label>
                     <div className="mt-1 flex flex-wrap gap-2">
-                      {options.dehumidifier.modes.map((m) => (
-                        <button key={m.value} onClick={() => sendDehumidifierCommand(device.name, { mode: m.value })} disabled={sending}
-                          className={btnClass("mode", m.value, device.mode === m.label)}>{m.label}</button>
-                      ))}
+                      {options.dehumidifier.modes.map((m) => (<button key={m.value} onClick={() => sendDehumidifierCommand(device.name, { mode: m.value })} disabled={sending} className={btnClass("mode", m.value, device.mode === m.label)}>{m.label}</button>))}
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-gray-400">目標濕度</label>
                     <div className="mt-1 flex flex-wrap gap-2">
-                      {options.dehumidifier.humidity.map((h) => (
-                        <button key={h} onClick={() => sendDehumidifierCommand(device.name, { humidity: h })} disabled={sending}
-                          className={btnClass("humidity", h, device.targetHumidity === h)}>{h}%</button>
-                      ))}
+                      {options.dehumidifier.humidity.map((h) => (<button key={h} onClick={() => sendDehumidifierCommand(device.name, { humidity: h })} disabled={sending} className={btnClass("humidity", h, device.targetHumidity === h)}>{h}%</button>))}
                     </div>
                   </div>
-                </div>
-                );
+                </div>);
               })()}
 
-              {/* IR - buttons from Sheet */}
               {device.type === "IR" && (
                 <div>
                   <label className="text-xs text-gray-400">遙控按鈕</label>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {(device.buttons ?? "").split(",").map(b => b.trim()).filter(Boolean).map((btn) => (
-                      <button key={btn} onClick={() => sendIrCommand(device.name, btn)}
-                        className="rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-gray-600 active:bg-gray-500 transition-colors">{btn}</button>
+                      <button key={btn} onClick={() => sendIrCommand(device.name, btn)} className="rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-gray-600 active:bg-gray-500 transition-colors">{btn}</button>
                     ))}
                   </div>
                   <p className="mt-2 text-xs text-gray-500">IR 遙控為單向發送，不會回傳裝置狀態</p>
