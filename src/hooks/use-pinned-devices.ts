@@ -52,6 +52,13 @@ export function usePinnedDevices() {
     return pinnedSensor === name;
   }, [pinnedSensor]);
 
+  const resetAll = useCallback(() => {
+    setPinnedSensorState(null);
+    setPinnedDevicesState([]);
+    localStorage.removeItem(SENSOR_KEY);
+    localStorage.removeItem(DEVICES_KEY);
+  }, []);
+
   const canPinMore = pinnedDevices.length < MAX_PINNED_DEVICES;
 
   return {
@@ -62,6 +69,7 @@ export function usePinnedDevices() {
     isDevicePinned,
     isSensorPinned,
     canPinMore,
+    resetAll,
     loaded,
     MAX_PINNED_DEVICES,
   };
