@@ -88,9 +88,20 @@ export default function HomePage() {
   const food = Array.isArray(rawFood) ? rawFood : [];
   const pin = usePinnedDevices();
 
+  // TODO: mock devices for testing - remove when real devices added
+  const mockDevices: DeviceData[] = [
+    { name: "[測試] 主臥感測器", type: "感應器", location: "主臥", temperature: 25.8, humidity: 58 },
+    { name: "[測試] 次臥感測器", type: "感應器", location: "次臥", temperature: 24.2, humidity: 65 },
+    { name: "[測試] 主臥空調", type: "空調", location: "主臥" },
+    { name: "[測試] 次臥空調", type: "空調", location: "次臥" },
+    { name: "[測試] 主臥電風扇", type: "IR", location: "主臥", buttons: "電源,風速+,風速-" },
+    { name: "[測試] 次臥電風扇", type: "IR", location: "次臥", buttons: "電源,風速+,風速-" },
+  ];
+  const allDevices = [...devices, ...mockDevices];
+
   // Home page: only show pinned items
-  const pinnedSensor = pin.pinnedSensor ? devices.find(d => d.name === pin.pinnedSensor) : null;
-  const pinnedDeviceList = devices.filter(d => d.type !== "感應器" && pin.isDevicePinned(d.name));
+  const pinnedSensor = pin.pinnedSensor ? allDevices.find(d => d.name === pin.pinnedSensor) : null;
+  const pinnedDeviceList = allDevices.filter(d => d.type !== "感應器" && pin.isDevicePinned(d.name));
   const controllableDevices = pinnedDeviceList;
   const myTodos = todos.filter(t =>
     t["狀態"] === "待辦" && (
