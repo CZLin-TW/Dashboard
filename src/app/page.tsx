@@ -113,6 +113,7 @@ export default function HomePage() {
   const [acPending, setAcPending] = useState({ power: true, temperature: 26, mode: "冷氣", fanSpeed: "自動" });
   const [acDirty, setAcDirty] = useState(false);
   const [sending, setSending] = useState(false);
+  const [dhPending, setDhPending] = useState<{ type: string; value: unknown } | null>(null);
   const [completingItems, setCompletingItems] = useState<Set<string>>(new Set());
 
   function toggleExpand(name: string) {
@@ -138,6 +139,10 @@ export default function HomePage() {
   }
 
   async function sendDehumidifierCommand(deviceName: string, params: Record<string, unknown>) {
+    if (params.power !== undefined) setDhPending({ type: "power", value: params.power });
+    else if (params.mode !== undefined) setDhPending({ type: "mode", value: params.mode });
+    else if (params.humidity !== undefined) setDhPending({ type: "humidity", value: params.humidity });
+
     setSending(true);
     try {
       await fetch("/api/devices/control", {
@@ -145,7 +150,7 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceName, action: "dehumidifier", params }),
       });
-      setTimeout(refetchDevices, 2000);
+      setTimeout(() => { refetchDevices(); setDhPending(null); }, 2000);
     } finally { setSending(false); }
   }
 
@@ -306,7 +311,16 @@ export default function HomePage() {
               )}
 
               {/* Dehumidifier */}
-              {device.type === "除濕機" && (
+              {device.type === "除濕機" && (() => {
+                const isPending = (type: string, value: unknown) =>
+                  dhPending?.type === type && dhPending?.value === value;
+                const btnClass = (type: string, value: unknown, isActive: boolean) =>
+                  `rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                    isPending(type, value) ? "bg-amber-500 text-white animate-pulse"
+                    : isActive ? "bg-blue-600 text-white"
+                    : "bg-gray-700 text-gray-300"
+                  }`;
+                return (
                 <>
                   {device.power !== undefined && (
                     <p className="text-xs text-gray-400">
@@ -319,9 +333,17 @@ export default function HomePage() {
                     <label className="text-xs text-gray-400">電源</label>
                     <div className="mt-1 flex gap-2">
                       <button onClick={() => sendDehumidifierCommand(device.name, { power: true })} disabled={sending}
-                        className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${device.power ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"}`}>ON</button>
+                        className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
+                          isPending("power", true) ? "bg-amber-500 text-white animate-pulse"
+                          : device.power ? "bg-blue-600 text-white"
+                          : "bg-gray-700 text-gray-300"
+                        }`}>ON</button>
                       <button onClick={() => sendDehumidifierCommand(device.name, { power: false })} disabled={sending}
-                        className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${device.power === false ? "bg-red-600 text-white" : "bg-gray-700 text-gray-300"}`}>OFF</button>
+                        className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
+                          isPending("power", false) ? "bg-amber-500 text-white animate-pulse"
+                          : device.power === false ? "bg-red-600 text-white"
+                          : "bg-gray-700 text-gray-300"
+                        }`}>OFF</button>
                     </div>
                   </div>
                   <div>
@@ -329,7 +351,7 @@ export default function HomePage() {
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {options.dehumidifier.modes.map(m => (
                         <button key={m.value} onClick={() => sendDehumidifierCommand(device.name, { mode: m.value })} disabled={sending}
-                          className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${device.mode === m.label ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"}`}>{m.label}</button>
+                          className={btnClass("mode", m.value, device.mode === m.label)}>{m.label}</button>
                       ))}
                     </div>
                   </div>
@@ -338,12 +360,13 @@ export default function HomePage() {
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {options.dehumidifier.humidity.map(h => (
                         <button key={h} onClick={() => sendDehumidifierCommand(device.name, { humidity: h })} disabled={sending}
-                          className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${String(device.targetHumidity) === `${h}%` ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"}`}>{h}%</button>
+                          className={btnClass("humidity", h, String(device.targetHumidity) === `${h}%`)}>{h}%</button>
                       ))}
                     </div>
                   </div>
                 </>
-              )}
+                );
+              })()}
 
               {/* IR */}
               {device.type === "IR" && (
