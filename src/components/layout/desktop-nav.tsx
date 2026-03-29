@@ -14,7 +14,7 @@ export function DesktopNav() {
     <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-3">
       <div className="flex items-center gap-8">
         <Link href="/" className="flex items-center gap-2 text-lg font-bold text-white">
-          🏠 Smart Home
+          ⚡ Smart Home <span className="text-xs font-normal text-gray-500">v1.0.0</span>
         </Link>
         <nav className="flex items-center gap-1">
           {NAV_ITEMS.map((item) => {
