@@ -210,7 +210,12 @@ export default function DevicesPage() {
       </Card>
 
       {/* Device Cards - grouped by location */}
-      <p className="text-xs text-gray-500">釘選最多 {pin.MAX_PINNED_DEVICES} 個到首頁（已選 {pin.pinnedDevices.length}）</p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-500">釘選最多 {pin.MAX_PINNED_DEVICES} 個到首頁（已選 {pin.pinnedDevices.length}）</p>
+        {(pin.pinnedDevices.length > 0 || pin.pinnedSensor) && (
+          <button onClick={pin.resetAll} className="text-xs text-red-400 hover:text-red-300">重置釘選</button>
+        )}
+      </div>
       {(() => {
         const groups: Record<string, DeviceData[]> = {};
         controllable.forEach(d => {
