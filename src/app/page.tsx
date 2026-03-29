@@ -270,7 +270,7 @@ export default function HomePage() {
         {controllableDevices.length === 0 ? (
           <p className="text-sm text-gray-500">請到<Link href="/devices" className="text-blue-400 hover:text-blue-300 mx-1">裝置頁</Link>📌 釘選裝置</p>
         ) : (<>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {controllableDevices.map((device) => (
             <button
               key={device.name}
