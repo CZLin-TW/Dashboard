@@ -69,12 +69,12 @@ export default function DevicesPage() {
 
   // TODO: mock devices for testing - remove when real devices are added
   const mockDevices: DeviceData[] = [
-    { name: "SwitchBot Hub 主臥", type: "感應器", location: "主臥", deviceId: "mock-1", temperature: 25.8, humidity: 58 },
-    { name: "SwitchBot Hub 次臥", type: "感應器", location: "次臥", deviceId: "mock-2", temperature: 24.2, humidity: 65 },
-    { name: "主臥空調", type: "空調", location: "主臥", deviceId: "mock-3" },
-    { name: "次臥空調", type: "空調", location: "次臥", deviceId: "mock-4" },
-    { name: "主臥電風扇", type: "IR", location: "主臥", deviceId: "mock-5", buttons: "電源,風速+,風速-" },
-    { name: "次臥電風扇", type: "IR", location: "次臥", deviceId: "mock-6", buttons: "電源,風速+,風速-" },
+    { name: "[測試] 主臥感測器", type: "感應器", location: "主臥", deviceId: "mock-1", temperature: 25.8, humidity: 58 },
+    { name: "[測試] 次臥感測器", type: "感應器", location: "次臥", deviceId: "mock-2", temperature: 24.2, humidity: 65 },
+    { name: "[測試] 主臥空調", type: "空調", location: "主臥", deviceId: "mock-3" },
+    { name: "[測試] 次臥空調", type: "空調", location: "次臥", deviceId: "mock-4" },
+    { name: "[測試] 主臥電風扇", type: "IR", location: "主臥", deviceId: "mock-5", buttons: "電源,風速+,風速-" },
+    { name: "[測試] 次臥電風扇", type: "IR", location: "次臥", deviceId: "mock-6", buttons: "電源,風速+,風速-" },
   ];
   const allDevices = [...devices, ...mockDevices];
 
