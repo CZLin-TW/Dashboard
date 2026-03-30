@@ -83,15 +83,13 @@ export default function DevicesPage() {
     setAcDirty(true);
   }
 
-  async function sendAcCommand() {
-    const ac = devices.find(d => d.type === "空調");
-    if (!ac) return;
+  async function sendAcCommand(deviceName: string) {
     setSending(true);
     try {
       await fetch("/api/devices/control", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceName: ac.name, action: "setAll", params: acPending }),
+        body: JSON.stringify({ deviceName, action: "setAll", params: acPending }),
       });
       setAcDirty(false);
     } finally {
@@ -242,7 +240,7 @@ export default function DevicesPage() {
                         <div><label className="text-xs text-gray-400">溫度</label><div className="mt-1 flex items-center gap-3"><button onClick={() => updateAcPending({ temperature: Math.max(options.ac.temperature.min, acPending.temperature - 1) })} className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">−</button><span className="w-16 text-center text-xl font-bold">{acPending.temperature}°C</span><button onClick={() => updateAcPending({ temperature: Math.min(options.ac.temperature.max, acPending.temperature + 1) })} className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">+</button></div></div>
                         <div><label className="text-xs text-gray-400">模式</label><div className="mt-1 flex flex-wrap gap-2">{options.ac.modes.map((m) => (<button key={m.value} onClick={() => updateAcPending({ mode: m.value })} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${acPending.mode === m.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{m.label}</button>))}</div></div>
                         <div><label className="text-xs text-gray-400">風速</label><div className="mt-1 flex flex-wrap gap-2">{options.ac.fan_speeds.map((s) => (<button key={s.value} onClick={() => updateAcPending({ fanSpeed: s.value })} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${acPending.fanSpeed === s.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{s.label}</button>))}</div></div>
-                        <button onClick={sendAcCommand} disabled={sending} className={`w-full rounded-lg py-2.5 text-sm font-bold transition-colors ${acDirty ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-700 text-gray-400"}`}>{sending ? "送出中..." : acDirty ? "送出設定" : "未變更"}</button>
+                        <button onClick={() => sendAcCommand(device.name)} disabled={sending} className={`w-full rounded-lg py-2.5 text-sm font-bold transition-colors ${acDirty ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-700 text-gray-400"}`}>{sending ? "送出中..." : acDirty ? "送出設定" : "未變更"}</button>
                       </div>
                     )}
 
