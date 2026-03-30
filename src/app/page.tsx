@@ -73,20 +73,28 @@ const DEFAULT_OPTIONS: DeviceOptions = {
 
 export default function HomePage() {
   const { currentUser } = useUser();
-  const { data: weatherToday } = useCachedFetch<WeatherData | null>("/api/weather?date=today", null);
-  const { data: weatherTomorrow } = useCachedFetch<WeatherData | null>("/api/weather?date=tomorrow", null);
 
-  // If today's weather has no data (late night), show tomorrow's
+  // Single API call for all home page data
+  interface DashboardData {
+    weatherToday: WeatherData | null;
+    weatherTomorrow: WeatherData | null;
+    devices: DeviceData[];
+    todos: TodoData[];
+    food: FoodData[];
+    options: DeviceOptions;
+  }
+  const { data: dashboard, refetch: refetchDashboard } = useCachedFetch<DashboardData | null>("/api/dashboard", null);
+
+  const weatherToday = dashboard?.weatherToday ?? null;
+  const weatherTomorrow = dashboard?.weatherTomorrow ?? null;
   const todayHasData = weatherToday && !("error" in weatherToday) && weatherToday.max_t !== null;
   const weather = todayHasData ? weatherToday : weatherTomorrow;
-  const { data: rawDevices, refetch: refetchDevices } = useCachedFetch<DeviceData[]>("/api/devices", []);
-  const { data: rawTodos, refetch: refetchTodos } = useCachedFetch<TodoData[]>("/api/todos", []);
-  const { data: rawFood } = useCachedFetch<FoodData[]>("/api/food", []);
-  const { data: options } = useCachedFetch<DeviceOptions>("/api/devices/options", DEFAULT_OPTIONS);
-
-  const devices = Array.isArray(rawDevices) ? rawDevices : [];
-  const todos = Array.isArray(rawTodos) ? rawTodos : [];
-  const food = Array.isArray(rawFood) ? rawFood : [];
+  const devices = Array.isArray(dashboard?.devices) ? dashboard.devices : [];
+  const todos = Array.isArray(dashboard?.todos) ? dashboard.todos : [];
+  const food = Array.isArray(dashboard?.food) ? dashboard.food : [];
+  const options = dashboard?.options ?? DEFAULT_OPTIONS;
+  const refetchDevices = refetchDashboard;
+  const refetchTodos = refetchDashboard;
   const pin = usePinnedDevices();
 
   // TODO: mock devices for testing - remove when real devices added
