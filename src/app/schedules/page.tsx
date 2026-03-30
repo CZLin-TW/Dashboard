@@ -255,18 +255,18 @@ export default function SchedulesPage() {
 
             {/* Trigger Time */}
             {selectedDevice && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <div>
                   <label className="text-xs text-gray-400">日期 *</label>
                   <input type="date" value={triggerDate}
                     onChange={(e) => setTriggerDate(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none" />
+                    className="mt-1 w-full max-w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none appearance-none" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-400">時間 *</label>
                   <input type="time" value={triggerTime}
                     onChange={(e) => setTriggerTime(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none" />
+                    className="mt-1 w-full max-w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none appearance-none" />
                 </div>
               </div>
             )}
