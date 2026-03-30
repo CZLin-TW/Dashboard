@@ -99,10 +99,11 @@ export default function HomePage() {
   ];
   const allDevices = [...devices, ...mockDevices];
 
-  // Home page: only show pinned items
+  // Home page: only show pinned items, ordered by pin sequence
   const pinnedSensor = pin.pinnedSensor ? allDevices.find(d => d.name === pin.pinnedSensor) : null;
-  const pinnedDeviceList = allDevices.filter(d => d.type !== "感應器" && pin.isDevicePinned(d.name));
-  const controllableDevices = pinnedDeviceList;
+  const controllableDevices = pin.pinnedDevices
+    .map(name => allDevices.find(d => d.name === name))
+    .filter((d): d is DeviceData => d !== undefined && d.type !== "感應器");
   const myTodos = todos.filter(t =>
     t["狀態"] === "待辦" && (
       !currentUser || t["負責人"] === currentUser.name ||
