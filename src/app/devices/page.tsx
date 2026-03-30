@@ -66,17 +66,7 @@ export default function DevicesPage() {
   const { data: options } = useCachedFetch<DeviceOptions>("/api/devices/options", DEFAULT_OPTIONS);
   const devices = Array.isArray(rawDevices) ? rawDevices : [];
   const pin = usePinnedDevices();
-
-  // TODO: mock devices for testing - remove when real devices are added
-  const mockDevices: DeviceData[] = [
-    { name: "[測試] 主臥感測器", type: "感應器", location: "主臥", deviceId: "mock-1", temperature: 25.8, humidity: 58 },
-    { name: "[測試] 次臥感測器", type: "感應器", location: "次臥", deviceId: "mock-2", temperature: 24.2, humidity: 65 },
-    { name: "[測試] 主臥空調", type: "空調", location: "主臥", deviceId: "mock-3" },
-    { name: "[測試] 次臥空調", type: "空調", location: "次臥", deviceId: "mock-4" },
-    { name: "[測試] 主臥電風扇", type: "IR", location: "主臥", deviceId: "mock-5", buttons: "電源,風速+,風速-" },
-    { name: "[測試] 次臥電風扇", type: "IR", location: "次臥", deviceId: "mock-6", buttons: "電源,風速+,風速-" },
-  ];
-  const allDevices = [...devices, ...mockDevices];
+  const allDevices = devices;
 
   const [sending, setSending] = useState(false);
   const [dhPending, setDhPending] = useState<{ type: string; value: unknown } | null>(null);
