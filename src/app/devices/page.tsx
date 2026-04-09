@@ -24,6 +24,24 @@ interface DeviceData {
   mode?: string;
   targetHumidity?: number;
   buttons?: string;
+  lastPower?: string;
+  lastTemperature?: number | string;
+  lastMode?: string;
+  lastFanSpeed?: string;
+  lastUpdatedAt?: string;
+}
+
+function acPendingFromDevice(device: DeviceData): AcPendingState {
+  const raw = device.lastTemperature;
+  const tempNum =
+    typeof raw === "number" ? raw :
+    typeof raw === "string" && raw.trim() !== "" ? parseInt(raw, 10) : NaN;
+  return {
+    power: device.lastPower === "on",
+    temperature: Number.isFinite(tempNum) ? tempNum : 26,
+    mode: device.lastMode || "",
+    fanSpeed: device.lastFanSpeed || "",
+  };
 }
 
 interface DeviceOptions {
@@ -73,25 +91,34 @@ export default function DevicesPage() {
   const [dhFailed, setDhFailed] = useState<{ type: string; value: unknown } | null>(null);
   const deviceRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const [acPending, setAcPending] = useState<AcPendingState>({
-    power: false, temperature: 26, mode: "cool", fanSpeed: "auto",
-  });
-  const [acDirty, setAcDirty] = useState(false);
+  const [acPendingMap, setAcPendingMap] = useState<Record<string, AcPendingState>>({});
+  const [acDirtyMap, setAcDirtyMap] = useState<Record<string, boolean>>({});
 
-  function updateAcPending(updates: Partial<AcPendingState>) {
-    setAcPending((prev) => ({ ...prev, ...updates }));
-    setAcDirty(true);
+  function getAcPending(device: DeviceData): AcPendingState {
+    return acPendingMap[device.name] ?? acPendingFromDevice(device);
   }
 
-  async function sendAcCommand(deviceName: string) {
+  function updateAcPending(device: DeviceData, updates: Partial<AcPendingState>) {
+    setAcPendingMap((prev) => {
+      const current = prev[device.name] ?? acPendingFromDevice(device);
+      return { ...prev, [device.name]: { ...current, ...updates } };
+    });
+    setAcDirtyMap((prev) => ({ ...prev, [device.name]: true }));
+  }
+
+  async function sendAcCommand(device: DeviceData) {
+    const pending = getAcPending(device);
     setSending(true);
     try {
       await fetch("/api/devices/control", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceName, action: "setAll", params: acPending }),
+        body: JSON.stringify({ deviceName: device.name, action: "setAll", params: pending }),
       });
-      setAcDirty(false);
+      // Drop local pending so the next render reads the freshly-saved last state.
+      setAcPendingMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
+      setAcDirtyMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
+      fetchDevices();
     } finally {
       setSending(false);
     }
@@ -234,15 +261,29 @@ export default function DevicesPage() {
                       >{pin.isDevicePinned(device.name) ? "⭐" : "☆"}</button>
                     </CardHeader>
 
-                    {device.type === "空調" && (
+                    {device.type === "空調" && (() => {
+                      const pending = getAcPending(device);
+                      const dirty = !!acDirtyMap[device.name];
+                      const lastTime = device.lastUpdatedAt ? (device.lastUpdatedAt.split(" ")[1] || device.lastUpdatedAt) : "";
+                      return (
                       <div className="space-y-3">
-                        <div><label className="text-xs text-gray-400">電源</label><div className="mt-1 flex gap-2"><button onClick={() => updateAcPending({ power: true })} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${acPending.power ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>ON</button><button onClick={() => updateAcPending({ power: false })} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${!acPending.power ? "bg-red-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>OFF</button></div></div>
-                        <div><label className="text-xs text-gray-400">溫度</label><div className="mt-1 flex items-center gap-3"><button onClick={() => updateAcPending({ temperature: Math.max(options.ac.temperature.min, acPending.temperature - 1) })} className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">−</button><span className="w-16 text-center text-xl font-bold">{acPending.temperature}°C</span><button onClick={() => updateAcPending({ temperature: Math.min(options.ac.temperature.max, acPending.temperature + 1) })} className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">+</button></div></div>
-                        <div><label className="text-xs text-gray-400">模式</label><div className="mt-1 flex flex-wrap gap-2">{options.ac.modes.map((m) => (<button key={m.value} onClick={() => updateAcPending({ mode: m.value })} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${acPending.mode === m.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{m.label}</button>))}</div></div>
-                        <div><label className="text-xs text-gray-400">風速</label><div className="mt-1 flex flex-wrap gap-2">{options.ac.fan_speeds.map((s) => (<button key={s.value} onClick={() => updateAcPending({ fanSpeed: s.value })} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${acPending.fanSpeed === s.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{s.label}</button>))}</div></div>
-                        <button onClick={() => sendAcCommand(device.name)} disabled={sending} className={`w-full rounded-lg py-2.5 text-sm font-bold transition-colors ${acDirty ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-700 text-gray-400"}`}>{sending ? "送出中..." : acDirty ? "送出設定" : "未變更"}</button>
+                        {device.lastPower ? (
+                          <p className="text-xs text-gray-400">
+                            目前：{device.lastPower === "on" ? (
+                              <>🟢 {device.lastTemperature !== undefined && device.lastTemperature !== "" && `${device.lastTemperature}°C`}{device.lastMode && ` ${device.lastMode}`}{device.lastFanSpeed && ` ${device.lastFanSpeed}`}</>
+                            ) : "⚪ 關閉"}{lastTime && ` · ${lastTime}`}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-gray-500">尚無使用記錄</p>
+                        )}
+                        <div><label className="text-xs text-gray-400">電源</label><div className="mt-1 flex gap-2"><button onClick={() => updateAcPending(device, { power: true })} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${pending.power ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>ON</button><button onClick={() => updateAcPending(device, { power: false })} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${!pending.power ? "bg-red-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>OFF</button></div></div>
+                        <div><label className="text-xs text-gray-400">溫度</label><div className="mt-1 flex items-center gap-3"><button onClick={() => updateAcPending(device, { temperature: Math.max(options.ac.temperature.min, pending.temperature - 1) })} className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">−</button><span className="w-16 text-center text-xl font-bold">{pending.temperature}°C</span><button onClick={() => updateAcPending(device, { temperature: Math.min(options.ac.temperature.max, pending.temperature + 1) })} className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">+</button></div></div>
+                        <div><label className="text-xs text-gray-400">模式</label><div className="mt-1 flex flex-wrap gap-2">{options.ac.modes.map((m) => (<button key={m.value} onClick={() => updateAcPending(device, { mode: m.value })} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${pending.mode === m.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{m.label}</button>))}</div></div>
+                        <div><label className="text-xs text-gray-400">風速</label><div className="mt-1 flex flex-wrap gap-2">{options.ac.fan_speeds.map((s) => (<button key={s.value} onClick={() => updateAcPending(device, { fanSpeed: s.value })} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${pending.fanSpeed === s.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{s.label}</button>))}</div></div>
+                        <button onClick={() => sendAcCommand(device)} disabled={sending} className={`w-full rounded-lg py-2.5 text-sm font-bold transition-colors ${dirty ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-700 text-gray-400"}`}>{sending ? "送出中..." : dirty ? "送出設定" : "未變更"}</button>
                       </div>
-                    )}
+                      );
+                    })()}
 
                     {device.type === "除濕機" && (
                       <div className="space-y-3">
