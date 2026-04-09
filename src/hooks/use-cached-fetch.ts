@@ -26,12 +26,19 @@ export function useCachedFetch<T>(url: string, fallback: T) {
   const refetch = useCallback(() => {
     setLoading(true);
     fetch(url)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((fresh) => {
         setData(fresh);
         try {
           sessionStorage.setItem(cacheKey, JSON.stringify(fresh));
         } catch { /* storage full, ignore */ }
+      })
+      .catch((err) => {
+        // Keep previous data and cache intact — never overwrite valid data with an error payload.
+        console.error(`[useCachedFetch] ${url} failed:`, err);
       })
       .finally(() => setLoading(false));
   }, [url, cacheKey]);

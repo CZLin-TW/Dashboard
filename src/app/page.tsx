@@ -153,6 +153,7 @@ export default function HomePage() {
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
   const [acPendingMap, setAcPendingMap] = useState<Record<string, AcPendingState>>({});
   const [acDirtyMap, setAcDirtyMap] = useState<Record<string, boolean>>({});
+  const [acFailedMap, setAcFailedMap] = useState<Record<string, boolean>>({});
   const [sending, setSending] = useState(false);
   const [dhPending, setDhPending] = useState<{ type: string; value: unknown } | null>(null);
   const [dhFailed, setDhFailed] = useState<{ type: string; value: unknown } | null>(null);
@@ -174,18 +175,33 @@ export default function HomePage() {
     setAcDirtyMap(prev => ({ ...prev, [device.name]: true }));
   }
 
+  function flashAcFailed(deviceName: string) {
+    setAcFailedMap(prev => ({ ...prev, [deviceName]: true }));
+    setTimeout(() => {
+      setAcFailedMap(prev => { const next = { ...prev }; delete next[deviceName]; return next; });
+    }, 2000);
+  }
+
   async function sendAcCommand(device: DeviceData) {
     const pending = getAcPending(device);
     setSending(true);
     try {
-      await fetch("/api/devices/control", {
+      const res = await fetch("/api/devices/control", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceName: device.name, action: "setAll", params: pending }),
       });
+      if (!res.ok) {
+        console.error(`[sendAcCommand] ${device.name} failed: HTTP ${res.status}`);
+        flashAcFailed(device.name);
+        return;
+      }
       setAcPendingMap(prev => { const next = { ...prev }; delete next[device.name]; return next; });
       setAcDirtyMap(prev => { const next = { ...prev }; delete next[device.name]; return next; });
       refetchDevices();
+    } catch (err) {
+      console.error(`[sendAcCommand] ${device.name} network error:`, err);
+      flashAcFailed(device.name);
     } finally { setSending(false); }
   }
 
@@ -236,21 +252,38 @@ export default function HomePage() {
   }
 
   async function sendIrCommand(deviceName: string, button: string) {
-    await fetch("/api/devices/control", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceName, action: "ir", params: { button } }),
-    });
+    try {
+      const res = await fetch("/api/devices/control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceName, action: "ir", params: { button } }),
+      });
+      if (!res.ok) {
+        console.error(`[sendIrCommand] ${deviceName}/${button} failed: HTTP ${res.status}`);
+        alert(`IR 指令失敗：${deviceName} - ${button}（HTTP ${res.status}）`);
+      }
+    } catch (err) {
+      console.error(`[sendIrCommand] ${deviceName}/${button} network error:`, err);
+      alert(`IR 指令網路錯誤：${deviceName} - ${button}`);
+    }
   }
 
   function completeTodo(item: string) {
     setCompletingItems(prev => new Set(prev).add(item));
-    fetch(`/api/todos?item=${encodeURIComponent(item)}`, { method: "DELETE" }).then(() => {
-      setTimeout(() => {
+    fetch(`/api/todos?item=${encodeURIComponent(item)}`, { method: "DELETE" })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setTimeout(() => {
+          setCompletingItems(prev => { const next = new Set(prev); next.delete(item); return next; });
+          refetchTodos();
+        }, 500);
+      })
+      .catch(err => {
+        console.error(`[completeTodo] ${item} failed:`, err);
+        // Revert the optimistic UI so the item reappears in the list.
         setCompletingItems(prev => { const next = new Set(prev); next.delete(item); return next; });
-        refetchTodos();
-      }, 500);
-    });
+        alert(`完成失敗：${item}（${err instanceof Error ? err.message : "請稍後再試"}）`);
+      });
   }
 
   return (
@@ -317,6 +350,7 @@ export default function HomePage() {
               {device.type === "空調" && (() => {
                 const pending = getAcPending(device);
                 const dirty = !!acDirtyMap[device.name];
+                const failed = !!acFailedMap[device.name];
                 const lastTime = device.lastUpdatedAt ? (device.lastUpdatedAt.split(" ")[1] || device.lastUpdatedAt) : "";
                 return (<>
                   {device.lastPower ? (
@@ -324,7 +358,7 @@ export default function HomePage() {
                   ) : (
                     <p className="text-xs text-gray-500">尚無使用記錄</p>
                   )}
-                  <div><label className="text-xs text-gray-400">電源</label><div className="mt-1 flex gap-2"><button onClick={() => updateAcPending(device, { power: true })} className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${pending.power ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"}`}>ON</button><button onClick={() => updateAcPending(device, { power: false })} className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${!pending.power ? "bg-red-600 text-white" : "bg-gray-700 text-gray-300"}`}>OFF</button></div></div><div><label className="text-xs text-gray-400">溫度</label><div className="mt-1 flex items-center gap-2"><button onClick={() => updateAcPending(device, { temperature: Math.max(options.ac.temperature.min, pending.temperature - 1) })} className="flex h-7 w-7 items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-sm">−</button><span className="w-14 text-center font-bold">{pending.temperature}°C</span><button onClick={() => updateAcPending(device, { temperature: Math.min(options.ac.temperature.max, pending.temperature + 1) })} className="flex h-7 w-7 items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-sm">+</button></div></div><div><label className="text-xs text-gray-400">模式</label><div className="mt-1 flex flex-wrap gap-1.5">{options.ac.modes.map(m => (<button key={m.value} onClick={() => updateAcPending(device, { mode: m.value })} className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${pending.mode === m.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"}`}>{m.label}</button>))}</div></div><div><label className="text-xs text-gray-400">風速</label><div className="mt-1 flex flex-wrap gap-1.5">{options.ac.fan_speeds.map(s => (<button key={s.value} onClick={() => updateAcPending(device, { fanSpeed: s.value })} className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${pending.fanSpeed === s.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"}`}>{s.label}</button>))}</div></div><button onClick={() => sendAcCommand(device)} disabled={sending} className={`w-full rounded-lg py-2 text-sm font-bold transition-colors ${dirty ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-700 text-gray-400"}`}>{sending ? "送出中..." : dirty ? "送出設定" : "未變更"}</button>
+                  <div><label className="text-xs text-gray-400">電源</label><div className="mt-1 flex gap-2"><button onClick={() => updateAcPending(device, { power: true })} className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${pending.power ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"}`}>ON</button><button onClick={() => updateAcPending(device, { power: false })} className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${!pending.power ? "bg-red-600 text-white" : "bg-gray-700 text-gray-300"}`}>OFF</button></div></div><div><label className="text-xs text-gray-400">溫度</label><div className="mt-1 flex items-center gap-2"><button onClick={() => updateAcPending(device, { temperature: Math.max(options.ac.temperature.min, pending.temperature - 1) })} className="flex h-7 w-7 items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-sm">−</button><span className="w-14 text-center font-bold">{pending.temperature}°C</span><button onClick={() => updateAcPending(device, { temperature: Math.min(options.ac.temperature.max, pending.temperature + 1) })} className="flex h-7 w-7 items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-sm">+</button></div></div><div><label className="text-xs text-gray-400">模式</label><div className="mt-1 flex flex-wrap gap-1.5">{options.ac.modes.map(m => (<button key={m.value} onClick={() => updateAcPending(device, { mode: m.value })} className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${pending.mode === m.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"}`}>{m.label}</button>))}</div></div><div><label className="text-xs text-gray-400">風速</label><div className="mt-1 flex flex-wrap gap-1.5">{options.ac.fan_speeds.map(s => (<button key={s.value} onClick={() => updateAcPending(device, { fanSpeed: s.value })} className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${pending.fanSpeed === s.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"}`}>{s.label}</button>))}</div></div><button onClick={() => sendAcCommand(device)} disabled={sending} className={`w-full rounded-lg py-2 text-sm font-bold transition-colors ${failed ? "bg-red-500 text-white animate-pulse" : dirty ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-700 text-gray-400"}`}>{failed ? "失敗，請重試" : sending ? "送出中..." : dirty ? "送出設定" : "未變更"}</button>
                 </>);
               })()}
               {device.type === "除濕機" && (<><div>{device.power !== undefined && (<p className="text-xs text-gray-400">目前：{device.power ? "🟢 運轉中" : "⚪ 關閉"}{device.mode && ` · ${device.mode}`}{device.targetHumidity && ` · ${device.targetHumidity}`}</p>)}</div><div><label className="text-xs text-gray-400">電源</label><div className="mt-1 flex gap-2"><button onClick={() => sendDehumidifierCommand(device.name, { power: true })} disabled={sending} className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${isFailed("power", true) ? "bg-red-500 text-white animate-pulse" : isPending("power", true) ? "bg-amber-500 text-white animate-pulse" : device.power ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"}`}>ON</button><button onClick={() => sendDehumidifierCommand(device.name, { power: false })} disabled={sending} className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${isFailed("power", false) ? "bg-red-500 text-white animate-pulse" : isPending("power", false) ? "bg-amber-500 text-white animate-pulse" : device.power === false ? "bg-red-600 text-white" : "bg-gray-700 text-gray-300"}`}>OFF</button></div></div><div><label className="text-xs text-gray-400">模式</label><div className="mt-1 flex flex-wrap gap-1.5">{options.dehumidifier.modes.map(m => (<button key={m.value} onClick={() => sendDehumidifierCommand(device.name, { mode: m.value })} disabled={sending} className={btnClass("mode", m.value, device.mode === m.label)}>{m.label}</button>))}</div></div><div><label className="text-xs text-gray-400">目標濕度</label><div className="mt-1 flex flex-wrap gap-1.5">{options.dehumidifier.humidity.map(h => (<button key={h} onClick={() => sendDehumidifierCommand(device.name, { humidity: h })} disabled={sending} className={btnClass("humidity", h, String(device.targetHumidity) === `${h}%`)}>{h}%</button>))}</div></div></>)}

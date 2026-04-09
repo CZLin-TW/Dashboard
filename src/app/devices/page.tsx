@@ -93,6 +93,7 @@ export default function DevicesPage() {
 
   const [acPendingMap, setAcPendingMap] = useState<Record<string, AcPendingState>>({});
   const [acDirtyMap, setAcDirtyMap] = useState<Record<string, boolean>>({});
+  const [acFailedMap, setAcFailedMap] = useState<Record<string, boolean>>({});
 
   function getAcPending(device: DeviceData): AcPendingState {
     return acPendingMap[device.name] ?? acPendingFromDevice(device);
@@ -106,19 +107,35 @@ export default function DevicesPage() {
     setAcDirtyMap((prev) => ({ ...prev, [device.name]: true }));
   }
 
+  function flashAcFailed(deviceName: string) {
+    setAcFailedMap((prev) => ({ ...prev, [deviceName]: true }));
+    setTimeout(() => {
+      setAcFailedMap((prev) => { const next = { ...prev }; delete next[deviceName]; return next; });
+    }, 2000);
+  }
+
   async function sendAcCommand(device: DeviceData) {
     const pending = getAcPending(device);
     setSending(true);
     try {
-      await fetch("/api/devices/control", {
+      const res = await fetch("/api/devices/control", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceName: device.name, action: "setAll", params: pending }),
       });
+      if (!res.ok) {
+        // Keep pending state intact so user can retry; flash button red.
+        console.error(`[sendAcCommand] ${device.name} failed: HTTP ${res.status}`);
+        flashAcFailed(device.name);
+        return;
+      }
       // Drop local pending so the next render reads the freshly-saved last state.
       setAcPendingMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
       setAcDirtyMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
       fetchDevices();
+    } catch (err) {
+      console.error(`[sendAcCommand] ${device.name} network error:`, err);
+      flashAcFailed(device.name);
     } finally {
       setSending(false);
     }
@@ -175,11 +192,20 @@ export default function DevicesPage() {
   }
 
   async function sendIrCommand(deviceName: string, button: string) {
-    await fetch("/api/devices/control", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceName, action: "ir", params: { button } }),
-    });
+    try {
+      const res = await fetch("/api/devices/control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceName, action: "ir", params: { button } }),
+      });
+      if (!res.ok) {
+        console.error(`[sendIrCommand] ${deviceName}/${button} failed: HTTP ${res.status}`);
+        alert(`IR 指令失敗：${deviceName} - ${button}（HTTP ${res.status}）`);
+      }
+    } catch (err) {
+      console.error(`[sendIrCommand] ${deviceName}/${button} network error:`, err);
+      alert(`IR 指令網路錯誤：${deviceName} - ${button}`);
+    }
   }
 
   const sensors = allDevices.filter(d => d.type === "感應器");
@@ -264,6 +290,7 @@ export default function DevicesPage() {
                     {device.type === "空調" && (() => {
                       const pending = getAcPending(device);
                       const dirty = !!acDirtyMap[device.name];
+                      const failed = !!acFailedMap[device.name];
                       const lastTime = device.lastUpdatedAt ? (device.lastUpdatedAt.split(" ")[1] || device.lastUpdatedAt) : "";
                       return (
                       <div className="space-y-3">
@@ -280,7 +307,7 @@ export default function DevicesPage() {
                         <div><label className="text-xs text-gray-400">溫度</label><div className="mt-1 flex items-center gap-3"><button onClick={() => updateAcPending(device, { temperature: Math.max(options.ac.temperature.min, pending.temperature - 1) })} className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">−</button><span className="w-16 text-center text-xl font-bold">{pending.temperature}°C</span><button onClick={() => updateAcPending(device, { temperature: Math.min(options.ac.temperature.max, pending.temperature + 1) })} className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-700 hover:bg-gray-600">+</button></div></div>
                         <div><label className="text-xs text-gray-400">模式</label><div className="mt-1 flex flex-wrap gap-2">{options.ac.modes.map((m) => (<button key={m.value} onClick={() => updateAcPending(device, { mode: m.value })} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${pending.mode === m.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{m.label}</button>))}</div></div>
                         <div><label className="text-xs text-gray-400">風速</label><div className="mt-1 flex flex-wrap gap-2">{options.ac.fan_speeds.map((s) => (<button key={s.value} onClick={() => updateAcPending(device, { fanSpeed: s.value })} className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${pending.fanSpeed === s.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>{s.label}</button>))}</div></div>
-                        <button onClick={() => sendAcCommand(device)} disabled={sending} className={`w-full rounded-lg py-2.5 text-sm font-bold transition-colors ${dirty ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-700 text-gray-400"}`}>{sending ? "送出中..." : dirty ? "送出設定" : "未變更"}</button>
+                        <button onClick={() => sendAcCommand(device)} disabled={sending} className={`w-full rounded-lg py-2.5 text-sm font-bold transition-colors ${failed ? "bg-red-500 text-white animate-pulse" : dirty ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-700 text-gray-400"}`}>{failed ? "失敗，請重試" : sending ? "送出中..." : dirty ? "送出設定" : "未變更"}</button>
                       </div>
                       );
                     })()}
