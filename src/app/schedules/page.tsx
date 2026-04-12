@@ -295,7 +295,7 @@ export default function SchedulesPage() {
           <p className="text-sm text-gray-500">目前沒有排程</p>
         ) : (
           <div className="space-y-2">
-            {schedules.map((s, index) => {
+            {[...schedules].sort((a, b) => (a["觸發時間"] ?? "").localeCompare(b["觸發時間"] ?? "")).map((s, index) => {
               const deviceName = s["設備名稱"] ?? "";
               const trigger = s["觸發時間"] ?? "";
               const action = s["動作"] ?? "";
