@@ -10,7 +10,7 @@ export function MobileHeader() {
 
   return (
     <header className="sticky top-0 z-40 flex md:hidden items-center justify-between border-b border-gray-800 bg-gray-900 px-4 py-3">
-      <span className="text-lg font-bold text-white">⚡ Smart Home <span className="text-xs font-normal text-gray-500">v1.0.0</span></span>
+      <span className="text-lg font-bold text-white">⚡ Smart Home <span className="text-xs font-normal text-gray-500">v{process.env.APP_VERSION}</span></span>
       <UserSelector />
     </header>
   );
