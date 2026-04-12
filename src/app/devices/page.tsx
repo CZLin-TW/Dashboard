@@ -81,8 +81,9 @@ function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record
 
 export default function DevicesPage() {
   const { data: rawDevices, loading, refetch: fetchDevices } = useCachedFetch<DeviceData[]>("/api/devices", []);
+  const { data: liveStatus } = useCachedFetch<Record<string, Partial<DeviceData>>>("/api/devices/status", {});
   const { data: options } = useCachedFetch<DeviceOptions>("/api/devices/options", DEFAULT_OPTIONS);
-  const devices = Array.isArray(rawDevices) ? rawDevices : [];
+  const devices = (Array.isArray(rawDevices) ? rawDevices : []).map(d => ({ ...d, ...(liveStatus[d.name] ?? {}) }));
   const pin = usePinnedDevices();
   const allDevices = devices;
 

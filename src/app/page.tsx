@@ -109,12 +109,13 @@ export default function HomePage() {
     options: DeviceOptions;
   }
   const { data: dashboard, refetch: refetchDashboard } = useCachedFetch<DashboardData | null>("/api/dashboard", null);
+  const { data: liveStatus } = useCachedFetch<Record<string, Partial<DeviceData>>>("/api/devices/status", {});
 
   const weatherToday = dashboard?.weatherToday ?? null;
   const weatherTomorrow = dashboard?.weatherTomorrow ?? null;
   const todayHasData = weatherToday && !("error" in weatherToday) && weatherToday.max_t !== null;
   const weather = todayHasData ? weatherToday : weatherTomorrow;
-  const devices = Array.isArray(dashboard?.devices) ? dashboard.devices : [];
+  const devices = (Array.isArray(dashboard?.devices) ? dashboard.devices : []).map(d => ({ ...d, ...(liveStatus[d.name] ?? {}) }));
   const todos = Array.isArray(dashboard?.todos) ? dashboard.todos : [];
   const food = Array.isArray(dashboard?.food) ? dashboard.food : [];
   const options = dashboard?.options ?? DEFAULT_OPTIONS;
