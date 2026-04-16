@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 
 /**
- * Fetch data with sessionStorage cache.
+ * Fetch data with localStorage cache (persists across tab closes).
  * Shows cached data immediately, then updates with fresh data from API.
+ * Cache key is prefixed with APP_VERSION so a version bump auto-invalidates
+ * all old cache entries — protecting users from schema-drift bugs after deploys.
  */
 export function useCachedFetch<T>(url: string, fallback: T) {
-  const cacheKey = `cache:${url}`;
+  const cacheKey = `cache:${process.env.APP_VERSION}:${url}`;
   const [data, setData] = useState<T>(fallback);
   const [loading, setLoading] = useState(true);
   const [hydrated, setHydrated] = useState(false);
@@ -16,7 +18,7 @@ export function useCachedFetch<T>(url: string, fallback: T) {
   useEffect(() => {
     if (!hydrated) {
       try {
-        const cached = sessionStorage.getItem(cacheKey);
+        const cached = localStorage.getItem(cacheKey);
         if (cached) setData(JSON.parse(cached));
       } catch { /* ignore */ }
       setHydrated(true);
@@ -33,7 +35,7 @@ export function useCachedFetch<T>(url: string, fallback: T) {
       .then((fresh) => {
         setData(fresh);
         try {
-          sessionStorage.setItem(cacheKey, JSON.stringify(fresh));
+          localStorage.setItem(cacheKey, JSON.stringify(fresh));
         } catch { /* storage full, ignore */ }
       })
       .catch((err) => {
