@@ -79,11 +79,18 @@ function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record
   return null;
 }
 
+interface DashboardPayload {
+  devices: DeviceData[];
+  options: DeviceOptions;
+}
+
 export default function DevicesPage() {
-  const { data: rawDevices, loading, refetch: fetchDevices } = useCachedFetch<DeviceData[]>("/api/devices", []);
+  // 跟首頁共用 /api/dashboard 的 cache——兩頁切換時不重複 fetch 同一份裝置資料
+  const { data: dashboard, loading, refetch: fetchDevices } = useCachedFetch<DashboardPayload | null>("/api/dashboard", null);
   const { data: liveStatus } = useCachedFetch<Record<string, Partial<DeviceData>>>("/api/devices/status", {});
-  const { data: options } = useCachedFetch<DeviceOptions>("/api/devices/options", DEFAULT_OPTIONS);
-  const devices = (Array.isArray(rawDevices) ? rawDevices : []).map(d => ({ ...d, ...(liveStatus[d.name] ?? {}) }));
+  const rawDevices = dashboard?.devices ?? [];
+  const options = dashboard?.options ?? DEFAULT_OPTIONS;
+  const devices = rawDevices.map(d => ({ ...d, ...(liveStatus[d.name] ?? {}) }));
   const pin = usePinnedDevices();
   const allDevices = devices;
 
