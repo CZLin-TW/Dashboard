@@ -109,7 +109,7 @@ export default function HomePage() {
     options: DeviceOptions;
   }
   const { data: dashboard, refetch: refetchDashboard } = useCachedFetch<DashboardData | null>("/api/dashboard", null);
-  const { data: liveStatus } = useCachedFetch<Record<string, Partial<DeviceData>>>("/api/devices/status", {});
+  const { data: liveStatus, refetch: refetchStatus } = useCachedFetch<Record<string, Partial<DeviceData>>>("/api/devices/status", {});
 
   const weatherToday = dashboard?.weatherToday ?? null;
   const weatherTomorrow = dashboard?.weatherTomorrow ?? null;
@@ -226,20 +226,18 @@ export default function HomePage() {
       for (let i = 0; i < 10; i++) {
         await new Promise(r => setTimeout(r, 1000));
         try {
-          const res = await fetch("/api/devices");
+          const res = await fetch("/api/devices/status");
           const data = await res.json();
-          if (Array.isArray(data)) {
-            const dh = data.find((d: DeviceData) => d.name === deviceName);
-            if (dh) {
-              const matched =
-                (expected.type === "power" && dh.power === expected.value) ||
-                (expected.type === "mode" && dh.mode === expected.value) ||
-                (expected.type === "humidity" && dh.targetHumidity === expected.value);
-              if (matched) {
-                setDhPending(null);
-                refetchDevices();
-                return;
-              }
+          const dh = data?.[deviceName];
+          if (dh) {
+            const matched =
+              (expected.type === "power" && dh.power === expected.value) ||
+              (expected.type === "mode" && dh.mode === expected.value) ||
+              (expected.type === "humidity" && String(dh.targetHumidity) === `${expected.value}%`);
+            if (matched) {
+              setDhPending(null);
+              refetchStatus();
+              return;
             }
           }
         } catch { /* continue polling */ }
@@ -248,7 +246,7 @@ export default function HomePage() {
       setDhPending(null);
       setDhFailed(expected);
       setTimeout(() => setDhFailed(null), 2000);
-      refetchDevices();
+      refetchStatus();
     } finally { setSending(false); }
   }
 

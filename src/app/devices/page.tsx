@@ -87,7 +87,7 @@ interface DashboardPayload {
 export default function DevicesPage() {
   // 跟首頁共用 /api/dashboard 的 cache——兩頁切換時不重複 fetch 同一份裝置資料
   const { data: dashboard, loading, refetch: fetchDevices } = useCachedFetch<DashboardPayload | null>("/api/dashboard", null);
-  const { data: liveStatus } = useCachedFetch<Record<string, Partial<DeviceData>>>("/api/devices/status", {});
+  const { data: liveStatus, refetch: refetchStatus } = useCachedFetch<Record<string, Partial<DeviceData>>>("/api/devices/status", {});
   const rawDevices = dashboard?.devices ?? [];
   const options = dashboard?.options ?? DEFAULT_OPTIONS;
   const devices = rawDevices.map(d => ({ ...d, ...(liveStatus[d.name] ?? {}) }));
@@ -170,20 +170,18 @@ export default function DevicesPage() {
       for (let i = 0; i < 10; i++) {
         await new Promise(r => setTimeout(r, 1000));
         try {
-          const res = await fetch("/api/devices");
+          const res = await fetch("/api/devices/status");
           const data = await res.json();
-          if (Array.isArray(data)) {
-            const dh = data.find((d: DeviceData) => d.name === deviceName);
-            if (dh) {
-              const matched =
-                (expected.type === "power" && dh.power === expected.value) ||
-                (expected.type === "mode" && dh.mode === expected.value) ||
-                (expected.type === "humidity" && dh.targetHumidity === expected.value);
-              if (matched) {
-                setDhPending(null);
-                fetchDevices();
-                return;
-              }
+          const dh = data?.[deviceName];
+          if (dh) {
+            const matched =
+              (expected.type === "power" && dh.power === expected.value) ||
+              (expected.type === "mode" && dh.mode === expected.value) ||
+              (expected.type === "humidity" && String(dh.targetHumidity) === `${expected.value}%`);
+            if (matched) {
+              setDhPending(null);
+              refetchStatus();
+              return;
             }
           }
         } catch { /* continue polling */ }
@@ -193,7 +191,7 @@ export default function DevicesPage() {
       setDhPending(null);
       setDhFailed(expected);
       setTimeout(() => setDhFailed(null), 2000);
-      fetchDevices();
+      refetchStatus();
     } finally {
       setSending(false);
     }
@@ -325,7 +323,7 @@ export default function DevicesPage() {
                         {device.power !== undefined && (<p className="text-xs text-gray-400">目前：{device.power ? "🟢 運轉中" : "⚪ 關閉"}{device.mode && ` · ${device.mode}`}{device.targetHumidity && ` · 目標 ${device.targetHumidity}%`}</p>)}
                         <div><label className="text-xs text-gray-400">電源</label><div className="mt-1 flex gap-2"><button onClick={() => sendDehumidifierCommand(device.name, { power: true })} disabled={sending} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${isFailed("power", true) ? "bg-red-500 text-white animate-pulse" : isPending("power", true) ? "bg-amber-500 text-white animate-pulse" : device.power ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>ON</button><button onClick={() => sendDehumidifierCommand(device.name, { power: false })} disabled={sending} className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${isFailed("power", false) ? "bg-red-500 text-white animate-pulse" : isPending("power", false) ? "bg-amber-500 text-white animate-pulse" : device.power === false ? "bg-red-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>OFF</button></div></div>
                         <div><label className="text-xs text-gray-400">模式</label><div className="mt-1 flex flex-wrap gap-2">{options.dehumidifier.modes.map((m) => (<button key={m.value} onClick={() => sendDehumidifierCommand(device.name, { mode: m.value })} disabled={sending} className={btnClass("mode", m.value, device.mode === m.label)}>{m.label}</button>))}</div></div>
-                        <div><label className="text-xs text-gray-400">目標濕度</label><div className="mt-1 flex flex-wrap gap-2">{options.dehumidifier.humidity.map((h) => (<button key={h} onClick={() => sendDehumidifierCommand(device.name, { humidity: h })} disabled={sending} className={btnClass("humidity", h, device.targetHumidity === h)}>{h}%</button>))}</div></div>
+                        <div><label className="text-xs text-gray-400">目標濕度</label><div className="mt-1 flex flex-wrap gap-2">{options.dehumidifier.humidity.map((h) => (<button key={h} onClick={() => sendDehumidifierCommand(device.name, { humidity: h })} disabled={sending} className={btnClass("humidity", h, String(device.targetHumidity) === `${h}%`)}>{h}%</button>))}</div></div>
                       </div>
                     )}
 
