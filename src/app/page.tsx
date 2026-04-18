@@ -8,6 +8,19 @@ import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import { useState } from "react";
 
+/** 把 CWA 天氣現象文字對應到 emoji，比對順序由強到弱（雷最緊急、多雲最輕）。*/
+function wxEmoji(wx: string | null | undefined): string {
+  if (!wx) return "🌤️";
+  if (wx.includes("雷")) return "⛈️";
+  if (wx.includes("雨")) return "🌧️";
+  if (wx.includes("雪")) return "❄️";
+  if (wx.includes("霧")) return "🌫️";
+  if (wx.includes("陰")) return "☁️";
+  if (wx.includes("多雲")) return "⛅";
+  if (wx.includes("晴")) return "☀️";
+  return "🌤️";
+}
+
 interface WeatherData {
   location: string;
   city: string;
@@ -311,7 +324,9 @@ export default function HomePage() {
       {/* Weather */}
       <Card>
         <CardHeader>
-          <CardTitle>🌤️ 天氣{weather?.date_label && !todayHasData ? `（${weather.date_label}）` : ""}</CardTitle>
+          <CardTitle>
+            📍 {weather?.location ?? "--"} {weather?.observation?.observed_at ?? "--:--"}
+          </CardTitle>
         </CardHeader>
         {weather && !("error" in weather) && weather.max_t !== null ? (
           <>
@@ -322,13 +337,11 @@ export default function HomePage() {
               <span className="text-3xl font-bold">
                 {weather.observation?.humidity !== null && weather.observation?.humidity !== undefined ? `${weather.observation.humidity}%` : "--%"}
               </span>
-              <span className="text-gray-400">{weather.forecast.next_24h.wx ?? weather.wx}</span>
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              📍 {weather.city}{weather.location}
-              {weather.forecast.next_24h.min_t !== null && weather.forecast.next_24h.max_t !== null && ` · 未來 24h ${weather.forecast.next_24h.min_t}~${weather.forecast.next_24h.max_t}°C`}
+              未來24h {wxEmoji(weather.forecast.next_24h.wx)} {weather.forecast.next_24h.wx ?? ""}
+              {weather.forecast.next_24h.min_t !== null && weather.forecast.next_24h.max_t !== null && ` · ${weather.forecast.next_24h.min_t}~${weather.forecast.next_24h.max_t}°C`}
               {weather.forecast.next_24h.pop !== null && ` · 降雨 ${weather.forecast.next_24h.pop}%`}
-              {weather.observation && ` · ${weather.observation.observed_at} ${weather.observation.station}`}
             </p>
           </>
         ) : (
@@ -345,7 +358,7 @@ export default function HomePage() {
           <>
             <div className="flex items-baseline gap-6">
               <div><span className="text-3xl font-bold">{pinnedSensor.temperature}°C</span></div>
-              <div><span className="text-3xl font-bold">{pinnedSensor.humidity}%</span><span className="ml-1 text-sm text-gray-400">濕度</span></div>
+              <div><span className="text-3xl font-bold">{pinnedSensor.humidity}%</span></div>
             </div>
             <p className="mt-1 text-sm text-gray-500">{pinnedSensor.location || pinnedSensor.name}</p>
           </>
