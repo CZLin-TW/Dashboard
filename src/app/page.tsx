@@ -19,7 +19,27 @@ interface WeatherData {
   min_at: number | null;
   max_at: number | null;
   pop: number | null;
-  current_rh: number | null;
+  observation: {
+    station: string;
+    temp: number | null;
+    humidity: number | null;
+    observed_at: string;
+  } | null;
+  forecast: {
+    current_segment: {
+      wx: string | null;
+      min_t: number | null;
+      max_t: number | null;
+      pop: number | null;
+      rh: number | null;
+    };
+    next_24h: {
+      wx: string | null;
+      min_t: number | null;
+      max_t: number | null;
+      pop: number | null;
+    };
+  };
 }
 
 interface DeviceData {
@@ -296,15 +316,19 @@ export default function HomePage() {
         {weather && !("error" in weather) && weather.max_t !== null ? (
           <>
             <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-bold">{weather.max_t}°C</span>
-              {weather.current_rh !== null && (
-                <span className="text-3xl font-bold">{weather.current_rh}%</span>
-              )}
-              <span className="text-gray-400">{weather.wx}</span>
+              <span className="text-3xl font-bold">
+                {weather.observation?.temp !== null && weather.observation?.temp !== undefined ? `${weather.observation.temp}°C` : "--°C"}
+              </span>
+              <span className="text-3xl font-bold">
+                {weather.observation?.humidity !== null && weather.observation?.humidity !== undefined ? `${weather.observation.humidity}%` : "--%"}
+              </span>
+              <span className="text-gray-400">{weather.forecast.next_24h.wx ?? weather.wx}</span>
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              📍 {weather.city}{weather.location} · {weather.min_t}~{weather.max_t}°C
-              {weather.pop !== null && ` · 降雨 ${weather.pop}%`}
+              📍 {weather.city}{weather.location}
+              {weather.forecast.next_24h.min_t !== null && weather.forecast.next_24h.max_t !== null && ` · 未來 24h ${weather.forecast.next_24h.min_t}~${weather.forecast.next_24h.max_t}°C`}
+              {weather.forecast.next_24h.pop !== null && ` · 降雨 ${weather.forecast.next_24h.pop}%`}
+              {weather.observation && ` · ${weather.observation.observed_at} ${weather.observation.station}`}
             </p>
           </>
         ) : (
