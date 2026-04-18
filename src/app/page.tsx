@@ -19,8 +19,7 @@ interface WeatherData {
   min_at: number | null;
   max_at: number | null;
   pop: number | null;
-  min_rh: number | null;
-  max_rh: number | null;
+  current_rh: number | null;
 }
 
 interface DeviceData {
@@ -298,12 +297,14 @@ export default function HomePage() {
           <>
             <div className="flex items-baseline gap-3">
               <span className="text-3xl font-bold">{weather.max_t}°C</span>
+              {weather.current_rh !== null && (
+                <span className="text-3xl font-bold">{weather.current_rh}%</span>
+              )}
               <span className="text-gray-400">{weather.wx}</span>
             </div>
             <p className="mt-1 text-sm text-gray-500">
               📍 {weather.city}{weather.location} · {weather.min_t}~{weather.max_t}°C
               {weather.pop !== null && ` · 降雨 ${weather.pop}%`}
-              {weather.max_rh !== null && weather.min_rh !== null && ` · 濕度 ${weather.min_rh}~${weather.max_rh}%`}
             </p>
           </>
         ) : (
