@@ -25,9 +25,9 @@ export function useCachedFetch<T>(url: string, fallback: T) {
     }
   }, [cacheKey, hydrated]);
 
-  const refetch = useCallback(() => {
+  const refetch = useCallback((): Promise<void> => {
     setLoading(true);
-    fetch(url)
+    return fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
