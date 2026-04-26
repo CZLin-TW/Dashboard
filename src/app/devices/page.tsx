@@ -102,6 +102,7 @@ export default function DevicesPage() {
   const [acPendingMap, setAcPendingMap] = useState<Record<string, AcPendingState>>({});
   const [acDirtyMap, setAcDirtyMap] = useState<Record<string, boolean>>({});
   const [acFailedMap, setAcFailedMap] = useState<Record<string, boolean>>({});
+  const [acWaitingMap, setAcWaitingMap] = useState<Record<string, boolean>>({});
 
   function getAcPending(device: DeviceData): AcPendingState {
     return acPendingMap[device.name] ?? acPendingFromDevice(device);
@@ -137,13 +138,15 @@ export default function DevicesPage() {
         flashAcFailed(device.name);
         return;
       }
-      // Drop local pending so the next render reads the freshly-saved last state.
-      setAcPendingMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
       setAcDirtyMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
-      fetchDevices();
+      setAcWaitingMap((prev) => ({ ...prev, [device.name]: true }));
+      await fetchDevices();
+      setAcPendingMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
+      setAcWaitingMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
     } catch (err) {
       console.error(`[sendAcCommand] ${device.name} network error:`, err);
       flashAcFailed(device.name);
+      setAcWaitingMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
     } finally {
       setSending(false);
     }
@@ -297,12 +300,17 @@ export default function DevicesPage() {
                       const pending = getAcPending(device);
                       const dirty = !!acDirtyMap[device.name];
                       const failed = !!acFailedMap[device.name];
+                      const waiting = !!acWaitingMap[device.name];
                       const lastTime = device.lastUpdatedAt ? (device.lastUpdatedAt.split(" ")[1] || device.lastUpdatedAt) : "";
                       return (
                       <div className="space-y-3">
-                        {device.lastPower ? (
+                        {(device.lastPower || waiting) ? (
                           <p className="text-xs text-gray-400">
-                            目前：{device.lastPower === "on" ? (
+                            目前：{waiting ? (
+                              <><span className="animate-pulse">🟡</span>{pending.power ? (
+                                <>{pending.temperature !== undefined && ` ${pending.temperature}°C`}{pending.mode && ` ${pending.mode}`}{pending.fanSpeed && ` ${pending.fanSpeed}`}</>
+                              ) : " 關閉"}</>
+                            ) : device.lastPower === "on" ? (
                               <>🟢 {device.lastTemperature !== undefined && device.lastTemperature !== "" && `${device.lastTemperature}°C`}{device.lastMode && ` ${device.lastMode}`}{device.lastFanSpeed && ` ${device.lastFanSpeed}`}</>
                             ) : "⚪ 關閉"}{lastTime && ` · ${lastTime}`}
                           </p>
