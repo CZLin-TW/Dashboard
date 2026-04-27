@@ -5,61 +5,14 @@ import { useSearchParams } from "next/navigation";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
-
-interface AcPendingState {
-  power: boolean;
-  temperature: number;
-  mode: string;
-  fanSpeed: string;
-}
-
-interface DeviceData {
-  name: string;
-  type: string;
-  location: string;
-  deviceId: string;
-  temperature?: number;
-  humidity?: number;
-  power?: boolean;
-  mode?: string;
-  targetHumidity?: number;
-  buttons?: string;
-  lastPower?: string;
-  lastTemperature?: number | string;
-  lastMode?: string;
-  lastFanSpeed?: string;
-  lastUpdatedAt?: string;
-}
-
-function acPendingFromDevice(device: DeviceData): AcPendingState {
-  const raw = device.lastTemperature;
-  const tempNum =
-    typeof raw === "number" ? raw :
-    typeof raw === "string" && raw.trim() !== "" ? parseInt(raw, 10) : NaN;
-  return {
-    power: device.lastPower === "on",
-    temperature: Number.isFinite(tempNum) ? tempNum : 26,
-    mode: device.lastMode || "",
-    fanSpeed: device.lastFanSpeed || "",
-  };
-}
-
-interface DeviceOptions {
-  ac: {
-    modes: Array<{ value: string; label: string }>;
-    fan_speeds: Array<{ value: string; label: string }>;
-    temperature: { min: number; max: number };
-  };
-  dehumidifier: {
-    modes: Array<{ value: string; label: string }>;
-    humidity: number[];
-  };
-}
-
-const DEFAULT_OPTIONS: DeviceOptions = {
-  ac: { modes: [], fan_speeds: [], temperature: { min: 16, max: 30 } },
-  dehumidifier: { modes: [], humidity: [] },
-};
+import {
+  AcPendingState,
+  DeviceData,
+  DeviceOptions,
+  DEFAULT_OPTIONS,
+  DEVICE_ICONS,
+  acPendingFromDevice,
+} from "@/components/home/types";
 
 function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
   const searchParams = useSearchParams();
@@ -215,10 +168,6 @@ export default function DevicesPage() {
   const sensors = allDevices.filter(d => d.type === "感應器");
   const controllable = allDevices.filter(d => d.type !== "感應器");
 
-  const deviceIcons: Record<string, string> = {
-    "空調": "❄️", "IR": "🌀", "除濕機": "💨",
-  };
-
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <Suspense>
@@ -280,7 +229,7 @@ export default function DevicesPage() {
                 <div key={device.name} ref={(el) => { deviceRefs.current[device.name] = el; }}>
                   <Card className={pin.isDevicePinned(device.name) ? "border-blue-500/30" : ""}>
                     <CardHeader>
-                      <CardTitle>{deviceIcons[device.type] ?? "📱"} {device.name}</CardTitle>
+                      <CardTitle>{DEVICE_ICONS[device.type] ?? "📱"} {device.name}</CardTitle>
                       <button
                         onClick={() => pin.togglePinDevice(device.name)}
                         disabled={!pin.isDevicePinned(device.name) && !pin.canPinMore}
