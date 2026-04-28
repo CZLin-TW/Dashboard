@@ -15,10 +15,10 @@ interface Props {
   /** 已釘選且要顯示的可控設備（不含感應器）。順序依釘選順序。 */
   devices: DeviceData[];
   options: DeviceOptions;
-  /** AC 指令送出成功後呼叫，由父層 refetch dashboard 取最新 last 狀態。 */
-  onAcCommandSent: () => void;
+  /** AC 指令送出成功後呼叫，由父層 refetch dashboard 取最新 last 狀態。回傳 Promise 讓本層能 await 確保 prop 已更新後再清 pending。 */
+  onAcCommandSent: () => Promise<void> | void;
   /** 除濕機指令送出且輪詢確認後呼叫，由父層 refetch /api/devices/status。 */
-  onDehumidifierCommandSent: () => void;
+  onDehumidifierCommandSent: () => Promise<void> | void;
 }
 
 /**
@@ -124,6 +124,9 @@ export function DeviceQuickControl({
                 (d.lastFanSpeed || "") === pending.fanSpeed
               : d.lastPower === "off";
             if (matched) {
+              // 先 await parent refetch，確保 device prop 已經帶到新 last 狀態，再清 pending；
+              // React 18 自動 batch，下一輪 render 同時看到新 prop + 清空的 pending，避免 flicker。
+              await onAcCommandSent();
               setAcPendingMap((prev) => {
                 const next = { ...prev };
                 delete next[device.name];
@@ -135,7 +138,6 @@ export function DeviceQuickControl({
                 return next;
               });
               clearAcAwaiting(device.name);
-              onAcCommandSent();
               return;
             }
           }
