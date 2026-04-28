@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { motion } from "motion/react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   type DeviceData,
@@ -571,12 +572,15 @@ export function DeviceQuickControl({
 
           return (
             <React.Fragment key={device.name}>
-              <button
+              <motion.button
                 onClick={() => toggleExpand(device.name)}
-                className={`relative flex flex-col items-center gap-2 rounded-xl border p-4 transition-colors ${
+                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 backdrop-blur-xl shadow-lg shadow-black/20 ring-1 ring-white/5 transition-colors ${
                   expandedDevice === device.name
-                    ? "border-blue-500/50 bg-blue-500/10"
-                    : "border-gray-700 bg-gray-800/50 hover:bg-gray-800"
+                    ? "border-blue-400/40 bg-blue-500/15"
+                    : "border-white/5 bg-gray-800/40 hover:bg-gray-800/60"
                 }`}
               >
                 {isRunning && (
@@ -584,8 +588,8 @@ export function DeviceQuickControl({
                     aria-label="運作中"
                     className="absolute top-2 left-2 flex h-2.5 w-2.5"
                   >
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e]" />
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
                   </span>
                 )}
                 <span className="text-2xl">{DEVICE_ICONS[device.type] ?? "📱"}</span>
@@ -593,7 +597,7 @@ export function DeviceQuickControl({
                 {device.location && (
                   <span className="text-xs text-gray-500">{device.location}</span>
                 )}
-              </button>
+              </motion.button>
               {showMobilePanel && (
                 <div className="col-span-2 sm:hidden">{renderPanel(expandedDev!)}</div>
               )}
