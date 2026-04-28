@@ -17,7 +17,7 @@ export function FoodAlertCard({ food }: Props) {
     <Card>
       <CardHeader>
         <CardTitle>⚠️ 即期食品</CardTitle>
-        <Link href="/food" className="text-sm text-blue-400 hover:text-blue-300">
+        <Link href="/food" className="text-sm text-cool hover:text-cool/80">
           查看全部 →
         </Link>
       </CardHeader>
@@ -28,14 +28,14 @@ export function FoodAlertCard({ food }: Props) {
             const label = days === 0 ? "今天到期" : days === 1 ? "明天到期" : `${days}天後到期`;
             return (
               <li key={i} className="flex items-center justify-between text-sm">
-                <span className="text-gray-200">{f["品名"]} {f["數量"]}{f["單位"]}</span>
-                <span className="text-xs text-red-400">{label}</span>
+                <span className="text-soft">{f["品名"]} {f["數量"]}{f["單位"]}</span>
+                <span className="text-xs text-warm">{label}</span>
               </li>
             );
           })}
         </ul>
       ) : (
-        <p className="text-sm text-gray-500">沒有即期食品</p>
+        <p className="text-sm text-mute">沒有即期食品</p>
       )}
     </Card>
   );

@@ -24,12 +24,12 @@ export function IndoorSensorCard({ sensor }: Props) {
             <div><span className="text-3xl font-bold">{sensor.temperature}°C</span></div>
             <div><span className="text-3xl font-bold">{sensor.humidity}%</span></div>
           </div>
-          <p className="mt-1 text-sm text-gray-500">{sensor.location || sensor.name}</p>
+          <p className="mt-1 text-sm text-mute">{sensor.location || sensor.name}</p>
         </>
       ) : (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-mute">
           請到
-          <Link href="/devices" className="text-blue-400 hover:text-blue-300 mx-1">裝置頁</Link>
+          <Link href="/devices" className="text-cool hover:text-cool/80 mx-1">裝置頁</Link>
           📌 釘選一個感測器
         </p>
       )}

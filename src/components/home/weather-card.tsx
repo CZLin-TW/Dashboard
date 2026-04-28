@@ -33,14 +33,14 @@ export function WeatherCard({ weather }: Props) {
               {obs?.humidity !== null && obs?.humidity !== undefined ? `${obs.humidity}%` : "--%"}
             </span>
           </div>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-mute">
             未來24h {wxEmoji(next24h?.wx)} {next24h?.wx ?? ""}
             {next24h?.min_t !== null && next24h?.max_t !== null && next24h?.min_t !== undefined && next24h?.max_t !== undefined && ` · ${next24h.min_t}~${next24h.max_t}°C`}
             {next24h?.pop !== null && next24h?.pop !== undefined && ` · 降雨 ${next24h.pop}%`}
           </p>
         </>
       ) : (
-        <p className="text-sm text-gray-500">載入中...</p>
+        <p className="text-sm text-mute">載入中...</p>
       )}
     </Card>
   );

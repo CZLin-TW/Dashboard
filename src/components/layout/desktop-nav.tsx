@@ -11,10 +11,10 @@ export function DesktopNav() {
   if (pathname === "/login") return null;
 
   return (
-    <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-3">
+    <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b border-mute/15 bg-surface/80 backdrop-blur-md px-6 py-3">
       <div className="flex items-center gap-8">
-        <Link href="/" className="flex items-center gap-2 text-lg font-bold text-white">
-          ⚡ Smart Home <span className="text-xs font-normal text-gray-500">v{process.env.APP_VERSION}</span>
+        <Link href="/" className="flex items-center gap-2 text-lg font-bold text-soft">
+          ⚡ Smart Home <span className="text-xs font-normal text-mute">v{process.env.APP_VERSION}</span>
         </Link>
         <nav className="flex items-center gap-1">
           {NAV_ITEMS.map((item) => {
@@ -25,8 +25,8 @@ export function DesktopNav() {
                 href={item.href}
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-300 hover:bg-white/10 hover:text-white"
+                    ? "bg-cool/30 text-soft"
+                    : "text-mute hover:bg-white/5 hover:text-soft"
                 }`}
               >
                 <span className="mr-1.5">{item.icon}</span>

@@ -9,8 +9,8 @@ export function MobileHeader() {
   if (pathname === "/login") return null;
 
   return (
-    <header className="sticky top-0 z-40 flex md:hidden items-center justify-between border-b border-gray-800 bg-gray-900 px-4 py-3">
-      <span className="text-lg font-bold text-white">⚡ Smart Home <span className="text-xs font-normal text-gray-500">v{process.env.APP_VERSION}</span></span>
+    <header className="sticky top-0 z-40 flex md:hidden items-center justify-between border-b border-mute/15 bg-surface/85 backdrop-blur-md px-4 py-3">
+      <span className="text-lg font-bold text-soft">⚡ Smart Home <span className="text-xs font-normal text-mute">v{process.env.APP_VERSION}</span></span>
       <UserSelector />
     </header>
   );

@@ -50,7 +50,7 @@ export function TodoListCard({ todos, onCompleted }: Props) {
     <Card>
       <CardHeader>
         <CardTitle>☑️ 待辦事項</CardTitle>
-        <Link href="/todos" className="text-sm text-blue-400 hover:text-blue-300">
+        <Link href="/todos" className="text-sm text-cool hover:text-cool/80">
           查看全部 →
         </Link>
       </CardHeader>
@@ -70,8 +70,8 @@ export function TodoListCard({ todos, onCompleted }: Props) {
                   disabled={isCompleting}
                   className={`flex-shrink-0 w-4 h-4 rounded border-2 transition-colors ${
                     isCompleting
-                      ? "border-green-400 bg-green-400"
-                      : "border-gray-500 hover:border-green-400 hover:bg-green-400/20"
+                      ? "border-fresh bg-fresh"
+                      : "border-mute/50 hover:border-fresh hover:bg-fresh/20"
                   }`}
                   title="標記完成"
                 >
@@ -91,17 +91,17 @@ export function TodoListCard({ todos, onCompleted }: Props) {
                     </svg>
                   )}
                 </button>
-                <span className="text-gray-200">
+                <span className="text-soft">
                   {todo["事項"]}
-                  {todo["時間"] && <span className="ml-1 text-gray-500">{todo["時間"]}</span>}
+                  {todo["時間"] && <span className="ml-1 text-mute">{todo["時間"]}</span>}
                 </span>
-                <span className="ml-auto text-xs text-gray-500">{todo["日期"]}</span>
+                <span className="ml-auto text-xs text-mute">{todo["日期"]}</span>
               </li>
             );
           })}
         </ul>
       ) : (
-        <p className="text-sm text-gray-500">沒有待辦事項</p>
+        <p className="text-sm text-mute">沒有待辦事項</p>
       )}
     </Card>
   );

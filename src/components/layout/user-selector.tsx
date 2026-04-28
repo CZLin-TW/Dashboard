@@ -20,13 +20,13 @@ export function UserSelector() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      <div className="absolute right-0 top-full mt-1 w-40 rounded-lg bg-gray-800 border border-gray-700 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-        <div className="px-4 py-2.5 text-sm text-gray-300 border-b border-gray-700">
+      <div className="absolute right-0 top-full mt-1 w-40 rounded-xl bg-elevated border border-mute/15 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+        <div className="px-4 py-2.5 text-sm text-soft border-b border-mute/15">
           {currentUser.name}
         </div>
         <button
           onClick={logout}
-          className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-400 hover:bg-white/10 rounded-b-lg transition-colors"
+          className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-warm hover:bg-white/5 rounded-b-xl transition-colors"
         >
           登出
         </button>

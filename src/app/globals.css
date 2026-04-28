@@ -1,8 +1,20 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-background: #0a0a0a;
-  --color-foreground: #ededed;
+  /* Surfaces — 略帶冷色調的暗面，避免純黑顯得死板 */
+  --color-background: #0E1117;   /* page bg */
+  --color-foreground: #C5C5CA;   /* primary text */
+  --color-surface: #161B22;      /* card */
+  --color-elevated: #1F262E;     /* panel inside card */
+
+  /* Text scale */
+  --color-mute: #8EA6B2;         /* secondary text / hints */
+  --color-soft: #C5C5CA;         /* same as foreground, alias for clarity */
+
+  /* Brand accents — 低飽和 palette */
+  --color-cool: #3A6289;         /* AC / info */
+  --color-fresh: #3C977D;        /* dehumidifier / primary action / success */
+  --color-warm: #DF766E;         /* IR / destructive / warning */
 }
 
 body {

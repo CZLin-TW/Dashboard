@@ -25,13 +25,13 @@ const DEVICE_LUCIDE_ICONS: Record<string, React.ComponentType<{ className?: stri
 type Accent = { iconClass: string; activeBorder: string; activeBg: string };
 const DEVICE_ACCENT: Record<string, Accent> = {
   // 空調：深藍 #3A6289（cooling）
-  "空調":   { iconClass: "text-[#8EA6B2] drop-shadow-[0_0_10px_rgba(58,98,137,0.55)]",  activeBorder: "border-[#3A6289]/60",  activeBg: "from-[#3A6289]/35 to-zinc-900" },
+  "空調":   { iconClass: "text-[#8EA6B2] drop-shadow-[0_0_10px_rgba(58,98,137,0.55)]",  activeBorder: "border-[#3A6289]/60",  activeBg: "from-[#3A6289]/35 to-surface" },
   // 除濕機：鼠尾草 #3C977D（fresh / water）
-  "除濕機": { iconClass: "text-[#3C977D] drop-shadow-[0_0_10px_rgba(60,152,125,0.55)]", activeBorder: "border-[#3C977D]/60", activeBg: "from-[#3C977D]/30 to-zinc-900" },
+  "除濕機": { iconClass: "text-[#3C977D] drop-shadow-[0_0_10px_rgba(60,152,125,0.55)]", activeBorder: "border-[#3C977D]/60", activeBg: "from-[#3C977D]/30 to-surface" },
   // IR：珊瑚 #DF766E（warm / energy）
-  "IR":     { iconClass: "text-[#DF766E] drop-shadow-[0_0_10px_rgba(223,118,110,0.55)]", activeBorder: "border-[#DF766E]/60", activeBg: "from-[#DF766E]/25 to-zinc-900" },
+  "IR":     { iconClass: "text-[#DF766E] drop-shadow-[0_0_10px_rgba(223,118,110,0.55)]", activeBorder: "border-[#DF766E]/60", activeBg: "from-[#DF766E]/25 to-surface" },
 };
-const DEFAULT_ACCENT: Accent = { iconClass: "text-[#C5C5CA]", activeBorder: "border-[#8EA6B2]/50", activeBg: "from-[#8EA6B2]/20 to-zinc-900" };
+const DEFAULT_ACCENT: Accent = { iconClass: "text-[#C5C5CA]", activeBorder: "border-[#8EA6B2]/50", activeBg: "from-[#8EA6B2]/20 to-surface" };
 
 interface Props {
   /** 已釘選且要顯示的可控設備（不含感應器）。順序依釘選順序。 */
@@ -258,10 +258,10 @@ export function DeviceQuickControl({
   /** 除濕機按鈕的 className：失敗閃紅、pending 閃黃、active 藍、其他灰。 */
   function dhBtnClass(type: string, value: unknown, isActive: boolean) {
     const base = "rounded px-2.5 py-1 text-xs font-medium transition-colors";
-    if (isDhFailed(type, value)) return `${base} bg-red-500 text-white animate-pulse`;
+    if (isDhFailed(type, value)) return `${base} bg-warm text-white animate-pulse`;
     if (isDhPending(type, value)) return `${base} bg-amber-500 text-white animate-pulse`;
-    if (isActive) return `${base} bg-blue-600 text-white`;
-    return `${base} bg-gray-700 text-gray-300`;
+    if (isActive) return `${base} bg-cool text-white`;
+    return `${base} bg-elevated text-soft`;
   }
 
   function renderAcPanel(device: DeviceData) {
@@ -276,7 +276,7 @@ export function DeviceQuickControl({
     return (
       <>
         {device.lastPower ? (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-mute">
             目前：
             {device.lastPower === "on" ? (
               <>
@@ -293,16 +293,16 @@ export function DeviceQuickControl({
             {lastTime && ` · ${lastTime}`}
           </p>
         ) : (
-          <p className="text-xs text-gray-500">尚無使用記錄</p>
+          <p className="text-xs text-mute">尚無使用記錄</p>
         )}
 
         <div>
-          <label className="text-xs text-gray-400">電源</label>
+          <label className="text-xs text-mute">電源</label>
           <div className="mt-1 flex gap-2">
             <button
               onClick={() => updateAcPending(device, { power: true })}
               className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
-                pending.power ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"
+                pending.power ? "bg-cool text-white" : "bg-elevated text-soft"
               }`}
             >
               ON
@@ -310,7 +310,7 @@ export function DeviceQuickControl({
             <button
               onClick={() => updateAcPending(device, { power: false })}
               className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
-                !pending.power ? "bg-red-600 text-white" : "bg-gray-700 text-gray-300"
+                !pending.power ? "bg-warm text-white" : "bg-elevated text-soft"
               }`}
             >
               OFF
@@ -319,7 +319,7 @@ export function DeviceQuickControl({
         </div>
 
         <div>
-          <label className="text-xs text-gray-400">溫度</label>
+          <label className="text-xs text-mute">溫度</label>
           <div className="mt-1 flex items-center gap-2">
             <button
               onClick={() =>
@@ -327,7 +327,7 @@ export function DeviceQuickControl({
                   temperature: Math.max(options.ac.temperature.min, pending.temperature - 1),
                 })
               }
-              className="flex h-7 w-7 items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-sm"
+              className="flex h-7 w-7 items-center justify-center rounded bg-elevated hover:bg-mute/20 text-sm"
             >
               −
             </button>
@@ -338,7 +338,7 @@ export function DeviceQuickControl({
                   temperature: Math.min(options.ac.temperature.max, pending.temperature + 1),
                 })
               }
-              className="flex h-7 w-7 items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-sm"
+              className="flex h-7 w-7 items-center justify-center rounded bg-elevated hover:bg-mute/20 text-sm"
             >
               +
             </button>
@@ -346,14 +346,14 @@ export function DeviceQuickControl({
         </div>
 
         <div>
-          <label className="text-xs text-gray-400">模式</label>
+          <label className="text-xs text-mute">模式</label>
           <div className="mt-1 flex flex-wrap gap-1.5">
             {options.ac.modes.map((m) => (
               <button
                 key={m.value}
                 onClick={() => updateAcPending(device, { mode: m.value })}
                 className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                  pending.mode === m.value ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"
+                  pending.mode === m.value ? "bg-cool text-white" : "bg-elevated text-soft"
                 }`}
               >
                 {m.label}
@@ -363,7 +363,7 @@ export function DeviceQuickControl({
         </div>
 
         <div>
-          <label className="text-xs text-gray-400">風速</label>
+          <label className="text-xs text-mute">風速</label>
           <div className="mt-1 flex flex-wrap gap-1.5">
             {options.ac.fan_speeds.map((s) => (
               <button
@@ -371,8 +371,8 @@ export function DeviceQuickControl({
                 onClick={() => updateAcPending(device, { fanSpeed: s.value })}
                 className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
                   pending.fanSpeed === s.value
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-700 text-gray-300"
+                    ? "bg-cool text-white"
+                    : "bg-elevated text-soft"
                 }`}
               >
                 {s.label}
@@ -386,12 +386,12 @@ export function DeviceQuickControl({
           disabled={sending}
           className={`w-full rounded-lg py-2 text-sm font-bold transition-colors ${
             failed
-              ? "bg-red-500 text-white animate-pulse"
+              ? "bg-warm text-white animate-pulse"
               : awaiting
               ? "bg-amber-500 text-white animate-pulse"
               : dirty
-              ? "bg-green-600 text-white hover:bg-green-700"
-              : "bg-gray-700 text-gray-400"
+              ? "bg-fresh text-white hover:bg-fresh/85"
+              : "bg-elevated text-mute"
           }`}
         >
           {failed
@@ -413,7 +413,7 @@ export function DeviceQuickControl({
       <>
         <div>
           {device.power !== undefined && (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-mute">
               目前：{device.power ? "🟢 運轉中" : "⚪ 關閉"}
               {device.mode && ` · ${device.mode}`}
               {device.targetHumidity && ` · ${device.targetHumidity}`}
@@ -421,19 +421,19 @@ export function DeviceQuickControl({
           )}
         </div>
         <div>
-          <label className="text-xs text-gray-400">電源</label>
+          <label className="text-xs text-mute">電源</label>
           <div className="mt-1 flex gap-2">
             <button
               onClick={() => sendDehumidifierCommand(device.name, { power: true })}
               disabled={sending}
               className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
                 isDhFailed("power", true)
-                  ? "bg-red-500 text-white animate-pulse"
+                  ? "bg-warm text-white animate-pulse"
                   : isDhPending("power", true)
                   ? "bg-amber-500 text-white animate-pulse"
                   : device.power
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-700 text-gray-300"
+                  ? "bg-cool text-white"
+                  : "bg-elevated text-soft"
               }`}
             >
               ON
@@ -443,12 +443,12 @@ export function DeviceQuickControl({
               disabled={sending}
               className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
                 isDhFailed("power", false)
-                  ? "bg-red-500 text-white animate-pulse"
+                  ? "bg-warm text-white animate-pulse"
                   : isDhPending("power", false)
                   ? "bg-amber-500 text-white animate-pulse"
                   : device.power === false
-                  ? "bg-red-600 text-white"
-                  : "bg-gray-700 text-gray-300"
+                  ? "bg-warm text-white"
+                  : "bg-elevated text-soft"
               }`}
             >
               OFF
@@ -456,7 +456,7 @@ export function DeviceQuickControl({
           </div>
         </div>
         <div>
-          <label className="text-xs text-gray-400">模式</label>
+          <label className="text-xs text-mute">模式</label>
           <div className="mt-1 flex flex-wrap gap-1.5">
             {options.dehumidifier.modes.map((m) => (
               <button
@@ -471,7 +471,7 @@ export function DeviceQuickControl({
           </div>
         </div>
         <div>
-          <label className="text-xs text-gray-400">目標濕度</label>
+          <label className="text-xs text-mute">目標濕度</label>
           <div className="mt-1 flex flex-wrap gap-1.5">
             {options.dehumidifier.humidity.map((h) => (
               <button
@@ -496,19 +496,19 @@ export function DeviceQuickControl({
       .filter(Boolean);
     return (
       <div>
-        <label className="text-xs text-gray-400">遙控按鈕</label>
+        <label className="text-xs text-mute">遙控按鈕</label>
         <div className="mt-1 flex flex-wrap gap-2">
           {buttons.map((btn) => (
             <button
               key={btn}
               onClick={() => sendIrCommand(device.name, btn)}
-              className="rounded-lg bg-gray-700 px-3 py-1.5 text-sm font-medium text-gray-200 hover:bg-gray-600 active:bg-gray-500 transition-colors"
+              className="rounded-lg bg-elevated px-3 py-1.5 text-sm font-medium text-soft hover:bg-mute/20 active:bg-mute/30 transition-colors"
             >
               {btn}
             </button>
           ))}
         </div>
-        <p className="mt-1 text-xs text-gray-500">IR 單向發送，不會回傳狀態</p>
+        <p className="mt-1 text-xs text-mute">IR 單向發送，不會回傳狀態</p>
       </div>
     );
   }
@@ -517,18 +517,18 @@ export function DeviceQuickControl({
     const Icon = DEVICE_LUCIDE_ICONS[device.type];
     const accent = DEVICE_ACCENT[device.type] ?? DEFAULT_ACCENT;
     return (
-      <div className="rounded-2xl border border-white/5 bg-gradient-to-br from-zinc-800/60 to-zinc-900/80 p-4 space-y-4 shadow-inner shadow-black/30">
+      <div className="rounded-2xl border border-mute/15 bg-gradient-to-br from-elevated to-surface p-4 space-y-4 shadow-inner shadow-black/30">
         <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-200">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-soft">
             {Icon ? <Icon className={`h-4 w-4 ${accent.iconClass}`} strokeWidth={2} /> : <span>{DEVICE_ICONS[device.type]}</span>}
             <span>{device.name}</span>
             {device.location && (
-              <span className="ml-1 text-xs font-normal text-gray-500">{device.location}</span>
+              <span className="ml-1 text-xs font-normal text-mute">{device.location}</span>
             )}
           </h3>
           <button
             onClick={() => setExpandedDevice(null)}
-            className="text-xs text-gray-500 hover:text-gray-300"
+            className="text-xs text-mute hover:text-soft"
           >
             收合 ▲
           </button>
@@ -546,49 +546,31 @@ export function DeviceQuickControl({
       <Card>
         <CardHeader>
           <CardTitle>📱 裝置快捷</CardTitle>
-          <Link href="/devices" className="text-sm text-blue-400 hover:text-blue-300">
+          <Link href="/devices" className="text-sm text-cool hover:text-cool/80">
             查看全部 →
           </Link>
         </CardHeader>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-mute">
           請到
-          <Link href="/devices" className="text-blue-400 hover:text-blue-300 mx-1">裝置頁</Link>
+          <Link href="/devices" className="text-cool hover:text-cool/80 mx-1">裝置頁</Link>
           📌 釘選裝置
         </p>
       </Card>
     );
   }
 
-  // 展開的設備位置：用來把面板插在「該 row 的最後一格之後」，視覺上展開的卡會推開下方
   const expandedDev = expandedDevice ? devices.find((d) => d.name === expandedDevice) : null;
-  const expandedIdx = expandedDev ? devices.indexOf(expandedDev) : -1;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>📱 裝置快捷</CardTitle>
-        <Link href="/devices" className="text-sm text-blue-400 hover:text-blue-300">
+        <Link href="/devices" className="text-sm text-cool hover:text-cool/80">
           查看全部 →
         </Link>
       </CardHeader>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {devices.map((device, index) => {
-          // 手機 2 欄、桌面 4 欄。展開面板要插在「展開的卡所在那一 row 的最後」
-          const isLastInMobileRow = index % 2 === 1 || index === devices.length - 1;
-          const isLastInDesktopRow = index % 4 === 3 || index === devices.length - 1;
-          const mobileRowStart = Math.floor(index / 2) * 2;
-          const desktopRowStart = Math.floor(index / 4) * 4;
-          const showMobilePanel =
-            isLastInMobileRow &&
-            expandedIdx >= mobileRowStart &&
-            expandedIdx < mobileRowStart + 2 &&
-            expandedDev;
-          const showDesktopPanel =
-            isLastInDesktopRow &&
-            expandedIdx >= desktopRowStart &&
-            expandedIdx < desktopRowStart + 4 &&
-            expandedDev;
-
+        {devices.map((device) => {
           // 運作中燈號：空調看 lastPower（IR 不能回讀），除濕機看 power（雲端真實狀態）
           const isRunning =
             (device.type === "空調" && device.lastPower === "on") ||
@@ -598,75 +580,58 @@ export function DeviceQuickControl({
           const Icon = DEVICE_LUCIDE_ICONS[device.type];
 
           return (
-            <React.Fragment key={device.name}>
-              <motion.button
-                onClick={() => toggleExpand(device.name)}
-                whileTap={{ scale: 0.95 }}
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 bg-gradient-to-br shadow-lg shadow-black/30 ring-1 ring-white/5 transition-colors duration-200 ${
-                  isActive
-                    ? `${accent.activeBorder} ${accent.activeBg}`
-                    : "border-white/5 from-zinc-800/80 to-zinc-900/90 hover:from-zinc-700/80 hover:to-zinc-800/90"
-                }`}
-              >
-                {isRunning && (
-                  <span
-                    aria-label="運作中"
-                    className="absolute top-2 left-2 flex h-2.5 w-2.5"
-                  >
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-                  </span>
-                )}
-                {Icon ? (
-                  <Icon className={`h-7 w-7 ${accent.iconClass}`} strokeWidth={1.75} />
-                ) : (
-                  <span className="text-2xl">{DEVICE_ICONS[device.type] ?? "📱"}</span>
-                )}
-                <span className="text-sm font-medium">{device.name}</span>
-                {device.location && (
-                  <span className="text-xs text-gray-500">{device.location}</span>
-                )}
-              </motion.button>
-              <AnimatePresence initial={false}>
-                {showMobilePanel && (
-                  <motion.div
-                    key="m-panel"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{
-                      height: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
-                      opacity: { duration: 0.2 },
-                    }}
-                    className="col-span-2 sm:hidden overflow-hidden"
-                  >
-                    {renderPanel(expandedDev!)}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <AnimatePresence initial={false}>
-                {showDesktopPanel && (
-                  <motion.div
-                    key="d-panel"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{
-                      height: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
-                      opacity: { duration: 0.2 },
-                    }}
-                    className="hidden sm:block sm:col-span-4 overflow-hidden"
-                  >
-                    {renderPanel(expandedDev!)}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </React.Fragment>
+            <motion.button
+              key={device.name}
+              onClick={() => toggleExpand(device.name)}
+              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 bg-gradient-to-br shadow-lg shadow-black/30 ring-1 ring-white/5 transition-colors duration-200 ${
+                isActive
+                  ? `${accent.activeBorder} ${accent.activeBg}`
+                  : "border-mute/15 from-elevated to-surface hover:from-elevated/85 hover:to-surface/85"
+              }`}
+            >
+              {isRunning && (
+                <span
+                  aria-label="運作中"
+                  className="absolute top-2 left-2 flex h-2.5 w-2.5"
+                >
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                </span>
+              )}
+              {Icon ? (
+                <Icon className={`h-7 w-7 ${accent.iconClass}`} strokeWidth={1.75} />
+              ) : (
+                <span className="text-2xl">{DEVICE_ICONS[device.type] ?? "📱"}</span>
+              )}
+              <span className="text-sm font-medium">{device.name}</span>
+              {device.location && (
+                <span className="text-xs text-mute">{device.location}</span>
+              )}
+            </motion.button>
           );
         })}
       </div>
+      {/* Panel 渲染在 grid 外，避免 grid `gap` 在 height: 0 → unmount 時造成 12px snap */}
+      <AnimatePresence initial={false}>
+        {expandedDev && (
+          <motion.div
+            key="panel"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{
+              height: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
+              opacity: { duration: 0.18, ease: "easeOut" },
+            }}
+            className="overflow-hidden"
+          >
+            <div className="mt-3">{renderPanel(expandedDev)}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Card>
   );
 }
