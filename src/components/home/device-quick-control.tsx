@@ -502,16 +502,30 @@ export function DeviceQuickControl({
             expandedIdx < desktopRowStart + 4 &&
             expandedDev;
 
+          // 運作中燈號：空調看 lastPower（IR 不能回讀），除濕機看 power（雲端真實狀態）
+          const isRunning =
+            (device.type === "空調" && device.lastPower === "on") ||
+            (device.type === "除濕機" && device.power === true);
+
           return (
             <React.Fragment key={device.name}>
               <button
                 onClick={() => toggleExpand(device.name)}
-                className={`flex flex-col items-center gap-2 rounded-xl border p-4 transition-colors ${
+                className={`relative flex flex-col items-center gap-2 rounded-xl border p-4 transition-colors ${
                   expandedDevice === device.name
                     ? "border-blue-500/50 bg-blue-500/10"
                     : "border-gray-700 bg-gray-800/50 hover:bg-gray-800"
                 }`}
               >
+                {isRunning && (
+                  <span
+                    aria-label="運作中"
+                    className="absolute top-2 left-2 flex h-2.5 w-2.5"
+                  >
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e]" />
+                  </span>
+                )}
                 <span className="text-2xl">{DEVICE_ICONS[device.type] ?? "📱"}</span>
                 <span className="text-sm font-medium">{device.name}</span>
                 {device.location && (
