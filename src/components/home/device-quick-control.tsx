@@ -517,7 +517,7 @@ export function DeviceQuickControl({
     const Icon = DEVICE_LUCIDE_ICONS[device.type];
     const accent = DEVICE_ACCENT[device.type] ?? DEFAULT_ACCENT;
     return (
-      <div className="rounded-2xl border border-mute/15 bg-gradient-to-br from-elevated to-surface p-4 space-y-4 shadow-inner shadow-black/30">
+      <div className="rounded-2xl border border-mute/15 bg-gradient-to-br from-elevated to-surface p-4 space-y-4 shadow-inner shadow-mute/15">
         <div className="flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-soft">
             {Icon ? <Icon className={`h-4 w-4 ${accent.iconClass}`} strokeWidth={2} /> : <span>{DEVICE_ICONS[device.type]}</span>}
@@ -561,6 +561,81 @@ export function DeviceQuickControl({
 
   const expandedDev = expandedDevice ? devices.find((d) => d.name === expandedDevice) : null;
 
+  function renderTile(device: DeviceData) {
+    const isRunning =
+      (device.type === "空調" && device.lastPower === "on") ||
+      (device.type === "除濕機" && device.power === true);
+    const isActive = expandedDevice === device.name;
+    const accent = DEVICE_ACCENT[device.type] ?? DEFAULT_ACCENT;
+    const Icon = DEVICE_LUCIDE_ICONS[device.type];
+    return (
+      <motion.button
+        key={device.name}
+        onClick={() => toggleExpand(device.name)}
+        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.02 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 bg-gradient-to-br shadow-sm shadow-mute/10 transition-colors duration-200 ${
+          isActive
+            ? `${accent.activeBorder} ${accent.activeBg}`
+            : "border-mute/15 from-elevated to-surface hover:from-elevated/85 hover:to-surface/85"
+        }`}
+      >
+        {isRunning && (
+          <span aria-label="運作中" className="absolute top-2 left-2 flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+          </span>
+        )}
+        {Icon ? (
+          <Icon className={`h-7 w-7 ${accent.iconClass}`} strokeWidth={1.75} />
+        ) : (
+          <span className="text-2xl">{DEVICE_ICONS[device.type] ?? "📱"}</span>
+        )}
+        <span className="text-sm font-medium">{device.name}</span>
+        {device.location && <span className="text-xs text-mute">{device.location}</span>}
+      </motion.button>
+    );
+  }
+
+  // Panel 必須跟「展開設備那一 row」相鄰才有正確視覺脈絡。
+  // 但 mobile（2 欄）跟 desktop（4 欄）的 row 拆法不同 → 兩套各自渲染。
+  // panel 放在每組 row 的後面（grid 外），避免 CSS grid `gap` 在 height: 0 ↔ unmount 時造成 12px snap。
+  function renderRows(cols: 2 | 4, viewportClass: string) {
+    const rows: DeviceData[][] = [];
+    for (let i = 0; i < devices.length; i += cols) rows.push(devices.slice(i, i + cols));
+    const gridCols = cols === 2 ? "grid-cols-2" : "grid-cols-4";
+    return (
+      <div className={`${viewportClass} space-y-3`}>
+        {rows.map((row, rowIdx) => {
+          const rowHasExpanded = !!expandedDev && row.some((d) => d.name === expandedDev.name);
+          return (
+            <div key={rowIdx}>
+              <div className={`grid ${gridCols} gap-3`}>{row.map(renderTile)}</div>
+              <AnimatePresence initial={false}>
+                {rowHasExpanded && expandedDev && (
+                  <motion.div
+                    key="panel"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{
+                      height: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
+                      opacity: { duration: 0.18, ease: "easeOut" },
+                    }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-3">{renderPanel(expandedDev)}</div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -569,69 +644,8 @@ export function DeviceQuickControl({
           查看全部 →
         </Link>
       </CardHeader>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {devices.map((device) => {
-          // 運作中燈號：空調看 lastPower（IR 不能回讀），除濕機看 power（雲端真實狀態）
-          const isRunning =
-            (device.type === "空調" && device.lastPower === "on") ||
-            (device.type === "除濕機" && device.power === true);
-          const isActive = expandedDevice === device.name;
-          const accent = DEVICE_ACCENT[device.type] ?? DEFAULT_ACCENT;
-          const Icon = DEVICE_LUCIDE_ICONS[device.type];
-
-          return (
-            <motion.button
-              key={device.name}
-              onClick={() => toggleExpand(device.name)}
-              whileTap={{ scale: 0.95 }}
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 bg-gradient-to-br shadow-lg shadow-black/30 ring-1 ring-white/5 transition-colors duration-200 ${
-                isActive
-                  ? `${accent.activeBorder} ${accent.activeBg}`
-                  : "border-mute/15 from-elevated to-surface hover:from-elevated/85 hover:to-surface/85"
-              }`}
-            >
-              {isRunning && (
-                <span
-                  aria-label="運作中"
-                  className="absolute top-2 left-2 flex h-2.5 w-2.5"
-                >
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-                </span>
-              )}
-              {Icon ? (
-                <Icon className={`h-7 w-7 ${accent.iconClass}`} strokeWidth={1.75} />
-              ) : (
-                <span className="text-2xl">{DEVICE_ICONS[device.type] ?? "📱"}</span>
-              )}
-              <span className="text-sm font-medium">{device.name}</span>
-              {device.location && (
-                <span className="text-xs text-mute">{device.location}</span>
-              )}
-            </motion.button>
-          );
-        })}
-      </div>
-      {/* Panel 渲染在 grid 外，避免 grid `gap` 在 height: 0 → unmount 時造成 12px snap */}
-      <AnimatePresence initial={false}>
-        {expandedDev && (
-          <motion.div
-            key="panel"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{
-              height: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
-              opacity: { duration: 0.18, ease: "easeOut" },
-            }}
-            className="overflow-hidden"
-          >
-            <div className="mt-3">{renderPanel(expandedDev)}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {renderRows(2, "sm:hidden")}
+      {renderRows(4, "hidden sm:block")}
     </Card>
   );
 }

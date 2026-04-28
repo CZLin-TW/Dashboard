@@ -1,18 +1,18 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Surfaces — 略帶冷色調的暗面，避免純黑顯得死板 */
-  --color-background: #0E1117;   /* page bg */
-  --color-foreground: #C5C5CA;   /* primary text */
-  --color-surface: #161B22;      /* card */
-  --color-elevated: #1F262E;     /* panel inside card */
+  /* Light surfaces — 略帶冷色調的暖白，避免純白刺眼 */
+  --color-background: #F2F2F4;   /* page bg */
+  --color-foreground: #1F242B;   /* primary text (near-black) */
+  --color-surface: #FFFFFF;      /* card */
+  --color-elevated: #ECEEF1;     /* panel inside card / inputs */
 
   /* Text scale */
-  --color-mute: #8EA6B2;         /* secondary text / hints */
-  --color-soft: #C5C5CA;         /* same as foreground, alias for clarity */
+  --color-mute: #6B7886;         /* secondary text / labels / hints */
+  --color-soft: #2A3138;         /* primary content (slightly lighter than foreground) */
 
-  /* Brand accents — 低飽和 palette */
-  --color-cool: #3A6289;         /* AC / info */
+  /* Brand accents — 低飽和 palette（light/dark 共用） */
+  --color-cool: #3A6289;         /* AC / info / link */
   --color-fresh: #3C977D;        /* dehumidifier / primary action / success */
   --color-warm: #DF766E;         /* IR / destructive / warning */
 }
