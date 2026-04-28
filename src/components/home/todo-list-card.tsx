@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { CheckSquare } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { type TodoData } from "./types";
 
@@ -49,7 +50,10 @@ export function TodoListCard({ todos, onCompleted }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>☑️ 待辦事項</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          <CheckSquare className="h-4 w-4" strokeWidth={2} />
+          待辦事項
+        </CardTitle>
         <Link href="/todos" className="text-sm text-cool hover:text-cool/80">
           查看全部 →
         </Link>

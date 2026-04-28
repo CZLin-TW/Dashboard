@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Thermometer, Pin } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { type DeviceData } from "./types";
 
@@ -16,7 +17,10 @@ export function IndoorSensorCard({ sensor }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>🌡️ 室內環境</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          <Thermometer className="h-4 w-4" strokeWidth={2} />
+          室內環境
+        </CardTitle>
       </CardHeader>
       {sensor ? (
         <>
@@ -27,10 +31,11 @@ export function IndoorSensorCard({ sensor }: Props) {
           <p className="mt-1 text-sm text-mute">{sensor.location || sensor.name}</p>
         </>
       ) : (
-        <p className="text-sm text-mute">
+        <p className="flex items-center gap-1 text-sm text-mute">
           請到
           <Link href="/devices" className="text-cool hover:text-cool/80 mx-1">裝置頁</Link>
-          📌 釘選一個感測器
+          <Pin className="h-3.5 w-3.5" strokeWidth={2} />
+          釘選一個感測器
         </p>
       )}
     </Card>

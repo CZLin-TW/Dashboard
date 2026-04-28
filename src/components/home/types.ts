@@ -94,23 +94,42 @@ export const DEFAULT_OPTIONS: DeviceOptions = {
   dehumidifier: { modes: [], humidity: [] },
 };
 
-export const DEVICE_ICONS: Record<string, string> = {
-  "空調": "❄️",
-  "IR": "🌀",
-  "除濕機": "💨",
+import {
+  AirVent,
+  Droplets,
+  Fan,
+  CloudLightning,
+  CloudRain,
+  CloudSnow,
+  CloudFog,
+  Cloud,
+  CloudSun,
+  Sun,
+  Smartphone,
+  type LucideIcon,
+} from "lucide-react";
+
+/** 設備類型的 lucide icon。AC 用 AirVent（不暗示冷暖），除濕機 Droplets，IR 一般是電風扇用 Fan。 */
+export const DEVICE_ICONS: Record<string, LucideIcon> = {
+  "空調": AirVent,
+  "除濕機": Droplets,
+  "IR": Fan,
 };
 
-/** 把 CWA 天氣現象文字對應到 emoji，比對順序由強到弱（雷最緊急、多雲最輕）。*/
-export function wxEmoji(wx: string | null | undefined): string {
-  if (!wx) return "🌤️";
-  if (wx.includes("雷")) return "⛈️";
-  if (wx.includes("雨")) return "🌧️";
-  if (wx.includes("雪")) return "❄️";
-  if (wx.includes("霧")) return "🌫️";
-  if (wx.includes("陰")) return "☁️";
-  if (wx.includes("多雲")) return "⛅";
-  if (wx.includes("晴")) return "☀️";
-  return "🌤️";
+/** 找不到對應 icon 時的 fallback。 */
+export const DEVICE_ICON_FALLBACK: LucideIcon = Smartphone;
+
+/** 把 CWA 天氣現象文字對應到 lucide icon，比對順序由強到弱（雷最緊急、多雲最輕）。*/
+export function wxIcon(wx: string | null | undefined): LucideIcon {
+  if (!wx) return CloudSun;
+  if (wx.includes("雷")) return CloudLightning;
+  if (wx.includes("雨")) return CloudRain;
+  if (wx.includes("雪")) return CloudSnow;
+  if (wx.includes("霧")) return CloudFog;
+  if (wx.includes("陰")) return Cloud;
+  if (wx.includes("多雲")) return CloudSun;
+  if (wx.includes("晴")) return Sun;
+  return CloudSun;
 }
 
 /** 從今天 00:00 算到 expiry（YYYY-MM-DD）還剩幾天；過期回負數。 */

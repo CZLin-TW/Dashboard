@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Apple, Plus, Pencil, X } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
@@ -25,11 +26,11 @@ function daysUntilExpiry(expiry: string): number {
 
 function expiryLabel(expiry: string): { text: string; color: string } {
   const days = daysUntilExpiry(expiry);
-  if (days < 0) return { text: "已過期", color: "text-red-500" };
-  if (days === 0) return { text: "今天到期", color: "text-red-400" };
-  if (days === 1) return { text: "明天到期", color: "text-red-400" };
-  if (days <= 3) return { text: `${days}天後到期`, color: "text-yellow-400" };
-  return { text: `${days}天後`, color: "text-gray-400" };
+  if (days < 0) return { text: "已過期", color: "text-warm" };
+  if (days === 0) return { text: "今天到期", color: "text-warm" };
+  if (days === 1) return { text: "明天到期", color: "text-warm" };
+  if (days <= 3) return { text: `${days}天後到期`, color: "text-warm/70" };
+  return { text: `${days}天後`, color: "text-mute" };
 }
 
 export default function FoodPage() {
@@ -111,12 +112,16 @@ export default function FoodPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">🍎 食品庫存</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold">
+          <Apple className="h-6 w-6" strokeWidth={2} />
+          食品庫存
+        </h1>
         <button
           onClick={() => setShowAdd(!showAdd)}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-1 rounded-lg bg-cool px-4 py-2 text-sm font-medium text-white hover:bg-cool/85 transition-colors"
         >
-          + 新增
+          <Plus className="h-4 w-4" strokeWidth={2.5} />
+          新增
         </button>
       </div>
 
@@ -129,7 +134,7 @@ export default function FoodPage() {
                 value={newFood.name}
                 onChange={(e) => setNewFood((p) => ({ ...p, name: e.target.value }))}
                 placeholder="食品名稱"
-                className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                className="rounded-lg border border-mute/15 bg-elevated px-3 py-2 text-sm text-white placeholder-mute focus:border-cool focus:outline-none"
               />
               <div className="flex gap-2">
                 <input
@@ -137,12 +142,12 @@ export default function FoodPage() {
                   value={newFood.quantity}
                   onChange={(e) => setNewFood((p) => ({ ...p, quantity: e.target.value }))}
                   placeholder="數量"
-                  className="w-20 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                  className="w-20 rounded-lg border border-mute/15 bg-elevated px-3 py-2 text-sm text-white placeholder-mute focus:border-cool focus:outline-none"
                 />
                 <select
                   value={newFood.unit}
                   onChange={(e) => setNewFood((p) => ({ ...p, unit: e.target.value }))}
-                  className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                  className="rounded-lg border border-mute/15 bg-elevated px-3 py-2 text-sm text-white focus:border-cool focus:outline-none"
                 >
                   {["個", "顆", "瓶", "包", "盒", "小罐", "g", "kg", "ml", "L"].map((u) => (
                     <option key={u} value={u}>{u}</option>
@@ -155,11 +160,11 @@ export default function FoodPage() {
                 type="date"
                 value={newFood.expiry}
                 onChange={(e) => setNewFood((p) => ({ ...p, expiry: e.target.value }))}
-                className="flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                className="flex-1 rounded-lg border border-mute/15 bg-elevated px-3 py-2 text-sm text-white focus:border-cool focus:outline-none"
               />
               <button
                 onClick={addFood}
-                className="rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors"
+                className="rounded-lg bg-fresh px-5 py-2 text-sm font-medium text-white hover:bg-fresh/85 transition-colors"
               >
                 確認新增
               </button>
@@ -178,12 +183,12 @@ export default function FoodPage() {
             key={value}
             onClick={() => setFilter(value)}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              filter === value ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+              filter === value ? "bg-cool text-white" : "bg-elevated text-soft hover:bg-elevated/80"
             }`}
           >
             {label}
             {value === "urgent" && urgentCount > 0 && (
-              <span className="ml-1.5 rounded-full bg-red-500/20 px-1.5 text-xs text-red-400">
+              <span className="ml-1.5 rounded-full bg-warm/20 px-1.5 text-xs text-warm">
                 {urgentCount}
               </span>
             )}
@@ -194,12 +199,12 @@ export default function FoodPage() {
       <Card>
         <CardHeader>
           <CardTitle>庫存列表</CardTitle>
-          <span className="text-xs text-gray-500">{filtered.length} 項</span>
+          <span className="text-xs text-mute">{filtered.length} 項</span>
         </CardHeader>
         {loading ? (
-          <p className="text-sm text-gray-500">載入中...</p>
+          <p className="text-sm text-mute">載入中...</p>
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-gray-500">沒有符合的食品項目</p>
+          <p className="text-sm text-mute">沒有符合的食品項目</p>
         ) : (
           <div className="space-y-1">
             {filtered
@@ -211,18 +216,18 @@ export default function FoodPage() {
 
                 if (isEditing) {
                   return (
-                    <div key={sheetIndex} className="rounded-lg bg-gray-800/50 px-3 py-3 space-y-2">
+                    <div key={sheetIndex} className="rounded-lg bg-elevated/50 px-3 py-3 space-y-2">
                       <div className="grid grid-cols-2 gap-2">
                         <input type="text" value={editFood.name}
                           onChange={(e) => setEditFood((p) => ({ ...p, name: e.target.value }))}
-                          className="rounded-lg border border-gray-600 bg-gray-700 px-3 py-1.5 text-sm text-white focus:outline-none" placeholder="品名" />
+                          className="rounded-lg border border-mute/15 bg-elevated px-3 py-1.5 text-sm text-white focus:outline-none" placeholder="品名" />
                         <div className="flex gap-1">
                           <input type="number" value={editFood.quantity}
                             onChange={(e) => setEditFood((p) => ({ ...p, quantity: e.target.value }))}
-                            className="w-16 rounded-lg border border-gray-600 bg-gray-700 px-2 py-1.5 text-sm text-white focus:outline-none" />
+                            className="w-16 rounded-lg border border-mute/15 bg-elevated px-2 py-1.5 text-sm text-white focus:outline-none" />
                           <select value={editFood.unit}
                             onChange={(e) => setEditFood((p) => ({ ...p, unit: e.target.value }))}
-                            className="rounded-lg border border-gray-600 bg-gray-700 px-2 py-1.5 text-sm text-white focus:outline-none">
+                            className="rounded-lg border border-mute/15 bg-elevated px-2 py-1.5 text-sm text-white focus:outline-none">
                             {["個", "顆", "瓶", "包", "盒", "小罐", "g", "kg", "ml", "L"].map((u) => (
                               <option key={u} value={u}>{u}</option>
                             ))}
@@ -232,11 +237,11 @@ export default function FoodPage() {
                       <div className="flex gap-2">
                         <input type="date" value={editFood.expiry}
                           onChange={(e) => setEditFood((p) => ({ ...p, expiry: e.target.value }))}
-                          className="flex-1 rounded-lg border border-gray-600 bg-gray-700 px-3 py-1.5 text-sm text-white focus:outline-none" />
+                          className="flex-1 rounded-lg border border-mute/15 bg-elevated px-3 py-1.5 text-sm text-white focus:outline-none" />
                         <button onClick={saveEdit}
-                          className="rounded-lg bg-green-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-green-700">儲存</button>
+                          className="rounded-lg bg-fresh px-4 py-1.5 text-xs font-medium text-white hover:bg-fresh/85">儲存</button>
                         <button onClick={() => setEditIndex(null)}
-                          className="rounded-lg bg-gray-600 px-4 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-500">取消</button>
+                          className="rounded-lg bg-mute/40 px-4 py-1.5 text-xs font-medium text-soft hover:bg-mute/30">取消</button>
                       </div>
                     </div>
                   );
@@ -245,16 +250,16 @@ export default function FoodPage() {
                 return (
                   <div
                     key={sheetIndex}
-                    className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-gray-800/50 transition-colors"
+                    className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-elevated/50 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-200">
+                      <p className="text-sm font-medium text-soft">
                         {item["品名"]}
-                        <span className="ml-2 text-gray-400">
+                        <span className="ml-2 text-mute">
                           {item["數量"]} {item["單位"]}
                         </span>
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-mute">
                         {item["新增者"]} 新增
                       </p>
                     </div>
@@ -262,17 +267,17 @@ export default function FoodPage() {
                     <div className="flex gap-3">
                       <button
                         onClick={() => startEdit(item, sheetIndex)}
-                        className="rounded px-2 py-1 text-xs text-gray-400 hover:text-blue-400 hover:bg-blue-400/10 transition-colors"
+                        className="rounded p-1.5 text-mute hover:text-cool hover:bg-cool/10 transition-colors"
                         title="編輯"
                       >
-                        ✎
+                        <Pencil className="h-3.5 w-3.5" strokeWidth={2} />
                       </button>
                       <button
                         onClick={() => deleteFood(item["品名"])}
-                        className="rounded px-2 py-1 text-xs text-gray-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                        className="rounded p-1.5 text-mute hover:text-warm hover:bg-warm/10 transition-colors"
                         title="刪除"
                       >
-                        ✕
+                        <X className="h-3.5 w-3.5" strokeWidth={2} />
                       </button>
                     </div>
                   </div>

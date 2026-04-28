@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown, User, LogOut } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 
 export function UserSelector() {
@@ -9,16 +10,14 @@ export function UserSelector() {
 
   return (
     <div className="relative group">
-      <button className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-white/10 transition-colors">
+      <button className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-mute/10 transition-colors">
         {currentUser.picture ? (
           <img src={currentUser.picture} alt="" className="h-6 w-6 rounded-full" />
         ) : (
-          <span className="text-lg">👤</span>
+          <User className="h-5 w-5 text-mute" strokeWidth={2} />
         )}
         <span className="hidden sm:inline">{currentUser.name}</span>
-        <svg className="h-4 w-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        <ChevronDown className="h-4 w-4 opacity-60" strokeWidth={2} />
       </button>
       <div className="absolute right-0 top-full mt-1 w-40 rounded-xl bg-elevated border border-mute/15 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
         <div className="px-4 py-2.5 text-sm text-soft border-b border-mute/15">
@@ -26,8 +25,9 @@ export function UserSelector() {
         </div>
         <button
           onClick={logout}
-          className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-warm hover:bg-white/5 rounded-b-xl transition-colors"
+          className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-warm hover:bg-mute/10 rounded-b-xl transition-colors"
         >
+          <LogOut className="h-4 w-4" strokeWidth={2} />
           登出
         </button>
       </div>

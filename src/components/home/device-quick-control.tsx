@@ -1,24 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
-import { Snowflake, Droplets, Fan } from "lucide-react";
+import { LayoutGrid, ChevronUp, Pin } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   type DeviceData,
   type DeviceOptions,
   type AcPendingState,
   DEVICE_ICONS,
+  DEVICE_ICON_FALLBACK,
   acPendingFromDevice,
 } from "./types";
-
-// 釘選卡用 lucide SVG（質感>emoji）；types.ts 的 DEVICE_ICONS 仍給 /devices 等其他頁用
-const DEVICE_LUCIDE_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
-  "空調": Snowflake,
-  "除濕機": Droplets,
-  "IR": Fan,
-};
 
 // 每類設備一組 accent 色：active 邊框/底色漸層、icon 顏色與光暈。
 // 用 hex arbitrary values 配自訂 palette（深藍/鼠尾草/珊瑚/藍灰），讓質感低飽和但有層次。
@@ -276,11 +270,11 @@ export function DeviceQuickControl({
     return (
       <>
         {device.lastPower ? (
-          <p className="text-xs text-mute">
+          <p className="flex items-center gap-1.5 text-xs text-mute">
             目前：
             {device.lastPower === "on" ? (
               <>
-                🟢{" "}
+                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
                 {device.lastTemperature !== undefined &&
                   device.lastTemperature !== "" &&
                   `${device.lastTemperature}°C`}
@@ -288,7 +282,10 @@ export function DeviceQuickControl({
                 {device.lastFanSpeed && ` ${device.lastFanSpeed}`}
               </>
             ) : (
-              "⚪ 關閉"
+              <>
+                <span className="inline-block h-2 w-2 rounded-full bg-mute/40" />
+                關閉
+              </>
             )}
             {lastTime && ` · ${lastTime}`}
           </p>
@@ -413,8 +410,10 @@ export function DeviceQuickControl({
       <>
         <div>
           {device.power !== undefined && (
-            <p className="text-xs text-mute">
-              目前：{device.power ? "🟢 運轉中" : "⚪ 關閉"}
+            <p className="flex items-center gap-1.5 text-xs text-mute">
+              目前：
+              <span className={`inline-block h-2 w-2 rounded-full ${device.power ? "bg-emerald-500" : "bg-mute/40"}`} />
+              {device.power ? "運轉中" : "關閉"}
               {device.mode && ` · ${device.mode}`}
               {device.targetHumidity && ` · ${device.targetHumidity}`}
             </p>
@@ -514,13 +513,13 @@ export function DeviceQuickControl({
   }
 
   function renderPanel(device: DeviceData) {
-    const Icon = DEVICE_LUCIDE_ICONS[device.type];
+    const Icon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
     const accent = DEVICE_ACCENT[device.type] ?? DEFAULT_ACCENT;
     return (
       <div className="rounded-2xl border border-mute/15 bg-gradient-to-br from-elevated to-surface p-4 space-y-4 shadow-inner shadow-mute/15">
         <div className="flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-soft">
-            {Icon ? <Icon className={`h-4 w-4 ${accent.iconClass}`} strokeWidth={2} /> : <span>{DEVICE_ICONS[device.type]}</span>}
+            <Icon className={`h-4 w-4 ${accent.iconClass}`} strokeWidth={2} />
             <span>{device.name}</span>
             {device.location && (
               <span className="ml-1 text-xs font-normal text-mute">{device.location}</span>
@@ -528,9 +527,10 @@ export function DeviceQuickControl({
           </h3>
           <button
             onClick={() => setExpandedDevice(null)}
-            className="text-xs text-mute hover:text-soft"
+            className="flex items-center gap-1 text-xs text-mute hover:text-soft"
           >
-            收合 ▲
+            收合
+            <ChevronUp className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </div>
         {device.type === "空調" && renderAcPanel(device)}
@@ -545,15 +545,19 @@ export function DeviceQuickControl({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>📱 裝置快捷</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+          <LayoutGrid className="h-4 w-4" strokeWidth={2} />
+          裝置快捷
+        </CardTitle>
           <Link href="/devices" className="text-sm text-cool hover:text-cool/80">
             查看全部 →
           </Link>
         </CardHeader>
-        <p className="text-sm text-mute">
+        <p className="flex items-center gap-1 text-sm text-mute">
           請到
           <Link href="/devices" className="text-cool hover:text-cool/80 mx-1">裝置頁</Link>
-          📌 釘選裝置
+          <Pin className="h-3.5 w-3.5" strokeWidth={2} />
+          釘選裝置
         </p>
       </Card>
     );
@@ -567,7 +571,7 @@ export function DeviceQuickControl({
       (device.type === "除濕機" && device.power === true);
     const isActive = expandedDevice === device.name;
     const accent = DEVICE_ACCENT[device.type] ?? DEFAULT_ACCENT;
-    const Icon = DEVICE_LUCIDE_ICONS[device.type];
+    const Icon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
     return (
       <motion.button
         key={device.name}
@@ -587,11 +591,7 @@ export function DeviceQuickControl({
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
           </span>
         )}
-        {Icon ? (
-          <Icon className={`h-7 w-7 ${accent.iconClass}`} strokeWidth={1.75} />
-        ) : (
-          <span className="text-2xl">{DEVICE_ICONS[device.type] ?? "📱"}</span>
-        )}
+        <Icon className={`h-7 w-7 ${accent.iconClass}`} strokeWidth={1.75} />
         <span className="text-sm font-medium">{device.name}</span>
         {device.location && <span className="text-xs text-mute">{device.location}</span>}
       </motion.button>
@@ -639,7 +639,10 @@ export function DeviceQuickControl({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>📱 裝置快捷</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          <LayoutGrid className="h-4 w-4" strokeWidth={2} />
+          裝置快捷
+        </CardTitle>
         <Link href="/devices" className="text-sm text-cool hover:text-cool/80">
           查看全部 →
         </Link>

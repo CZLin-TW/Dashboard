@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { type FoodData, daysUntilExpiry } from "./types";
 
@@ -16,7 +17,10 @@ export function FoodAlertCard({ food }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>⚠️ 即期食品</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          <AlertTriangle className="h-4 w-4 text-warm" strokeWidth={2} />
+          即期食品
+        </CardTitle>
         <Link href="/food" className="text-sm text-cool hover:text-cool/80">
           查看全部 →
         </Link>
