@@ -168,38 +168,38 @@ export default function SchedulesPage() {
                   <label className="text-xs text-mute">電源</label>
                   <div className="mt-1 flex gap-2">
                     <button onClick={() => setAcPower("on")}
-                      className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${acPower === "on" ? "bg-cool text-white" : "bg-elevated text-soft"}`}>ON</button>
+                      className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${acPower === "on" ? "bg-cool text-white" : "bg-elevated text-soft"}`}>ON</button>
                     <button onClick={() => setAcPower("off")}
-                      className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${acPower === "off" ? "bg-warm text-white" : "bg-elevated text-soft"}`}>OFF</button>
+                      className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${acPower === "off" ? "bg-warm text-white" : "bg-elevated text-soft"}`}>OFF</button>
                   </div>
                 </div>
                 {acPower === "on" && (
                   <>
                     <div>
                       <label className="text-xs text-mute">溫度</label>
-                      <div className="mt-1 flex items-center gap-3">
+                      <div className="mt-1 flex items-center gap-2">
                         <button onClick={() => setAcTemp(Math.max(options.ac.temperature.min, acTemp - 1))}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-elevated hover:bg-mute/20">−</button>
-                        <span className="w-16 text-center text-lg font-bold">{acTemp}°C</span>
+                          className="flex h-7 w-7 items-center justify-center rounded bg-elevated hover:bg-mute/20 text-sm">−</button>
+                        <span className="w-14 text-center font-bold">{acTemp}°C</span>
                         <button onClick={() => setAcTemp(Math.min(options.ac.temperature.max, acTemp + 1))}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-elevated hover:bg-mute/20">+</button>
+                          className="flex h-7 w-7 items-center justify-center rounded bg-elevated hover:bg-mute/20 text-sm">+</button>
                       </div>
                     </div>
                     <div>
                       <label className="text-xs text-mute">模式</label>
-                      <div className="mt-1 flex flex-wrap gap-2">
+                      <div className="mt-1 flex flex-wrap gap-1.5">
                         {options.ac.modes.map((m) => (
                           <button key={m.value} onClick={() => setAcMode(m.value)}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${acMode === m.value ? "bg-cool text-white" : "bg-elevated text-soft"}`}>{m.label}</button>
+                            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${acMode === m.value ? "bg-cool text-white" : "bg-elevated text-soft"}`}>{m.label}</button>
                         ))}
                       </div>
                     </div>
                     <div>
                       <label className="text-xs text-mute">風速</label>
-                      <div className="mt-1 flex flex-wrap gap-2">
+                      <div className="mt-1 flex flex-wrap gap-1.5">
                         {options.ac.fan_speeds.map((s) => (
                           <button key={s.value} onClick={() => setAcFan(s.value)}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${acFan === s.value ? "bg-cool text-white" : "bg-elevated text-soft"}`}>{s.label}</button>
+                            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${acFan === s.value ? "bg-cool text-white" : "bg-elevated text-soft"}`}>{s.label}</button>
                         ))}
                       </div>
                     </div>
@@ -215,28 +215,28 @@ export default function SchedulesPage() {
                   <label className="text-xs text-mute">電源</label>
                   <div className="mt-1 flex gap-2">
                     <button onClick={() => setDhPower("on")}
-                      className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${dhPower === "on" ? "bg-cool text-white" : "bg-elevated text-soft"}`}>ON</button>
+                      className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${dhPower === "on" ? "bg-cool text-white" : "bg-elevated text-soft"}`}>ON</button>
                     <button onClick={() => setDhPower("off")}
-                      className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${dhPower === "off" ? "bg-warm text-white" : "bg-elevated text-soft"}`}>OFF</button>
+                      className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${dhPower === "off" ? "bg-warm text-white" : "bg-elevated text-soft"}`}>OFF</button>
                   </div>
                 </div>
                 {dhPower === "on" && (
                   <>
                     <div>
                       <label className="text-xs text-mute">模式</label>
-                      <div className="mt-1 flex flex-wrap gap-2">
+                      <div className="mt-1 flex flex-wrap gap-1.5">
                         {options.dehumidifier.modes.map((m) => (
                           <button key={m.value} onClick={() => setDhMode(m.value)}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${dhMode === m.value ? "bg-cool text-white" : "bg-elevated text-soft"}`}>{m.label}</button>
+                            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${dhMode === m.value ? "bg-cool text-white" : "bg-elevated text-soft"}`}>{m.label}</button>
                         ))}
                       </div>
                     </div>
                     <div>
                       <label className="text-xs text-mute">目標濕度</label>
-                      <div className="mt-1 flex flex-wrap gap-2">
+                      <div className="mt-1 flex flex-wrap gap-1.5">
                         {options.dehumidifier.humidity.map((h) => (
                           <button key={h} onClick={() => setDhHumidity(h)}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${dhHumidity === h ? "bg-cool text-white" : "bg-elevated text-soft"}`}>{h}%</button>
+                            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${dhHumidity === h ? "bg-cool text-white" : "bg-elevated text-soft"}`}>{h}%</button>
                         ))}
                       </div>
                     </div>
@@ -249,10 +249,10 @@ export default function SchedulesPage() {
             {selectedType === "IR" && selectedDeviceData && (
               <div className="rounded-lg bg-elevated/50 p-3">
                 <label className="text-xs text-mute">按鈕</label>
-                <div className="mt-1 flex flex-wrap gap-2">
+                <div className="mt-1 flex flex-wrap gap-1.5">
                   {((selectedDeviceData as unknown as { buttons?: string }).buttons ?? "").split(",").map(b => b.trim()).filter(Boolean).map((btn) => (
                     <button key={btn} onClick={() => setIrButton(btn)}
-                      className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${irButton === btn ? "bg-cool text-white" : "bg-elevated text-soft"}`}>{btn}</button>
+                      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${irButton === btn ? "bg-cool text-white" : "bg-elevated text-soft"}`}>{btn}</button>
                   ))}
                 </div>
               </div>
