@@ -101,9 +101,9 @@ export function DeviceQuickControl({
       }
 
       // AC 是 IR 單向，沒有真實狀態回讀；改用 home-butler 寫回 Sheet 的 last* 快照當「已生效」訊號。
-      // 5 秒內每秒輪詢 /api/dashboard，pending 跟 device.last* 匹配才清 pending、解鎖 sending。
+      // 10 秒內每秒輪詢 /api/dashboard，pending 跟 device.last* 匹配才清 pending、解鎖 sending。
       // 期間 sending=true → 整張卡的送出按鈕都被 disable，避免兩次連發 race。
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 10; i++) {
         await new Promise((r) => setTimeout(r, 1000));
         try {
           const r2 = await fetch("/api/dashboard");
@@ -144,7 +144,7 @@ export function DeviceQuickControl({
         }
       }
 
-      // 5 秒沒匹配 → 失敗閃紅；仍 refetch 一次避免 UI 跟實際長期不一致
+      // 10 秒沒匹配 → 失敗閃紅；仍 refetch 一次避免 UI 跟實際長期不一致
       clearAcAwaiting(device.name);
       flashAcFailed(device.name);
       onAcCommandSent();
