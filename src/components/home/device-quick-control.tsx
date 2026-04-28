@@ -43,6 +43,7 @@ export function DeviceQuickControl({
   const [acPendingMap, setAcPendingMap] = useState<Record<string, AcPendingState>>({});
   const [acDirtyMap, setAcDirtyMap] = useState<Record<string, boolean>>({});
   const [acFailedMap, setAcFailedMap] = useState<Record<string, boolean>>({});
+  const [acAwaitingMap, setAcAwaitingMap] = useState<Record<string, AcPendingState>>({});
   const [sending, setSending] = useState(false);
   const [dhPending, setDhPending] = useState<{ type: string; value: unknown } | null>(null);
   const [dhFailed, setDhFailed] = useState<{ type: string; value: unknown } | null>(null);
@@ -74,8 +75,17 @@ export function DeviceQuickControl({
     }, 2000);
   }
 
+  function clearAcAwaiting(deviceName: string) {
+    setAcAwaitingMap((prev) => {
+      const next = { ...prev };
+      delete next[deviceName];
+      return next;
+    });
+  }
+
   async function sendAcCommand(device: DeviceData) {
     const pending = getAcPending(device);
+    setAcAwaitingMap((prev) => ({ ...prev, [device.name]: pending }));
     setSending(true);
     try {
       const res = await fetch("/api/devices/control", {
@@ -85,23 +95,62 @@ export function DeviceQuickControl({
       });
       if (!res.ok) {
         console.error(`[sendAcCommand] ${device.name} failed: HTTP ${res.status}`);
+        clearAcAwaiting(device.name);
         flashAcFailed(device.name);
         return;
       }
-      // 成功：清掉草稿與 dirty 標記，讓 UI 重新讀 last 狀態
-      setAcPendingMap((prev) => {
-        const next = { ...prev };
-        delete next[device.name];
-        return next;
-      });
-      setAcDirtyMap((prev) => {
-        const next = { ...prev };
-        delete next[device.name];
-        return next;
-      });
+
+      // AC 是 IR 單向，沒有真實狀態回讀；改用 home-butler 寫回 Sheet 的 last* 快照當「已生效」訊號。
+      // 5 秒內每秒輪詢 /api/dashboard，pending 跟 device.last* 匹配才清 pending、解鎖 sending。
+      // 期間 sending=true → 整張卡的送出按鈕都被 disable，避免兩次連發 race。
+      for (let i = 0; i < 5; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        try {
+          const r2 = await fetch("/api/dashboard");
+          const data = await r2.json();
+          const d: DeviceData | undefined = (data?.devices ?? []).find(
+            (x: DeviceData) => x.name === device.name,
+          );
+          if (d) {
+            const rawTemp = d.lastTemperature;
+            const tempNum =
+              typeof rawTemp === "number" ? rawTemp :
+              typeof rawTemp === "string" && rawTemp.trim() !== "" ? parseInt(rawTemp, 10) : NaN;
+            // OFF 時 home-butler 可能不寫其他欄位，只比對 power；ON 時四個欄位都要對齊。
+            const matched = pending.power
+              ? d.lastPower === "on" &&
+                tempNum === pending.temperature &&
+                (d.lastMode || "") === pending.mode &&
+                (d.lastFanSpeed || "") === pending.fanSpeed
+              : d.lastPower === "off";
+            if (matched) {
+              setAcPendingMap((prev) => {
+                const next = { ...prev };
+                delete next[device.name];
+                return next;
+              });
+              setAcDirtyMap((prev) => {
+                const next = { ...prev };
+                delete next[device.name];
+                return next;
+              });
+              clearAcAwaiting(device.name);
+              onAcCommandSent();
+              return;
+            }
+          }
+        } catch {
+          /* continue polling */
+        }
+      }
+
+      // 5 秒沒匹配 → 失敗閃紅；仍 refetch 一次避免 UI 跟實際長期不一致
+      clearAcAwaiting(device.name);
+      flashAcFailed(device.name);
       onAcCommandSent();
     } catch (err) {
       console.error(`[sendAcCommand] ${device.name} network error:`, err);
+      clearAcAwaiting(device.name);
       flashAcFailed(device.name);
     } finally {
       setSending(false);
@@ -195,6 +244,7 @@ export function DeviceQuickControl({
     const pending = getAcPending(device);
     const dirty = !!acDirtyMap[device.name];
     const failed = !!acFailedMap[device.name];
+    const awaiting = !!acAwaitingMap[device.name];
     const lastTime = device.lastUpdatedAt
       ? device.lastUpdatedAt.split(" ")[1] || device.lastUpdatedAt
       : "";
@@ -313,12 +363,22 @@ export function DeviceQuickControl({
           className={`w-full rounded-lg py-2 text-sm font-bold transition-colors ${
             failed
               ? "bg-red-500 text-white animate-pulse"
+              : awaiting
+              ? "bg-amber-500 text-white animate-pulse"
               : dirty
               ? "bg-green-600 text-white hover:bg-green-700"
               : "bg-gray-700 text-gray-400"
           }`}
         >
-          {failed ? "失敗，請重試" : sending ? "送出中..." : dirty ? "送出設定" : "未變更"}
+          {failed
+            ? "失敗，請重試"
+            : awaiting
+            ? "確認中..."
+            : sending
+            ? "送出中..."
+            : dirty
+            ? "送出設定"
+            : "未變更"}
         </button>
       </>
     );
