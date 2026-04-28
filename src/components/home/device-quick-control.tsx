@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
+import { Snowflake, Droplets, Fan } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   type DeviceData,
@@ -11,6 +12,23 @@ import {
   DEVICE_ICONS,
   acPendingFromDevice,
 } from "./types";
+
+// 釘選卡用 lucide SVG（質感>emoji）；types.ts 的 DEVICE_ICONS 仍給 /devices 等其他頁用
+const DEVICE_LUCIDE_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
+  "空調": Snowflake,
+  "除濕機": Droplets,
+  "IR": Fan,
+};
+
+// 每類設備一組 accent 色：active 邊框/底色漸層、icon 顏色與光暈。
+// 字串都寫完整 class（不用 template string 拼），讓 Tailwind 內容掃描掃得到。
+type Accent = { iconClass: string; activeBorder: string; activeBg: string };
+const DEVICE_ACCENT: Record<string, Accent> = {
+  "空調":   { iconClass: "text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.45)]",  activeBorder: "border-sky-400/40",   activeBg: "from-sky-500/20 to-zinc-900" },
+  "除濕機": { iconClass: "text-teal-300 drop-shadow-[0_0_8px_rgba(45,212,191,0.45)]", activeBorder: "border-teal-400/40",  activeBg: "from-teal-500/20 to-zinc-900" },
+  "IR":     { iconClass: "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.45)]", activeBorder: "border-amber-400/40", activeBg: "from-amber-500/20 to-zinc-900" },
+};
+const DEFAULT_ACCENT: Accent = { iconClass: "text-gray-300", activeBorder: "border-gray-400/40", activeBg: "from-gray-700/30 to-zinc-900" };
 
 interface Props {
   /** 已釘選且要顯示的可控設備（不含感應器）。順序依釘選順序。 */
@@ -493,13 +511,16 @@ export function DeviceQuickControl({
   }
 
   function renderPanel(device: DeviceData) {
+    const Icon = DEVICE_LUCIDE_ICONS[device.type];
+    const accent = DEVICE_ACCENT[device.type] ?? DEFAULT_ACCENT;
     return (
-      <div className="rounded-lg border border-gray-700 bg-gray-800/30 p-4 space-y-4">
+      <div className="rounded-2xl border border-white/5 bg-gradient-to-br from-zinc-800/60 to-zinc-900/80 p-4 space-y-4 shadow-inner shadow-black/30">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-200">
-            {DEVICE_ICONS[device.type]} {device.name}
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-200">
+            {Icon ? <Icon className={`h-4 w-4 ${accent.iconClass}`} strokeWidth={2} /> : <span>{DEVICE_ICONS[device.type]}</span>}
+            <span>{device.name}</span>
             {device.location && (
-              <span className="ml-2 text-xs font-normal text-gray-500">{device.location}</span>
+              <span className="ml-1 text-xs font-normal text-gray-500">{device.location}</span>
             )}
           </h3>
           <button
@@ -569,6 +590,9 @@ export function DeviceQuickControl({
           const isRunning =
             (device.type === "空調" && device.lastPower === "on") ||
             (device.type === "除濕機" && device.power === true);
+          const isActive = expandedDevice === device.name;
+          const accent = DEVICE_ACCENT[device.type] ?? DEFAULT_ACCENT;
+          const Icon = DEVICE_LUCIDE_ICONS[device.type];
 
           return (
             <React.Fragment key={device.name}>
@@ -577,10 +601,10 @@ export function DeviceQuickControl({
                 whileTap={{ scale: 0.95 }}
                 whileHover={{ scale: 1.02 }}
                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 backdrop-blur-xl shadow-lg shadow-black/20 ring-1 ring-white/5 transition-colors ${
-                  expandedDevice === device.name
-                    ? "border-blue-400/40 bg-blue-500/15"
-                    : "border-white/5 bg-gray-800/40 hover:bg-gray-800/60"
+                className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 bg-gradient-to-br shadow-lg shadow-black/30 ring-1 ring-white/5 transition-colors duration-200 ${
+                  isActive
+                    ? `${accent.activeBorder} ${accent.activeBg}`
+                    : "border-white/5 from-zinc-800/80 to-zinc-900/90 hover:from-zinc-700/80 hover:to-zinc-800/90"
                 }`}
               >
                 {isRunning && (
@@ -592,18 +616,44 @@ export function DeviceQuickControl({
                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
                   </span>
                 )}
-                <span className="text-2xl">{DEVICE_ICONS[device.type] ?? "📱"}</span>
+                {Icon ? (
+                  <Icon className={`h-7 w-7 ${accent.iconClass}`} strokeWidth={1.75} />
+                ) : (
+                  <span className="text-2xl">{DEVICE_ICONS[device.type] ?? "📱"}</span>
+                )}
                 <span className="text-sm font-medium">{device.name}</span>
                 {device.location && (
                   <span className="text-xs text-gray-500">{device.location}</span>
                 )}
               </motion.button>
-              {showMobilePanel && (
-                <div className="col-span-2 sm:hidden">{renderPanel(expandedDev!)}</div>
-              )}
-              {showDesktopPanel && (
-                <div className="hidden sm:block sm:col-span-4">{renderPanel(expandedDev!)}</div>
-              )}
+              <AnimatePresence initial={false}>
+                {showMobilePanel && (
+                  <motion.div
+                    key="m-panel"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 30, mass: 0.8 }}
+                    className="col-span-2 sm:hidden overflow-hidden"
+                  >
+                    {renderPanel(expandedDev!)}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <AnimatePresence initial={false}>
+                {showDesktopPanel && (
+                  <motion.div
+                    key="d-panel"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 30, mass: 0.8 }}
+                    className="hidden sm:block sm:col-span-4 overflow-hidden"
+                  >
+                    {renderPanel(expandedDev!)}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </React.Fragment>
           );
         })}
