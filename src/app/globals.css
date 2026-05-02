@@ -5,22 +5,44 @@
   --color-background: #F2F2F4;   /* page bg */
   --color-foreground: #1F242B;   /* primary text (near-black) */
   --color-surface: #FFFFFF;      /* card */
-  --color-elevated: #ECEEF1;     /* panel inside card / inputs */
+  --color-surface-2: #F8F8F8;    /* between surface & elevated; segment/toggle 容器、room cells */
+  --color-elevated: #ECEEF1;     /* sunken inputs / hover / panel inside card */
 
   /* Text scale */
   --color-mute: #6B7886;         /* secondary text / labels / hints */
   --color-soft: #2A3138;         /* primary content (slightly lighter than foreground) */
+  --color-faint: #A8B0BA;        /* placeholders / 最淡的 icon、disabled */
+
+  /* Borders */
+  --color-line: #E5E7EB;         /* 預設邊框 */
+  --color-line-strong: #D1D5DB;  /* checkbox 邊框、強調分隔 */
 
   /* Brand accents — 低飽和 palette（light/dark 共用） */
   --color-cool: #3A6289;         /* AC / info / link */
+  --color-cool-bg: #EFF1F4;      /* link hover、accent badge 底色 */
   --color-fresh: #3C977D;        /* dehumidifier / primary action / success */
+  --color-fresh-bg: #E5F1EA;     /* 成功 pill / 釘選 badge */
   --color-warm: #DF766E;         /* IR / destructive / warning */
+  --color-warm-bg: #F7EDED;      /* warn pill / 即期食品標籤 */
+  --color-amber: #B88324;        /* in-progress 字色 */
+  --color-amber-bg: #F5EDD8;     /* 待執行 pill 底色 */
+
+  /* Fonts — Inter 給數字、Noto Sans TC 給內文（layout.tsx 透過 next/font 注入 var） */
+  --font-sans: var(--font-noto-tc), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-num: var(--font-inter), system-ui, -apple-system, sans-serif;
 }
 
 body {
   background: var(--color-background);
   color: var(--color-foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* 數字專用：tabular nums + 微調字距，配合 design 的 .num 寫法。 */
+.num {
+  font-family: var(--font-num);
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
 }
 
 /* Safe area for mobile bottom nav */

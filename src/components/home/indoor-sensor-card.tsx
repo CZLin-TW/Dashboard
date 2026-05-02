@@ -17,7 +17,7 @@ export function IndoorSensorCard({ sensor }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-1.5">
+        <CardTitle>
           <Thermometer className="h-4 w-4" strokeWidth={2} />
           室內環境
         </CardTitle>

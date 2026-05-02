@@ -1,8 +1,23 @@
 import type { Metadata } from "next";
+import { Inter, Noto_Sans_TC } from "next/font/google";
 import { DesktopNav } from "@/components/layout/desktop-nav";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import "./globals.css";
+
+// Inter 給數字（用 .num class 觸發），Noto Sans TC 給內文。
+// 透過 CSS variable 帶進去，讓 globals.css 的 --font-sans / --font-num 拿到實際字型。
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+const notoTC = Noto_Sans_TC({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-noto-tc",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Smart Home Dashboard",
@@ -15,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-TW" className="h-full antialiased">
+    <html lang="zh-TW" className={`h-full antialiased ${inter.variable} ${notoTC.variable}`}>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <DesktopNav />
         <MobileHeader />

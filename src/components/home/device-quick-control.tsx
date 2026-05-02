@@ -545,7 +545,7 @@ export function DeviceQuickControl({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-1.5">
+          <CardTitle>
           <LayoutGrid className="h-4 w-4" strokeWidth={2} />
           裝置快捷
         </CardTitle>
@@ -639,7 +639,7 @@ export function DeviceQuickControl({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-1.5">
+        <CardTitle>
           <LayoutGrid className="h-4 w-4" strokeWidth={2} />
           裝置快捷
         </CardTitle>

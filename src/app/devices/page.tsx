@@ -188,7 +188,7 @@ export default function DevicesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-1.5">
+          <CardTitle>
             <Thermometer className="h-4 w-4" strokeWidth={2} />
             環境感測器
           </CardTitle>
@@ -252,7 +252,7 @@ export default function DevicesPage() {
                       {(() => {
                         const TypeIcon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
                         return (
-                          <CardTitle className="flex items-center gap-1.5">
+                          <CardTitle>
                             <TypeIcon className="h-4 w-4" strokeWidth={2} />
                             {device.name}
                           </CardTitle>
