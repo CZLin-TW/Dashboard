@@ -141,7 +141,7 @@ function Segment<T extends string | number>({
   format?: (v: T) => string;
 }) {
   return (
-    <div className="inline-flex flex-wrap gap-0.5 rounded-full border border-line bg-elevated p-[3px]">
+    <div className="inline-flex flex-wrap gap-0.5 rounded-[16px] border border-line bg-elevated p-[3px]">
       {options.map((opt) => {
         const isActive = opt.value === value;
         const isPending = pendingValue !== undefined && opt.value === pendingValue;
