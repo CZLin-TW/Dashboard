@@ -98,6 +98,7 @@ import {
   AirVent,
   Droplets,
   Fan,
+  Thermometer,
   CloudLightning,
   CloudRain,
   CloudSnow,
@@ -109,11 +110,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-/** 設備類型的 lucide icon。AC 用 AirVent（不暗示冷暖），除濕機 Droplets，IR 一般是電風扇用 Fan。 */
+/** 設備類型的 lucide icon。AC 用 AirVent（不暗示冷暖），除濕機 Droplets，IR 一般是電風扇用 Fan，感應器用 Thermometer。 */
 export const DEVICE_ICONS: Record<string, LucideIcon> = {
   "空調": AirVent,
   "除濕機": Droplets,
   "IR": Fan,
+  "感應器": Thermometer,
 };
 
 /** 找不到對應 icon 時的 fallback。 */

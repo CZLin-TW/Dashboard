@@ -378,9 +378,6 @@ export default function DevicesPage() {
   const sensors = devices.filter(d => d.type === "感應器");
   const controllable = devices.filter(d => d.type !== "感應器");
 
-  // 房間感測器 dot 顏色（reference 有用 brand/accent/amber 區分房間視覺）
-  const ROOM_DOT_TONES = ["bg-fresh", "bg-cool", "bg-amber", "bg-warm"];
-
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <Suspense>
@@ -409,14 +406,16 @@ export default function DevicesPage() {
 
         {sensors.length > 0 ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {sensors.map((s, idx) => {
+            {sensors.map((s) => {
               const pinned = pin.isSensorPinned(s.name);
-              const dotTone = ROOM_DOT_TONES[idx % ROOM_DOT_TONES.length];
+              const SensorIcon = DEVICE_ICONS["感應器"] ?? DEVICE_ICON_FALLBACK;
               return (
                 <div key={s.name} className={PANEL_BASE}>
                   <div className="flex items-center justify-between gap-2.5">
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${dotTone}`} />
+                      <span className="grid h-4 w-4 place-items-center text-mute">
+                        <SensorIcon className="h-4 w-4" strokeWidth={1.8} />
+                      </span>
                       <span className="truncate text-sm font-semibold text-foreground">
                         {s.location || s.name}
                       </span>
