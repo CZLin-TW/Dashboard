@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { LayoutGrid, Thermometer, Pin } from "lucide-react";
+import { LayoutGrid, Activity, Pin } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import {
@@ -387,7 +387,7 @@ export default function DevicesPage() {
       {/* ── 環境感測 ── */}
       <section className="space-y-3">
         <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
-          <Thermometer className="h-5 w-5 text-mute" strokeWidth={2} />
+          <Activity className="h-5 w-5 text-mute" strokeWidth={2} />
           環境感測
         </h1>
         <div className="flex items-center justify-between px-1">
