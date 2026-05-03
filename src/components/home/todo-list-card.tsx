@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckSquare } from "lucide-react";
+import { CheckSquare, Check } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { type TodoData } from "./types";
 
@@ -16,6 +16,8 @@ interface Props {
  * 首頁待辦卡：顯示父層篩好的「我的」待辦，每筆可勾選打勾。
  * 樂觀更新：點擊後立刻顯示完成動畫，背景送 DELETE。
  * 失敗時撤銷動畫 + alert 提示，避免使用者以為已經完成。
+ *
+ * 視覺對齊 todos 頁的 list row（同尺寸 checkbox、同 .num 日期）。
  */
 export function TodoListCard({ todos, onCompleted }: Props) {
   const [completingItems, setCompletingItems] = useState<Set<string>>(new Set());
@@ -59,47 +61,33 @@ export function TodoListCard({ todos, onCompleted }: Props) {
         </Link>
       </CardHeader>
       {todos.length > 0 ? (
-        <ul className="space-y-2">
+        <ul className="flex flex-col gap-1">
           {todos.map((todo, i) => {
             const isCompleting = completingItems.has(todo["事項"]);
             return (
               <li
                 key={i}
-                className={`flex items-center gap-3 text-sm transition-all duration-500 ${
-                  isCompleting ? "opacity-40 line-through scale-95" : ""
+                className={`flex items-center gap-3 rounded-[12px] px-2 py-1.5 transition-all duration-500 ${
+                  isCompleting ? "opacity-40 line-through scale-95" : "hover:bg-elevated/50"
                 }`}
               >
                 <button
                   onClick={() => !isCompleting && completeTodo(todo["事項"])}
                   disabled={isCompleting}
-                  className={`flex-shrink-0 w-4 h-4 rounded border-2 transition-colors ${
+                  className={`flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors ${
                     isCompleting
-                      ? "border-fresh bg-fresh"
-                      : "border-mute/50 hover:border-fresh hover:bg-fresh/20"
+                      ? "border-fresh bg-fresh text-white"
+                      : "border-line-strong bg-surface hover:border-fresh hover:bg-fresh/15"
                   }`}
                   title="標記完成"
                 >
-                  {isCompleting && (
-                    <svg
-                      className="w-full h-full p-0.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="white"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={3}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  )}
+                  {isCompleting && <Check className="h-3 w-3" strokeWidth={3} />}
                 </button>
-                <span className="text-soft">
+                <span className="flex-1 truncate text-sm text-foreground">
                   {todo["事項"]}
-                  {todo["時間"] && <span className="ml-1 text-mute">{todo["時間"]}</span>}
+                  {todo["時間"] && <span className="num ml-1.5 text-xs text-mute">{todo["時間"]}</span>}
                 </span>
-                <span className="ml-auto text-xs text-mute">{todo["日期"]}</span>
+                <span className="num flex-shrink-0 text-xs text-mute">{todo["日期"]}</span>
               </li>
             );
           })}
