@@ -59,6 +59,11 @@ export function usePinnedDevices() {
     localStorage.removeItem(DEVICES_KEY);
   }, []);
 
+  const clearAllDevices = useCallback(() => {
+    setPinnedDevicesState([]);
+    localStorage.removeItem(DEVICES_KEY);
+  }, []);
+
   const canPinMore = pinnedDevices.length < MAX_PINNED_DEVICES;
 
   return {
@@ -70,6 +75,7 @@ export function usePinnedDevices() {
     isSensorPinned,
     canPinMore,
     resetAll,
+    clearAllDevices,
     loaded,
     MAX_PINNED_DEVICES,
   };

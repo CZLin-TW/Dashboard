@@ -382,72 +382,92 @@ export default function DevicesPage() {
   const ROOM_DOT_TONES = ["bg-fresh", "bg-cool", "bg-amber", "bg-warm"];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-6">
       <Suspense>
         <DeviceScrollTarget deviceRefs={deviceRefs} />
       </Suspense>
 
-      <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
-        <LayoutGrid className="h-5 w-5 text-mute" strokeWidth={2} />
-        裝置控制
-      </h1>
-
-      {/* 室內環境 */}
-      <section className="rounded-[18px] border border-line bg-surface p-4 shadow-sm shadow-mute/5">
-        <div className="mb-2.5 flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-mute">
-            <Thermometer className="h-3.5 w-3.5" strokeWidth={2} />
-            室內環境
-          </h3>
-          <span className="text-xs text-mute">釘選 1 個到首頁</span>
+      {/* ── 環境感測 ── */}
+      <section className="space-y-3">
+        <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
+          <Thermometer className="h-5 w-5 text-mute" strokeWidth={2} />
+          環境感測
+        </h1>
+        <div className="flex items-center justify-between px-1">
+          <p className="text-xs text-mute">
+            釘選 1 個到首頁{pin.pinnedSensor ? "（已選 1）" : "（未選）"}
+          </p>
+          {pin.pinnedSensor && (
+            <button
+              onClick={() => pin.setPinnedSensor(null)}
+              className="text-xs text-warm hover:text-warm/80"
+            >
+              重置釘選
+            </button>
+          )}
         </div>
+
         {sensors.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {sensors.map((s, idx) => {
               const pinned = pin.isSensorPinned(s.name);
               const dotTone = ROOM_DOT_TONES[idx % ROOM_DOT_TONES.length];
               return (
-                <div
-                  key={s.name}
-                  className="relative flex flex-col gap-0.5 rounded-[14px] border border-line bg-elevated/50 px-3 py-2.5"
-                >
-                  <button
-                    type="button"
-                    onClick={() => pin.setPinnedSensor(pinned ? null : s.name)}
-                    className={`absolute right-2 top-2 grid h-[26px] w-[26px] place-items-center rounded-full transition-colors ${
-                      pinned ? "bg-pin text-white" : "bg-elevated text-faint hover:text-mute"
-                    }`}
-                    title={pinned ? "已釘選至首頁" : "釘選至首頁"}
-                    aria-label={pinned ? "已釘選" : "釘選"}
-                  >
-                    <Pin className="h-3 w-3" strokeWidth={2} fill="currentColor" />
-                  </button>
-                  <div className="flex items-center gap-1.5 text-xs text-mute">
-                    <span className={`h-1.5 w-1.5 rounded-full ${dotTone}`} />
-                    {s.location || s.name}
+                <div key={s.name} className={PANEL_BASE}>
+                  <div className="flex items-center justify-between gap-2.5">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className={`h-2 w-2 rounded-full ${dotTone}`} />
+                      <span className="truncate text-sm font-semibold text-foreground">
+                        {s.location || s.name}
+                      </span>
+                    </div>
+                    <PinButton
+                      pinned={pinned}
+                      onClick={() => pin.setPinnedSensor(pinned ? null : s.name)}
+                      title={pinned ? "已釘選至首頁" : "釘選至首頁"}
+                    />
                   </div>
-                  <div className="num text-[18px] font-bold tracking-[-0.015em] text-foreground">
-                    {s.temperature ?? "--"}
-                    <span className="ml-[1px] text-xs font-semibold text-mute">°C</span>
+                  <div className="flex items-baseline gap-3">
+                    <span className="num text-[28px] font-bold tracking-[-0.02em] leading-none text-foreground">
+                      {s.temperature ?? "--"}
+                      <span className="ml-[2px] text-base font-semibold text-mute">°C</span>
+                    </span>
+                    <span className="text-mute">·</span>
+                    <span className="num text-lg font-semibold text-soft">
+                      {s.humidity ?? "--"}
+                      <span className="ml-[1px] text-xs font-medium text-mute">%</span>
+                    </span>
                   </div>
-                  <div className="num text-xs text-mute">{s.humidity ?? "--"}%</div>
                 </div>
               );
             })}
           </div>
         ) : loading ? (
-          <p className="text-sm text-mute">載入中...</p>
+          <p className="px-1 text-sm text-mute">載入中...</p>
         ) : (
-          <p className="text-sm text-mute">未偵測到感測器</p>
+          <p className="px-1 text-sm text-mute">未偵測到感測器</p>
         )}
       </section>
 
-      <div className="flex items-center justify-between px-1">
-        <p className="text-xs text-mute">釘選最多 {pin.MAX_PINNED_DEVICES} 個到首頁（已選 {pin.pinnedDevices.length}）</p>
-        {(pin.pinnedDevices.length > 0 || pin.pinnedSensor) && (
-          <button onClick={pin.resetAll} className="text-xs text-warm hover:text-warm/80">重置釘選</button>
-        )}
-      </div>
+      {/* ── 裝置控制 ── */}
+      <section className="space-y-3">
+        <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
+          <LayoutGrid className="h-5 w-5 text-mute" strokeWidth={2} />
+          裝置控制
+        </h1>
+        <div className="flex items-center justify-between px-1">
+          <p className="text-xs text-mute">
+            釘選最多 {pin.MAX_PINNED_DEVICES} 個到首頁（已選 {pin.pinnedDevices.length}）
+          </p>
+          {pin.pinnedDevices.length > 0 && (
+            <button
+              onClick={pin.clearAllDevices}
+              className="text-xs text-warm hover:text-warm/80"
+            >
+              重置釘選
+            </button>
+          )}
+        </div>
 
       {/* 房間分群 + panel */}
       {(() => {
@@ -650,6 +670,7 @@ export default function DevicesPage() {
           </div>
         ));
       })()}
+      </section>
     </div>
   );
 }
