@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckSquare, Check } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { type TodoData } from "@/lib/types";
+import { type TodoData, todoUrgency, urgencyRowClass } from "@/lib/types";
 
 interface Props {
   todos: TodoData[];
@@ -64,11 +64,14 @@ export function TodoListCard({ todos, onCompleted }: Props) {
         <ul className="flex flex-col gap-1">
           {todos.map((todo, i) => {
             const isCompleting = completingItems.has(todo["事項"]);
+            const urgency = todoUrgency(todo["日期"], todo["時間"]);
+            const urgencyCls = urgencyRowClass(urgency);
+            const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
             return (
               <li
                 key={i}
-                className={`flex items-center gap-3 rounded-[12px] px-2 py-1.5 transition-all duration-500 ${
-                  isCompleting ? "opacity-40 line-through scale-95" : "hover:bg-elevated/50"
+                className={`flex items-center gap-3 rounded-[12px] px-2 py-1.5 transition-all duration-500 ${urgencyCls} ${hoverCls} ${
+                  isCompleting ? "opacity-40 line-through scale-95" : ""
                 }`}
               >
                 <button

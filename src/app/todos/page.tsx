@@ -9,6 +9,7 @@ import {
   PillButton,
   IconActionButton,
 } from "@/components/ui/device-controls";
+import { todoUrgency, urgencyRowClass } from "@/lib/types";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 
@@ -282,11 +283,15 @@ export default function TodosPage() {
 
               const isCompleting = completingItems.has(todo["事項"]);
               const isPublic = todo["類型"] === "公開";
+              const urgency = todoUrgency(todo["日期"], todo["時間"]);
+              const urgencyCls = urgencyRowClass(urgency);
+              // 已 highlight 的 row 不再加 hover bg（會 muddy 兩層底色）
+              const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
 
               return (
                 <li
                   key={sheetIndex}
-                  className={`flex items-center gap-3 rounded-[12px] px-3 py-2.5 hover:bg-elevated/50 transition-all duration-500 ${
+                  className={`flex items-center gap-3 rounded-[12px] px-3 py-2.5 transition-all duration-500 ${urgencyCls} ${hoverCls} ${
                     isCompleting ? "opacity-40 line-through scale-95" : ""
                   }`}
                 >

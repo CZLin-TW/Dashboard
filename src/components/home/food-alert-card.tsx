@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { type FoodData, daysUntilExpiry } from "@/lib/types";
+import { type FoodData, daysUntilExpiry, foodUrgency, urgencyRowClass } from "@/lib/types";
 
 interface Props {
   food: FoodData[];
@@ -38,10 +38,13 @@ export function FoodAlertCard({ food }: Props) {
         <ul className="flex flex-col gap-1">
           {food.map((f, i) => {
             const days = daysUntilExpiry(f["過期日"]);
+            const urgency = foodUrgency(f["過期日"]);
+            const urgencyCls = urgencyRowClass(urgency);
+            const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
             return (
               <li
                 key={i}
-                className="flex items-center gap-3 rounded-[12px] px-2 py-1.5 hover:bg-elevated/50 transition-colors"
+                className={`flex items-center gap-3 rounded-[12px] px-2 py-1.5 transition-colors ${urgencyCls} ${hoverCls}`}
               >
                 <span className="flex-1 min-w-0 text-sm text-foreground">
                   <span className="font-semibold">{f["品名"]}</span>

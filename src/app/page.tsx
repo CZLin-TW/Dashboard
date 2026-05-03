@@ -74,6 +74,10 @@ export default function HomePage() {
     .filter((d): d is DeviceData => d !== undefined && d.type !== "感應器");
 
   // 「我的」待辦：負責人 = 登入者全名，或前 2 字（家庭成員可能用暱稱簡寫）
+  // 首頁只顯示「需要注意」的：5 天內到期 OR 已過期，最多 5 筆。
+  const fiveDaysMs = 5 * 24 * 60 * 60 * 1000;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
   const myTodos = todos
     .filter(
       (t) =>
@@ -82,6 +86,13 @@ export default function HomePage() {
           t["負責人"] === currentUser.name ||
           t["負責人"] === currentUser.name.substring(0, 2)),
     )
+    .filter((t) => {
+      if (!t["日期"]) return false;
+      const target = new Date(t["日期"]);
+      target.setHours(0, 0, 0, 0);
+      const diff = target.getTime() - todayStart.getTime();
+      return diff <= fiveDaysMs; // 包含負值（過期）跟 0~5 天
+    })
     .sort((a, b) => {
       const dateA = `${a["日期"]} ${a["時間"] || "99:99"}`;
       const dateB = `${b["日期"]} ${b["時間"] || "99:99"}`;
@@ -89,11 +100,8 @@ export default function HomePage() {
     })
     .slice(0, 5);
 
-  // 即期食品：今天到 3 天內到期；過期（負數 days）刻意不在首頁紅色提醒，避免使用者厭倦
-  const urgentFood = food.filter((f) => {
-    const days = daysUntilExpiry(f["過期日"]);
-    return days >= 0 && days <= 3;
-  });
+  // 即期食品：5 天內到期或已過期。過期（負數 days）放進來讓使用者及早處理。
+  const urgentFood = food.filter((f) => daysUntilExpiry(f["過期日"]) <= 5);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

@@ -135,3 +135,54 @@ export function acPendingFromDevice(device: DeviceData): AcPendingState {
     fanSpeed: device.lastFanSpeed || "",
   };
 }
+
+/** 待辦 / 食品的緊急程度 — 用於 list row 的 highlight。
+ *  - overdue：已過時（食品過期日 < 今天；待辦日期 < 今天，或同日且時間已過）
+ *  - today：當日且尚未過時（食品過期日 = 今天；待辦今天但時間未到）
+ *  - normal：一般 */
+export type Urgency = "overdue" | "today" | "normal";
+
+/** 待辦 urgency 判斷：先看日曆天，再看時間。
+ *  日曆天比較簡單也避免「沒指定時間」的歧義；同一日曆天時，
+ *  有時間才比對 now，沒時間就維持 today（一天還沒過）。 */
+export function todoUrgency(date: string, time: string): Urgency {
+  if (!date) return "normal";
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+
+  if (target.getTime() < today.getTime()) return "overdue";
+  if (target.getTime() > today.getTime()) return "normal";
+
+  // 同一日曆天
+  if (!time || !/^\d{1,2}:\d{2}/.test(time)) return "today";
+  const [h, m] = time.split(":").map((s) => parseInt(s, 10));
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return "today";
+  const dueAt = new Date(date);
+  dueAt.setHours(h, m, 0, 0);
+  return dueAt.getTime() < Date.now() ? "overdue" : "today";
+}
+
+/** 食品 urgency：純看過期日跟今天的日曆天差距。 */
+export function foodUrgency(expiry: string): Urgency {
+  const days = daysUntilExpiry(expiry);
+  if (days < 0) return "overdue";
+  if (days === 0) return "today";
+  return "normal";
+}
+
+/** Urgency → row className（list row 用）。
+ *  overdue：飽和 warm-bg + 左邊 inset bar + font-semibold（最強警示）
+ *  today：較淡 warm-bg + 左邊 inset bar（次強）
+ *  normal：空字串
+ *  inset shadow 而不是 border-left：避免破 row 的 rounded-[12px]。 */
+export function urgencyRowClass(urgency: Urgency): string {
+  if (urgency === "overdue")
+    return "bg-warm-bg/70 shadow-[inset_3px_0_0_var(--color-warm)] font-semibold";
+  if (urgency === "today")
+    return "bg-warm-bg/30 shadow-[inset_3px_0_0_var(--color-warm)]";
+  return "";
+}

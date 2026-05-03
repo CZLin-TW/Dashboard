@@ -9,6 +9,7 @@ import {
   PillButton,
   IconActionButton,
 } from "@/components/ui/device-controls";
+import { foodUrgency, urgencyRowClass } from "@/lib/types";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 
@@ -273,10 +274,14 @@ export default function FoodPage() {
                 );
               }
 
+              const urgency = foodUrgency(item["過期日"]);
+              const urgencyCls = urgencyRowClass(urgency);
+              const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
+
               return (
                 <div
                   key={sheetIndex}
-                  className="flex items-center gap-3 rounded-[12px] px-3 py-2.5 hover:bg-elevated/50 transition-colors"
+                  className={`flex items-center gap-3 rounded-[12px] px-3 py-2.5 transition-colors ${urgencyCls} ${hoverCls}`}
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-foreground">
