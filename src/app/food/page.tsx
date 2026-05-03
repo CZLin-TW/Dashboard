@@ -158,7 +158,7 @@ export default function FoodPage() {
                 value={newFood.name}
                 onChange={(e) => setNewFood((p) => ({ ...p, name: e.target.value }))}
                 placeholder="食品名稱"
-                className={`flex-1 ${INPUT_BASE}`}
+                className={`flex-1 min-w-0 ${INPUT_BASE}`}
               />
               <input
                 type="number"
@@ -226,7 +226,7 @@ export default function FoodPage() {
                         value={editFood.name}
                         onChange={(e) => setEditFood((p) => ({ ...p, name: e.target.value }))}
                         placeholder="品名"
-                        className={`flex-1 ${INPUT_BASE}`}
+                        className={`flex-1 min-w-0 ${INPUT_BASE}`}
                       />
                       <input
                         type="number"
@@ -251,7 +251,7 @@ export default function FoodPage() {
                         type="date"
                         value={editFood.expiry}
                         onChange={(e) => setEditFood((p) => ({ ...p, expiry: e.target.value }))}
-                        className={`flex-1 ${INPUT_BASE}`}
+                        className={`flex-1 min-w-0 ${INPUT_BASE}`}
                       />
                       <button
                         onClick={saveEdit}

@@ -245,7 +245,7 @@ export default function TodosPage() {
                         type="date"
                         value={editTodo.date}
                         onChange={(e) => setEditTodo((p) => ({ ...p, date: e.target.value }))}
-                        className={`flex-1 ${INPUT_BASE}`}
+                        className={`flex-1 min-w-0 ${INPUT_BASE}`}
                       />
                       <input
                         type="time"

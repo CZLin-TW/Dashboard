@@ -177,16 +177,20 @@ export default function SchedulesPage() {
     }).then(() => fetchSchedules());
   }
 
-  /** 渲染裝置控制區塊。給定 schedule 的 parsed params 跟對應 device，顯示
-   *  跟「新增排程」一樣的 form 結構但 disabled。
-   *  目前後端只支援新增 / 刪除，這裡是預覽 UI；之後加 PATCH route 把 disabled
-   *  flag 拿掉、控制元件接 setter、加 onSubmit 就能改成可編輯。 */
-  function renderPreviewControls(deviceType: string, parsed: ParsedParams) {
+  /** 渲染裝置控制 fields（不包外層 bg / padding，由 caller 包）。
+   *  跟「新增排程」一樣的 form 結構但 disabled。後端 PATCH ready 之後
+   *  拿掉 disabled、把 onChange 接 setter、底部加儲存/取消即可改成可編輯。
+   *
+   *  渲染決策：fields 直接吐出，沒有自帶外框；preview 跟 add form 各自決定
+   *  要不要再加 bg-elevated/50 包一層。preview 整塊用單一 bg-elevated/50 容器
+   *  跟 todo/food 的 inline edit 視覺一致。 */
+  function renderPreviewControls(deviceData: DeviceData, parsed: ParsedParams) {
     if (!options) return null;
-    if (deviceType === "空調") {
+    const { type } = deviceData;
+    if (type === "空調") {
       const power = parsed.power === "on";
       return (
-        <div className="space-y-3.5 rounded-[14px] bg-elevated/50 p-3.5">
+        <>
           <Field label="電源">
             <Toggle2 value={power} onChange={() => {}} disabled />
           </Field>
@@ -218,13 +222,13 @@ export default function SchedulesPage() {
               </Field>
             </>
           )}
-        </div>
+        </>
       );
     }
-    if (deviceType === "除濕機") {
+    if (type === "除濕機") {
       const power = parsed.power === "on";
       return (
-        <div className="space-y-3.5 rounded-[14px] bg-elevated/50 p-3.5">
+        <>
           <Field label="電源">
             <Toggle2 value={power} onChange={() => {}} disabled />
           </Field>
@@ -248,13 +252,12 @@ export default function SchedulesPage() {
               </Field>
             </>
           )}
-        </div>
+        </>
       );
     }
-    if (deviceType === "IR") {
-      // 對 IR：device 表如果有 buttons 欄位就顯示 segment，否則退化成單一按鈕值的展示。
-      const dev = controllable.find((d) => d.name === parsed.button);
-      const btnList = (dev?.buttons ?? parsed.button ?? "")
+    if (type === "IR") {
+      // 用裝置自身的 buttons 欄位（schedule 的 button 只是「按下哪一個」）
+      const btnList = (deviceData.buttons ?? "")
         .split(",")
         .map((b) => b.trim())
         .filter(Boolean);
@@ -262,16 +265,14 @@ export default function SchedulesPage() {
         ? btnList.map((b) => ({ value: b, label: b }))
         : (parsed.button ? [{ value: parsed.button, label: parsed.button }] : []);
       return (
-        <div className="rounded-[14px] bg-elevated/50 p-3.5">
-          <Field label="按鈕">
-            <Segment
-              options={opts}
-              value={parsed.button}
-              onSelect={() => {}}
-              disabled
-            />
-          </Field>
-        </div>
+        <Field label="按鈕">
+          <Segment
+            options={opts}
+            value={parsed.button}
+            onSelect={() => {}}
+            disabled
+          />
+        </Field>
       );
     }
     return null;
@@ -469,26 +470,24 @@ export default function SchedulesPage() {
                   </div>
 
                   {isPreviewing && (
-                    <div className="mt-1 mx-3 mb-2 space-y-3">
-                      {dev && renderPreviewControls(dev.type, parsed)}
-                      <div className="space-y-3">
-                        <Field label="日期">
-                          <input
-                            type="date"
-                            value={(trigger.split(" ")[0]) ?? ""}
-                            disabled
-                            className="w-full rounded-[10px] border border-line bg-elevated px-4 py-2.5 text-sm text-mute appearance-none disabled:cursor-not-allowed"
-                          />
-                        </Field>
-                        <Field label="時間">
-                          <input
-                            type="time"
-                            value={(trigger.split(" ")[1]) ?? ""}
-                            disabled
-                            className="w-full rounded-[10px] border border-line bg-elevated px-4 py-2.5 text-sm text-mute appearance-none disabled:cursor-not-allowed"
-                          />
-                        </Field>
-                      </div>
+                    <div className="mt-1 mx-3 mb-2 rounded-[12px] bg-elevated/50 px-3 py-3 space-y-3">
+                      {dev && renderPreviewControls(dev, parsed)}
+                      <Field label="日期">
+                        <input
+                          type="date"
+                          value={(trigger.split(" ")[0]) ?? ""}
+                          disabled
+                          className="w-full min-w-0 rounded-[10px] border border-line bg-surface px-4 py-2.5 text-sm text-mute appearance-none disabled:cursor-not-allowed"
+                        />
+                      </Field>
+                      <Field label="時間">
+                        <input
+                          type="time"
+                          value={(trigger.split(" ")[1]) ?? ""}
+                          disabled
+                          className="w-full min-w-0 rounded-[10px] border border-line bg-surface px-4 py-2.5 text-sm text-mute appearance-none disabled:cursor-not-allowed"
+                        />
+                      </Field>
                       <div className="flex items-center justify-between gap-3 rounded-[10px] bg-amber-bg px-3 py-2 text-xs text-amber">
                         <span>目前僅支援預覽，編輯功能等後端 PATCH route 上線</span>
                         <button
