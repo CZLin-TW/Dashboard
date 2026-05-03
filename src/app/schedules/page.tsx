@@ -8,6 +8,8 @@ import {
   Stepper,
   Segment,
   Field,
+  PillButton,
+  IconActionButton,
 } from "@/components/ui/device-controls";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
@@ -137,19 +139,18 @@ export default function SchedulesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <Clock className="h-6 w-6" strokeWidth={2} />
+        <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
+          <Clock className="h-5 w-5 text-mute" strokeWidth={2} />
           排程管理
         </h1>
-        <button
+        <PillButton
           onClick={() => setShowAdd(!showAdd)}
-          className="flex items-center gap-1 rounded-full bg-cool px-4 py-2 text-sm font-medium text-white hover:bg-cool/85 transition-colors"
+          icon={<Plus className="h-4 w-4" strokeWidth={2.5} />}
         >
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
           新增排程
-        </button>
+        </PillButton>
       </div>
 
       {/* Add Schedule Form */}
@@ -282,14 +283,14 @@ export default function SchedulesPage() {
       <Card>
         <CardHeader>
           <CardTitle>排程列表</CardTitle>
-          <span className="text-xs text-mute">{schedules.length} 項</span>
+          <span className="num text-xs text-mute">{schedules.length} 項</span>
         </CardHeader>
         {loading && schedules.length === 0 ? (
           <p className="text-sm text-mute">載入中...</p>
         ) : schedules.length === 0 ? (
           <p className="text-sm text-mute">目前沒有排程</p>
         ) : (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-1">
             {[...schedules].sort((a, b) => (a["觸發時間"] ?? "").localeCompare(b["觸發時間"] ?? "")).map((s, index) => {
               const deviceName = s["設備名稱"] ?? "";
               const trigger = s["觸發時間"] ?? "";
@@ -310,25 +311,28 @@ export default function SchedulesPage() {
               } catch { /* keep raw */ }
 
               return (
-                <div key={index} className="flex items-center gap-3 rounded-[12px] bg-elevated/50 px-4 py-3">
+                <div
+                  key={index}
+                  className="flex items-center gap-3 rounded-[12px] px-3 py-2.5 hover:bg-elevated/50 transition-colors"
+                >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-soft">
-                      {deviceName} — {paramsDisplay}
+                    <p className="text-sm text-foreground">
+                      <span className="font-semibold">{deviceName}</span>
+                      <span className="ml-2 text-mute">— {paramsDisplay}</span>
                     </p>
-                    <p className="text-xs text-mute">
+                    <p className="num text-xs text-mute">
                       {trigger} · {creator}
                     </p>
                   </div>
-                  <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold text-amber-bg bg-amber/15" style={{ color: "var(--color-amber)", backgroundColor: "var(--color-amber-bg)" }}>
+                  <span className="flex-shrink-0 rounded-full bg-amber-bg px-2 py-0.5 text-[11.5px] font-semibold text-amber">
                     待執行
                   </span>
-                  <button
+                  <IconActionButton
                     onClick={() => deleteSchedule(deviceName, trigger)}
-                    className="rounded-full p-1.5 text-mute hover:text-warm hover:bg-warm/10 transition-colors"
+                    tone="danger"
                     title="刪除"
-                  >
-                    <X className="h-3.5 w-3.5" strokeWidth={2} />
-                  </button>
+                    icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
+                  />
                 </div>
               );
             })}

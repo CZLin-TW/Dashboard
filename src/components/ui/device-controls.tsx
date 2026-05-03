@@ -250,3 +250,106 @@ export function ClimateReadout({
     </div>
   );
 }
+
+/** Filter tabs — reference HTML 的 .tabs-pill 樣式：個別 rounded-full pill 並排，
+ *  active 用 cool 藍底白字，可選 badge（即期食品數量等）。 */
+export function TabsPill<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string; badge?: number }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="inline-flex flex-wrap gap-1.5">
+      {options.map((opt) => {
+        const isActive = opt.value === value;
+        const showBadge = opt.badge !== undefined && opt.badge > 0;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
+              isActive
+                ? "border-transparent bg-cool text-white shadow-sm"
+                : "border-line bg-surface text-mute hover:text-soft"
+            }`}
+          >
+            {opt.label}
+            {showBadge && (
+              <span
+                className={`num rounded-full px-1.5 text-[11px] font-semibold ${
+                  isActive ? "bg-white/20 text-white" : "bg-warm-bg text-warm"
+                }`}
+              >
+                {opt.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 主要動作 pill button（H1 旁的 新增 / 新增排程）。預設 cool 底白字。 */
+export function PillButton({
+  onClick,
+  icon,
+  children,
+  variant = "primary",
+  className = "",
+}: {
+  onClick: () => void;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+  variant?: "primary" | "confirm";
+  className?: string;
+}) {
+  const variantCls =
+    variant === "confirm"
+      ? "bg-fresh text-white hover:bg-fresh/85 disabled:bg-elevated disabled:text-mute"
+      : "bg-cool text-white hover:bg-cool/85";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${variantCls} ${className}`}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+/** 圓形小 icon button（list row 的編輯/刪除）。tone 控制 hover 色。 */
+export function IconActionButton({
+  onClick,
+  icon,
+  title,
+  tone = "neutral",
+}: {
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  tone?: "neutral" | "danger";
+}) {
+  const hoverCls =
+    tone === "danger"
+      ? "hover:text-warm hover:bg-warm-bg"
+      : "hover:text-cool hover:bg-cool-bg";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className={`grid h-7 w-7 place-items-center rounded-full text-mute transition-colors ${hoverCls}`}
+    >
+      {icon}
+    </button>
+  );
+}
