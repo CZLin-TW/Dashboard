@@ -1,5 +1,13 @@
 "use client";
 
+// React 19 react-hooks/set-state-in-effect 規則對下列兩個 effect 都會 fire：
+// (1) localStorage 還原 cache（必須等 client mount 才能讀，避免 SSR mismatch）
+// (2) mount 時觸發 fetch
+// 要乾淨改寫前者需要 useSyncExternalStore + snapshot identity 跟 cross-key
+// cache map 的 boilerplate；後者要遷移到 Suspense + use()。對這個 codebase
+// 不划算，整檔 disable 並在這裡集中說明 trade-off。
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import { useState, useEffect, useCallback } from "react";
 
 /**

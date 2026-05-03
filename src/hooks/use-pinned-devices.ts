@@ -1,5 +1,11 @@
 "use client";
 
+// React 19 react-hooks/set-state-in-effect 規則建議用 useSyncExternalStore
+// 取代「mount 後從 localStorage 還原」這個 pattern。要正確實作 snapshot
+// identity stability 跟 cross-key cache map 不少 boilerplate；對單一 hook
+// 不划算，整檔 disable 並在這裡集中說明 trade-off。
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import { useState, useEffect, useCallback } from "react";
 
 const SENSOR_KEY = "pinned-sensor";
@@ -11,6 +17,8 @@ export function usePinnedDevices() {
   const [pinnedDevices, setPinnedDevicesState] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
 
+  // 從 localStorage 還原 pin 設定。SSR 不能存取 localStorage（會 hydration
+  // mismatch），所以一定要在 mount 後才讀。
   useEffect(() => {
     try {
       const sensor = localStorage.getItem(SENSOR_KEY);
