@@ -162,7 +162,7 @@ export default function SchedulesPage() {
               <select
                 value={selectedDevice}
                 onChange={(e) => setSelectedDevice(e.target.value)}
-                className="w-full rounded-[10px] border border-line bg-elevated px-3 py-2 text-sm text-foreground focus:border-cool focus:outline-none"
+                className="field-select w-full rounded-[10px] border border-line bg-elevated px-3 py-2 text-sm text-foreground focus:border-cool focus:outline-none"
               >
                 <option value="">選擇裝置...</option>
                 {controllable.map((d) => (

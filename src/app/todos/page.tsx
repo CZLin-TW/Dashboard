@@ -193,7 +193,7 @@ export default function TodosPage() {
               <select
                 value={newTodo.type}
                 onChange={(e) => setNewTodo((p) => ({ ...p, type: e.target.value }))}
-                className={INPUT_BASE}
+                className={`field-select ${INPUT_BASE}`}
               >
                 <option value="私人">私人</option>
                 <option value="公開">公開</option>
@@ -256,7 +256,7 @@ export default function TodosPage() {
                       <select
                         value={editTodo.type}
                         onChange={(e) => setEditTodo((p) => ({ ...p, type: e.target.value }))}
-                        className={`w-20 ${INPUT_BASE}`}
+                        className={`field-select w-24 ${INPUT_BASE}`}
                       >
                         <option value="私人">私人</option>
                         <option value="公開">公開</option>

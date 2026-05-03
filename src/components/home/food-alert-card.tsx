@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { type FoodData, daysUntilExpiry } from "./types";
+import { type FoodData, daysUntilExpiry } from "@/lib/types";
 
 interface Props {
   food: FoodData[];

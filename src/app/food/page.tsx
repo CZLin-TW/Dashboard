@@ -170,7 +170,7 @@ export default function FoodPage() {
               <select
                 value={newFood.unit}
                 onChange={(e) => setNewFood((p) => ({ ...p, unit: e.target.value }))}
-                className={`w-20 ${INPUT_BASE}`}
+                className={`field-select w-24 ${INPUT_BASE}`}
               >
                 {UNITS.map((u) => (
                   <option key={u} value={u}>
@@ -237,7 +237,7 @@ export default function FoodPage() {
                       <select
                         value={editFood.unit}
                         onChange={(e) => setEditFood((p) => ({ ...p, unit: e.target.value }))}
-                        className={`w-20 ${INPUT_BASE}`}
+                        className={`field-select w-24 ${INPUT_BASE}`}
                       >
                         {UNITS.map((u) => (
                           <option key={u} value={u}>

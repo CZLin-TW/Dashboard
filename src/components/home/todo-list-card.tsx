@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckSquare, Check } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { type TodoData } from "./types";
+import { type TodoData } from "@/lib/types";
 
 interface Props {
   todos: TodoData[];

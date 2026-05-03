@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Pin } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClimateReadout } from "@/components/ui/device-controls";
-import { type DeviceData, DEVICE_ICONS, DEVICE_ICON_FALLBACK } from "./types";
+import { type DeviceData, DEVICE_ICONS, DEVICE_ICON_FALLBACK } from "@/lib/types";
 
 interface Props {
   sensor: DeviceData | null;

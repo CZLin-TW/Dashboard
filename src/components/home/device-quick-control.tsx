@@ -20,7 +20,7 @@ import {
   DEVICE_ICONS,
   DEVICE_ICON_FALLBACK,
   acPendingFromDevice,
-} from "./types";
+} from "@/lib/types";
 
 // Tile active 狀態用單一 cool 色，跟 Segment active / link / scroll-target ring
 // 一樣的「被選中」語義；不依 device type 換色——icon 形狀本身就足夠辨識類型，

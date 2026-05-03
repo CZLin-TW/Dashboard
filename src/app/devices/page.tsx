@@ -13,7 +13,7 @@ import {
   DEVICE_ICONS,
   DEVICE_ICON_FALLBACK,
   acPendingFromDevice,
-} from "@/components/home/types";
+} from "@/lib/types";
 import {
   Toggle2,
   Stepper,

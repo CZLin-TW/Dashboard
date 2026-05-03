@@ -11,7 +11,7 @@ import {
   type FoodData,
   DEFAULT_OPTIONS,
   daysUntilExpiry,
-} from "@/components/home/types";
+} from "@/lib/types";
 import { WeatherCard } from "@/components/home/weather-card";
 import { IndoorSensorCard } from "@/components/home/indoor-sensor-card";
 import { DeviceQuickControl } from "@/components/home/device-quick-control";

@@ -3,7 +3,7 @@
 import { MapPin } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClimateReadout } from "@/components/ui/device-controls";
-import { type WeatherData, wxIcon } from "./types";
+import { type WeatherData, wxIcon } from "@/lib/types";
 
 interface Props {
   weather: WeatherData | null;
