@@ -472,12 +472,20 @@ export default function SchedulesPage() {
                     <div className="mt-1 mx-3 mb-2 space-y-3">
                       {dev && renderPreviewControls(dev.type, parsed)}
                       <div className="space-y-3">
-                        <Field label="觸發時間">
+                        <Field label="日期">
                           <input
-                            type="text"
-                            value={trigger}
+                            type="date"
+                            value={(trigger.split(" ")[0]) ?? ""}
                             disabled
-                            className="num w-full rounded-[10px] border border-line bg-elevated px-4 py-2.5 text-sm text-mute appearance-none"
+                            className="w-full rounded-[10px] border border-line bg-elevated px-4 py-2.5 text-sm text-mute appearance-none disabled:cursor-not-allowed"
+                          />
+                        </Field>
+                        <Field label="時間">
+                          <input
+                            type="time"
+                            value={(trigger.split(" ")[1]) ?? ""}
+                            disabled
+                            className="w-full rounded-[10px] border border-line bg-elevated px-4 py-2.5 text-sm text-mute appearance-none disabled:cursor-not-allowed"
                           />
                         </Field>
                       </div>
