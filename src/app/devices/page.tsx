@@ -59,12 +59,12 @@ function Toggle2({
   disabled?: boolean;
 }) {
   return (
-    <div className="inline-flex gap-0.5 rounded-full border border-line bg-elevated p-[3px]">
+    <div className="inline-flex gap-0.5 rounded-[16px] border border-line bg-elevated p-[3px]">
       <button
         type="button"
         disabled={disabled}
         onClick={() => onChange(true)}
-        className={`rounded-full px-[18px] py-[7px] text-[13px] font-semibold tracking-[0.06em] transition-colors ${
+        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
           value ? "bg-fresh text-white shadow-sm" : "text-mute"
         }`}
       >
@@ -74,7 +74,7 @@ function Toggle2({
         type="button"
         disabled={disabled}
         onClick={() => onChange(false)}
-        className={`rounded-full px-[18px] py-[7px] text-[13px] font-semibold tracking-[0.06em] transition-colors ${
+        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
           !value ? "bg-warm text-white shadow-sm" : "text-mute"
         }`}
       >
