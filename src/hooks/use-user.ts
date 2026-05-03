@@ -19,7 +19,8 @@ export function useUser() {
         if (data && !data.error) setCurrentUser(data);
         setIsLoaded(true);
       })
-      .catch(() => setIsLoaded(false));
+      // 網路錯誤也要把 isLoaded 設 true，否則整個 app 會卡在 loading 狀態。
+      .catch(() => setIsLoaded(true));
   }, []);
 
   const logout = useCallback(async () => {
