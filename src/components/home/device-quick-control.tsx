@@ -22,18 +22,19 @@ import {
   acPendingFromDevice,
 } from "./types";
 
-// Tile 用的 accent：active 邊框/底色漸層、icon 顏色與光暈。
-// 跟裝置頁的 panel 視覺刻意不同——首頁 tile 是「快捷入口」、需要色相區分設備類型；裝置頁 panel 是「可控介面」、要安靜。
-type Accent = { iconClass: string; activeBorder: string; activeBg: string };
+// Tile 用的 accent：active 邊框/底色、icon 顏色。
+// Flat 風格，不用漸層 / icon 光暈，跟裝置頁、排程頁的 panel 視覺一致；
+// active 時用該 type 的 *-bg 淺底 + 同色邊框 + 同色 icon 帶出層次。
+type Accent = { iconActive: string; activeBorder: string; activeBg: string };
 const DEVICE_ACCENT: Record<string, Accent> = {
-  // 空調：深藍 #3A6289（cooling）
-  "空調":   { iconClass: "text-[#8EA6B2] drop-shadow-[0_0_10px_rgba(58,98,137,0.55)]",  activeBorder: "border-[#3A6289]/60",  activeBg: "from-[#3A6289]/35 to-surface" },
-  // 除濕機：鼠尾草 #3C977D（fresh / water）
-  "除濕機": { iconClass: "text-[#3C977D] drop-shadow-[0_0_10px_rgba(60,152,125,0.55)]", activeBorder: "border-[#3C977D]/60", activeBg: "from-[#3C977D]/30 to-surface" },
-  // IR：珊瑚 #DF766E（warm / energy）
-  "IR":     { iconClass: "text-[#DF766E] drop-shadow-[0_0_10px_rgba(223,118,110,0.55)]", activeBorder: "border-[#DF766E]/60", activeBg: "from-[#DF766E]/25 to-surface" },
+  // 空調 → cool 深藍
+  "空調":   { iconActive: "text-cool",  activeBorder: "border-cool/40",  activeBg: "bg-cool-bg" },
+  // 除濕機 → fresh 鼠尾草綠
+  "除濕機": { iconActive: "text-fresh", activeBorder: "border-fresh/40", activeBg: "bg-fresh-bg" },
+  // IR → warm 珊瑚
+  "IR":     { iconActive: "text-warm",  activeBorder: "border-warm/40",  activeBg: "bg-warm-bg" },
 };
-const DEFAULT_ACCENT: Accent = { iconClass: "text-[#C5C5CA]", activeBorder: "border-[#8EA6B2]/50", activeBg: "from-[#8EA6B2]/20 to-surface" };
+const DEFAULT_ACCENT: Accent = { iconActive: "text-mute", activeBorder: "border-line-strong", activeBg: "bg-elevated" };
 
 interface Props {
   /** 已釘選且要顯示的可控設備（不含感應器）。順序依釘選順序。 */
@@ -485,10 +486,10 @@ export function DeviceQuickControl({
         whileTap={{ scale: 0.95 }}
         whileHover={{ scale: 1.02 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 bg-gradient-to-br shadow-sm shadow-mute/10 transition-colors duration-200 ${
+        className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 shadow-sm shadow-mute/5 transition-colors duration-200 ${
           isActive
             ? `${accent.activeBorder} ${accent.activeBg}`
-            : "border-mute/15 from-elevated to-surface hover:from-elevated/85 hover:to-surface/85"
+            : "border-line bg-surface hover:bg-elevated"
         }`}
       >
         {isRunning && (
@@ -497,7 +498,7 @@ export function DeviceQuickControl({
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
           </span>
         )}
-        <Icon className={`h-7 w-7 ${accent.iconClass}`} strokeWidth={1.75} />
+        <Icon className={`h-7 w-7 ${isActive ? accent.iconActive : "text-mute"}`} strokeWidth={1.75} />
         <span className="text-sm font-medium">{device.name}</span>
         {device.location && <span className="text-xs text-mute">{device.location}</span>}
       </motion.button>
