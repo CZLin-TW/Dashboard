@@ -220,12 +220,20 @@ export default function FoodPage() {
                     key={sheetIndex}
                     className="rounded-[12px] bg-elevated/50 px-3 py-3 space-y-2.5"
                   >
+                    {/* Row 1：品名（全寬） */}
+                    <input
+                      type="text"
+                      value={editFood.name}
+                      onChange={(e) => setEditFood((p) => ({ ...p, name: e.target.value }))}
+                      placeholder="品名"
+                      className={`w-full ${INPUT_BASE}`}
+                    />
+                    {/* Row 2：過期日 + 數量 + 單位 */}
                     <div className="flex gap-2">
                       <input
-                        type="text"
-                        value={editFood.name}
-                        onChange={(e) => setEditFood((p) => ({ ...p, name: e.target.value }))}
-                        placeholder="品名"
+                        type="date"
+                        value={editFood.expiry}
+                        onChange={(e) => setEditFood((p) => ({ ...p, expiry: e.target.value }))}
                         className={`flex-1 min-w-0 ${INPUT_BASE}`}
                       />
                       <input
@@ -246,13 +254,8 @@ export default function FoodPage() {
                         ))}
                       </select>
                     </div>
+                    {/* Row 3：儲存 / 取消 */}
                     <div className="flex gap-2">
-                      <input
-                        type="date"
-                        value={editFood.expiry}
-                        onChange={(e) => setEditFood((p) => ({ ...p, expiry: e.target.value }))}
-                        className={`flex-1 min-w-0 ${INPUT_BASE}`}
-                      />
                       <button
                         onClick={saveEdit}
                         className="rounded-full bg-fresh px-4 py-1.5 text-xs font-semibold text-white hover:bg-fresh/85"
