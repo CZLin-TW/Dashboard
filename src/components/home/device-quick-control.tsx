@@ -22,19 +22,9 @@ import {
   acPendingFromDevice,
 } from "./types";
 
-// Tile 用的 accent：active 邊框/底色、icon 顏色。
-// Flat 風格，不用漸層 / icon 光暈，跟裝置頁、排程頁的 panel 視覺一致；
-// active 時用該 type 的 *-bg 淺底 + 同色邊框 + 同色 icon 帶出層次。
-type Accent = { iconActive: string; activeBorder: string; activeBg: string };
-const DEVICE_ACCENT: Record<string, Accent> = {
-  // 空調 → cool 深藍
-  "空調":   { iconActive: "text-cool",  activeBorder: "border-cool/40",  activeBg: "bg-cool-bg" },
-  // 除濕機 → fresh 鼠尾草綠
-  "除濕機": { iconActive: "text-fresh", activeBorder: "border-fresh/40", activeBg: "bg-fresh-bg" },
-  // IR → warm 珊瑚
-  "IR":     { iconActive: "text-warm",  activeBorder: "border-warm/40",  activeBg: "bg-warm-bg" },
-};
-const DEFAULT_ACCENT: Accent = { iconActive: "text-mute", activeBorder: "border-line-strong", activeBg: "bg-elevated" };
+// Tile active 狀態用單一 cool 色，跟 Segment active / link / scroll-target ring
+// 一樣的「被選中」語義；不依 device type 換色——icon 形狀本身就足夠辨識類型，
+// 而且 IR=warm 紅、除濕=fresh 綠 在這套 palette 的其他語義（OFF/ON）會混淆。
 
 interface Props {
   /** 已釘選且要顯示的可控設備（不含感應器）。順序依釘選順序。 */
@@ -477,7 +467,6 @@ export function DeviceQuickControl({
       (device.type === "空調" && device.lastPower === "on") ||
       (device.type === "除濕機" && device.power === true);
     const isActive = expandedDevice === device.name;
-    const accent = DEVICE_ACCENT[device.type] ?? DEFAULT_ACCENT;
     const Icon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
     return (
       <motion.button
@@ -488,7 +477,7 @@ export function DeviceQuickControl({
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
         className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 shadow-sm shadow-mute/5 transition-colors duration-200 ${
           isActive
-            ? `${accent.activeBorder} ${accent.activeBg}`
+            ? "border-cool/40 bg-cool-bg"
             : "border-line bg-surface hover:bg-elevated"
         }`}
       >
@@ -498,7 +487,7 @@ export function DeviceQuickControl({
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
           </span>
         )}
-        <Icon className={`h-7 w-7 ${isActive ? accent.iconActive : "text-mute"}`} strokeWidth={1.75} />
+        <Icon className={`h-7 w-7 ${isActive ? "text-cool" : "text-mute"}`} strokeWidth={1.75} />
         <span className="text-sm font-medium">{device.name}</span>
         {device.location && <span className="text-xs text-mute">{device.location}</span>}
       </motion.button>
