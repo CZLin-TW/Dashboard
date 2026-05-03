@@ -200,7 +200,7 @@ function PinButton({
       aria-label={title}
       className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
         pinned
-          ? "bg-cool text-white"
+          ? "bg-pin text-white"
           : disabled
           ? "bg-elevated text-faint cursor-not-allowed"
           : "bg-elevated text-mute hover:text-soft"
@@ -403,7 +403,7 @@ export default function DevicesPage() {
                     type="button"
                     onClick={() => pin.setPinnedSensor(pinned ? null : s.name)}
                     className={`absolute right-2 top-2 grid h-[26px] w-[26px] place-items-center rounded-full transition-colors ${
-                      pinned ? "bg-cool text-white" : "bg-elevated text-faint hover:text-mute"
+                      pinned ? "bg-pin text-white" : "bg-elevated text-faint hover:text-mute"
                     }`}
                     title={pinned ? "已釘選至首頁" : "釘選至首頁"}
                     aria-label={pinned ? "已釘選" : "釘選"}

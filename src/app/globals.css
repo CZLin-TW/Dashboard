@@ -27,6 +27,11 @@
   --color-amber: #B88324;        /* in-progress 字色 */
   --color-amber-bg: #F5EDD8;     /* 待執行 pill 底色 */
 
+  /* Pin 釘選狀態專用色 — 柔和紫，跟 cool（active option）/ fresh / warm / amber 都不重疊，
+     避免「藍底白字」同時意味著「選中的模式」與「釘到首頁」造成語義混淆。 */
+  --color-pin: #7B6BA8;
+  --color-pin-bg: #EDE9F4;
+
   /* Fonts — Inter 給數字、Noto Sans TC 給內文（layout.tsx 透過 next/font 注入 var） */
   --font-sans: var(--font-noto-tc), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-num: var(--font-inter), system-ui, -apple-system, sans-serif;
