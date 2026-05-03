@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { LayoutGrid, Activity, Pin } from "lucide-react";
+import { LayoutGrid, Activity } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import {
@@ -14,11 +14,16 @@ import {
   DEVICE_ICON_FALLBACK,
   acPendingFromDevice,
 } from "@/components/home/types";
-
-// ─────────────────────────────────────────────────────────────
-// 視覺對照 HTML reference：toggle2 / stepper / segment / panel
-// 業務邏輯（pending/dirty/awaiting、AC/DH 輪詢、IR）保留不動。
-// ─────────────────────────────────────────────────────────────
+import {
+  Toggle2,
+  Stepper,
+  Segment,
+  Field,
+  PinButton,
+  StatusLine,
+  ClimateReadout,
+  PANEL_BASE,
+} from "@/components/ui/device-controls";
 
 function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
   const searchParams = useSearchParams();
@@ -41,199 +46,6 @@ function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record
 interface DashboardPayload {
   devices: DeviceData[];
   options: DeviceOptions;
-}
-
-// ─── 視覺單元（沒抽成 component，只用一致的 className 寫法）───
-const FIELD_LABEL = "text-[12px] font-medium text-mute tracking-[0.04em]";
-const PANEL_BASE =
-  "rounded-[14px] border border-line bg-surface p-3.5 shadow-sm shadow-mute/5 flex flex-col gap-3.5";
-
-/** ON/OFF 二段式 pill 開關。on=fresh 綠、off=warm 紅。 */
-function Toggle2({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="inline-flex gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => onChange(true)}
-        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-          value ? "bg-fresh text-white shadow-sm" : "text-mute"
-        }`}
-      >
-        ON
-      </button>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => onChange(false)}
-        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-          !value ? "bg-warm text-white shadow-sm" : "text-mute"
-        }`}
-      >
-        OFF
-      </button>
-    </div>
-  );
-}
-
-/** 圓形 +/− stepper，中央顯示大字數值。 */
-function Stepper({
-  value,
-  onMinus,
-  onPlus,
-  unit = "°C",
-}: {
-  value: number;
-  onMinus: () => void;
-  onPlus: () => void;
-  unit?: string;
-}) {
-  return (
-    <div className="inline-flex items-center gap-3">
-      <button
-        type="button"
-        onClick={onMinus}
-        className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated"
-        aria-label="減少"
-      >
-        −
-      </button>
-      <span className="num min-w-[64px] text-center text-[22px] font-bold tracking-[-0.02em]">
-        {value}
-        <span className="ml-[2px] text-[13px] font-semibold text-mute">{unit}</span>
-      </span>
-      <button
-        type="button"
-        onClick={onPlus}
-        className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated"
-        aria-label="增加"
-      >
-        +
-      </button>
-    </div>
-  );
-}
-
-/** Segment pill 群組（多選一）。active=accent 藍底白字。 */
-function Segment<T extends string | number>({
-  options,
-  value,
-  onSelect,
-  pendingValue,
-  failedValue,
-  disabled,
-  format,
-}: {
-  options: { value: T; label: string }[];
-  value: T | undefined;
-  onSelect: (v: T) => void;
-  pendingValue?: T;
-  failedValue?: T;
-  disabled?: boolean;
-  format?: (v: T) => string;
-}) {
-  return (
-    <div className="inline-flex flex-wrap gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
-      {options.map((opt) => {
-        const isActive = opt.value === value;
-        const isPending = pendingValue !== undefined && opt.value === pendingValue;
-        const isFailed = failedValue !== undefined && opt.value === failedValue;
-        const cls = isFailed
-          ? "bg-warm text-white animate-pulse"
-          : isPending
-          ? "bg-amber-500 text-white animate-pulse"
-          : isActive
-          ? "bg-cool text-white shadow-sm"
-          : "text-soft hover:text-foreground";
-        return (
-          <button
-            key={String(opt.value)}
-            type="button"
-            disabled={disabled}
-            onClick={() => onSelect(opt.value)}
-            className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${cls}`}
-          >
-            {format ? format(opt.value) : opt.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** field 區塊：label 在上、控制元件在下。 */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <span className={FIELD_LABEL}>{label}</span>
-      <div>{children}</div>
-    </div>
-  );
-}
-
-/** 圓形 pin button（panel 右上）。is-pinned 時 cool 底白字。 */
-function PinButton({
-  pinned,
-  disabled,
-  onClick,
-  title,
-}: {
-  pinned: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  title: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      aria-label={title}
-      className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
-        pinned
-          ? "bg-pin text-white"
-          : disabled
-          ? "bg-elevated text-faint cursor-not-allowed"
-          : "bg-elevated text-mute hover:text-soft"
-      }`}
-    >
-      <Pin className="h-3.5 w-3.5" strokeWidth={2} fill={pinned ? "currentColor" : "none"} />
-    </button>
-  );
-}
-
-/** 小狀態圓點 + 文字（panel 內顯示「目前運轉中 / 關閉」）。 */
-function StatusLine({
-  tone,
-  text,
-  time,
-}: {
-  tone: "running" | "waiting" | "off";
-  text: string;
-  time?: string;
-}) {
-  const dot =
-    tone === "running"
-      ? "bg-fresh"
-      : tone === "waiting"
-      ? "bg-amber-500 animate-pulse"
-      : "bg-mute/40";
-  return (
-    <div className="flex items-center gap-2 text-[12.5px] text-mute">
-      <span className={`inline-block h-1.5 w-1.5 rounded-full ${dot}`} />
-      <span className="text-soft">{text}</span>
-      {time && <span className="num text-mute">· {time}</span>}
-    </div>
-  );
 }
 
 export default function DevicesPage() {
@@ -426,17 +238,7 @@ export default function DevicesPage() {
                       title={pinned ? "已釘選至首頁" : "釘選至首頁"}
                     />
                   </div>
-                  <div className="flex items-baseline gap-3">
-                    <span className="num text-[28px] font-bold tracking-[-0.02em] leading-none text-foreground">
-                      {s.temperature ?? "--"}
-                      <span className="ml-[2px] text-base font-semibold text-mute">°C</span>
-                    </span>
-                    <span className="text-mute">·</span>
-                    <span className="num text-lg font-semibold text-soft">
-                      {s.humidity ?? "--"}
-                      <span className="ml-[1px] text-xs font-medium text-mute">%</span>
-                    </span>
-                  </div>
+                  <ClimateReadout temp={s.temperature} humidity={s.humidity} size="md" />
                 </div>
               );
             })}
