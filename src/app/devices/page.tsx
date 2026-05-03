@@ -249,7 +249,6 @@ export default function DevicesPage() {
   const deviceRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const [acPendingMap, setAcPendingMap] = useState<Record<string, AcPendingState>>({});
-  const [acDirtyMap, setAcDirtyMap] = useState<Record<string, boolean>>({});
   const [acFailedMap, setAcFailedMap] = useState<Record<string, boolean>>({});
   const [acWaitingMap, setAcWaitingMap] = useState<Record<string, boolean>>({});
   const [acSendingMap, setAcSendingMap] = useState<Record<string, boolean>>({});
@@ -258,12 +257,26 @@ export default function DevicesPage() {
     return acPendingMap[device.name] ?? acPendingFromDevice(device);
   }
 
+  /** pending 是否與 device 的 last* baseline 不同。
+   *  電源狀態不同就算 dirty；都是 ON 才再比 temp/mode/fan；都是 OFF 時其他欄位無關。
+   *  這樣 A→B→A 改回原值時會回到「未變更」狀態。 */
+  function isAcDirty(device: DeviceData): boolean {
+    const pending = getAcPending(device);
+    const baseline = acPendingFromDevice(device);
+    if (pending.power !== baseline.power) return true;
+    if (!pending.power) return false;
+    return (
+      pending.temperature !== baseline.temperature ||
+      pending.mode !== baseline.mode ||
+      pending.fanSpeed !== baseline.fanSpeed
+    );
+  }
+
   function updateAcPending(device: DeviceData, updates: Partial<AcPendingState>) {
     setAcPendingMap((prev) => {
       const current = prev[device.name] ?? acPendingFromDevice(device);
       return { ...prev, [device.name]: { ...current, ...updates } };
     });
-    setAcDirtyMap((prev) => ({ ...prev, [device.name]: true }));
   }
 
   function flashAcFailed(deviceName: string) {
@@ -287,7 +300,6 @@ export default function DevicesPage() {
         flashAcFailed(device.name);
         return;
       }
-      setAcDirtyMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
       setAcWaitingMap((prev) => ({ ...prev, [device.name]: true }));
       await fetchDevices();
       setAcPendingMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
@@ -482,7 +494,7 @@ export default function DevicesPage() {
                     {/* AC 控制 */}
                     {device.type === "空調" && (() => {
                       const pending = getAcPending(device);
-                      const dirty = !!acDirtyMap[device.name];
+                      const dirty = isAcDirty(device);
                       const failed = !!acFailedMap[device.name];
                       const waiting = !!acWaitingMap[device.name];
                       const sending = !!acSendingMap[device.name];
