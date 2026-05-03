@@ -59,18 +59,21 @@ export function Stepper({
   onMinus,
   onPlus,
   unit = "°C",
+  disabled,
 }: {
   value: number;
   onMinus: () => void;
   onPlus: () => void;
   unit?: string;
+  disabled?: boolean;
 }) {
   return (
     <div className="inline-flex items-center gap-3">
       <button
         type="button"
         onClick={onMinus}
-        className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated"
+        disabled={disabled}
+        className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
         aria-label="減少"
       >
         −
@@ -82,7 +85,8 @@ export function Stepper({
       <button
         type="button"
         onClick={onPlus}
-        className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated"
+        disabled={disabled}
+        className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
         aria-label="增加"
       >
         +

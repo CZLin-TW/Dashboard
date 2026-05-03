@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, Plus, X } from "lucide-react";
+import { Clock, Plus, X, Eye } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Toggle2,
@@ -21,6 +21,7 @@ interface Schedule {
 interface DeviceData {
   name: string;
   type: string;
+  buttons?: string;
 }
 
 interface DeviceOptions {
@@ -41,6 +42,43 @@ const ACTION_MAP: Record<string, string> = {
   "除濕機": "control_dehumidifier",
 };
 
+/** 從 schedule 的 params JSON 字串拆出可顯示的設定值。
+ *  邏輯跟 row 上方的 paramsDisplay 共用一份解析。 */
+interface ParsedParams {
+  raw: string;
+  power?: "on" | "off";
+  temperature?: number;
+  mode?: string;
+  fanSpeed?: string;
+  humidity?: number;
+  button?: string;
+  /** 給 row 顯示的「開機 · 27°C · 冷氣 · 風速:自動」字串。 */
+  display: string;
+}
+
+function parseScheduleParams(rawJson: string): ParsedParams {
+  const parsed: ParsedParams = { raw: rawJson, display: rawJson };
+  try {
+    const p = JSON.parse(rawJson);
+    if (p.power === "on" || p.power === "off") parsed.power = p.power;
+    if (typeof p.temperature === "number") parsed.temperature = p.temperature;
+    if (typeof p.mode === "string") parsed.mode = p.mode;
+    if (typeof p.fan_speed === "string") parsed.fanSpeed = p.fan_speed;
+    if (typeof p.humidity === "number") parsed.humidity = p.humidity;
+    if (typeof p.button === "string") parsed.button = p.button;
+
+    const parts: string[] = [];
+    if (parsed.power) parts.push(parsed.power === "off" ? "關機" : "開機");
+    if (parsed.temperature !== undefined) parts.push(`${parsed.temperature}°C`);
+    if (parsed.mode) parts.push(parsed.mode);
+    if (parsed.fanSpeed) parts.push(`風速:${parsed.fanSpeed}`);
+    if (parsed.humidity !== undefined) parts.push(`${parsed.humidity}%`);
+    if (parsed.button) parts.push(parsed.button);
+    if (parts.length) parsed.display = parts.join(" · ");
+  } catch { /* keep raw display */ }
+  return parsed;
+}
+
 export default function SchedulesPage() {
   const { currentUser } = useUser();
   const { data: schedules, loading, refetch: fetchSchedules } = useCachedFetch<Schedule[]>("/api/schedules", []);
@@ -48,6 +86,7 @@ export default function SchedulesPage() {
   const { data: options } = useCachedFetch<DeviceOptions | null>("/api/devices/options", null);
 
   const [showAdd, setShowAdd] = useState(false);
+  const [previewKey, setPreviewKey] = useState<string | null>(null);
   const [selectedDevice, setSelectedDevice] = useState("");
   const [triggerDate, setTriggerDate] = useState("");
   const [triggerTime, setTriggerTime] = useState("");
@@ -69,7 +108,7 @@ export default function SchedulesPage() {
   const controllable = devices.filter(d => d.type !== "感應器");
   const selectedDeviceData = controllable.find(d => d.name === selectedDevice);
   const selectedType = selectedDeviceData?.type ?? "";
-  const irButtons = ((selectedDeviceData as unknown as { buttons?: string })?.buttons ?? "")
+  const irButtons = (selectedDeviceData?.buttons ?? "")
     .split(",")
     .map((b) => b.trim())
     .filter(Boolean);
@@ -136,6 +175,106 @@ export default function SchedulesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_name: deviceName, trigger_time: triggerTime }),
     }).then(() => fetchSchedules());
+  }
+
+  /** 渲染裝置控制區塊。給定 schedule 的 parsed params 跟對應 device，顯示
+   *  跟「新增排程」一樣的 form 結構但 disabled。
+   *  目前後端只支援新增 / 刪除，這裡是預覽 UI；之後加 PATCH route 把 disabled
+   *  flag 拿掉、控制元件接 setter、加 onSubmit 就能改成可編輯。 */
+  function renderPreviewControls(deviceType: string, parsed: ParsedParams) {
+    if (!options) return null;
+    if (deviceType === "空調") {
+      const power = parsed.power === "on";
+      return (
+        <div className="space-y-3.5 rounded-[14px] bg-elevated/50 p-3.5">
+          <Field label="電源">
+            <Toggle2 value={power} onChange={() => {}} disabled />
+          </Field>
+          {power && (
+            <>
+              <Field label="溫度">
+                <Stepper
+                  value={parsed.temperature ?? 26}
+                  onMinus={() => {}}
+                  onPlus={() => {}}
+                  disabled
+                />
+              </Field>
+              <Field label="模式">
+                <Segment
+                  options={options.ac.modes}
+                  value={parsed.mode}
+                  onSelect={() => {}}
+                  disabled
+                />
+              </Field>
+              <Field label="風速">
+                <Segment
+                  options={options.ac.fan_speeds}
+                  value={parsed.fanSpeed}
+                  onSelect={() => {}}
+                  disabled
+                />
+              </Field>
+            </>
+          )}
+        </div>
+      );
+    }
+    if (deviceType === "除濕機") {
+      const power = parsed.power === "on";
+      return (
+        <div className="space-y-3.5 rounded-[14px] bg-elevated/50 p-3.5">
+          <Field label="電源">
+            <Toggle2 value={power} onChange={() => {}} disabled />
+          </Field>
+          {power && (
+            <>
+              <Field label="模式">
+                <Segment
+                  options={options.dehumidifier.modes}
+                  value={parsed.mode}
+                  onSelect={() => {}}
+                  disabled
+                />
+              </Field>
+              <Field label="目標濕度">
+                <Segment
+                  options={options.dehumidifier.humidity.map((h) => ({ value: h, label: `${h}%` }))}
+                  value={parsed.humidity}
+                  onSelect={() => {}}
+                  disabled
+                />
+              </Field>
+            </>
+          )}
+        </div>
+      );
+    }
+    if (deviceType === "IR") {
+      // 對 IR：device 表如果有 buttons 欄位就顯示 segment，否則退化成單一按鈕值的展示。
+      const dev = controllable.find((d) => d.name === parsed.button);
+      const btnList = (dev?.buttons ?? parsed.button ?? "")
+        .split(",")
+        .map((b) => b.trim())
+        .filter(Boolean);
+      const opts = btnList.length > 0
+        ? btnList.map((b) => ({ value: b, label: b }))
+        : (parsed.button ? [{ value: parsed.button, label: parsed.button }] : []);
+      return (
+        <div className="rounded-[14px] bg-elevated/50 p-3.5">
+          <Field label="按鈕">
+            <Segment
+              options={opts}
+              value={parsed.button}
+              onSelect={() => {}}
+              disabled
+            />
+          </Field>
+        </div>
+      );
+    }
+    return null;
   }
 
   return (
@@ -296,43 +435,64 @@ export default function SchedulesPage() {
               const trigger = s["觸發時間"] ?? "";
               const params = s["參數"] ?? "";
               const creator = s["建立者"] ?? "";
-
-              let paramsDisplay = params;
-              try {
-                const p = JSON.parse(params);
-                const parts: string[] = [];
-                if (p.power) parts.push(p.power === "off" ? "關機" : "開機");
-                if (p.temperature) parts.push(`${p.temperature}°C`);
-                if (p.mode) parts.push(p.mode);
-                if (p.fan_speed) parts.push(`風速:${p.fan_speed}`);
-                if (p.humidity) parts.push(`${p.humidity}%`);
-                if (p.button) parts.push(p.button);
-                if (parts.length) paramsDisplay = parts.join(" · ");
-              } catch { /* keep raw */ }
+              const parsed = parseScheduleParams(params);
+              const rowKey = `${deviceName}|${trigger}`;
+              const isPreviewing = previewKey === rowKey;
+              const dev = controllable.find((d) => d.name === deviceName);
 
               return (
-                <div
-                  key={index}
-                  className="flex items-center gap-3 rounded-[12px] px-3 py-2.5 hover:bg-elevated/50 transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground">
-                      <span className="font-semibold">{deviceName}</span>
-                      <span className="ml-2 text-mute">— {paramsDisplay}</span>
-                    </p>
-                    <p className="num text-xs text-mute">
-                      {trigger} · {creator}
-                    </p>
+                <div key={index} className="flex flex-col">
+                  <div className="flex items-center gap-3 rounded-[12px] px-3 py-2.5 hover:bg-elevated/50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-foreground">
+                        <span className="font-semibold">{deviceName}</span>
+                        <span className="ml-2 text-mute">— {parsed.display}</span>
+                      </p>
+                      <p className="num text-xs text-mute">
+                        {trigger} · {creator}
+                      </p>
+                    </div>
+                    <span className="flex-shrink-0 rounded-full bg-amber-bg px-2 py-0.5 text-[11.5px] font-semibold text-amber">
+                      待執行
+                    </span>
+                    <IconActionButton
+                      onClick={() => setPreviewKey(isPreviewing ? null : rowKey)}
+                      title={isPreviewing ? "收合預覽" : "預覽詳情"}
+                      icon={<Eye className="h-3.5 w-3.5" strokeWidth={2} />}
+                    />
+                    <IconActionButton
+                      onClick={() => deleteSchedule(deviceName, trigger)}
+                      tone="danger"
+                      title="刪除"
+                      icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
+                    />
                   </div>
-                  <span className="flex-shrink-0 rounded-full bg-amber-bg px-2 py-0.5 text-[11.5px] font-semibold text-amber">
-                    待執行
-                  </span>
-                  <IconActionButton
-                    onClick={() => deleteSchedule(deviceName, trigger)}
-                    tone="danger"
-                    title="刪除"
-                    icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
-                  />
+
+                  {isPreviewing && (
+                    <div className="mt-1 mx-3 mb-2 space-y-3">
+                      {dev && renderPreviewControls(dev.type, parsed)}
+                      <div className="space-y-3">
+                        <Field label="觸發時間">
+                          <input
+                            type="text"
+                            value={trigger}
+                            disabled
+                            className="num w-full rounded-[10px] border border-line bg-elevated px-4 py-2.5 text-sm text-mute appearance-none"
+                          />
+                        </Field>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 rounded-[10px] bg-amber-bg px-3 py-2 text-xs text-amber">
+                        <span>目前僅支援預覽，編輯功能等後端 PATCH route 上線</span>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewKey(null)}
+                          className="flex-shrink-0 rounded-full border border-amber/30 bg-surface px-3 py-1 text-xs font-medium text-amber hover:bg-amber-bg"
+                        >
+                          收合
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
