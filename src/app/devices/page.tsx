@@ -59,7 +59,7 @@ function Toggle2({
   disabled?: boolean;
 }) {
   return (
-    <div className="inline-flex gap-0.5 rounded-[16px] border border-line bg-elevated p-[3px]">
+    <div className="inline-flex gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
       <button
         type="button"
         disabled={disabled}
@@ -141,7 +141,7 @@ function Segment<T extends string | number>({
   format?: (v: T) => string;
 }) {
   return (
-    <div className="inline-flex flex-wrap gap-0.5 rounded-[16px] border border-line bg-elevated p-[3px]">
+    <div className="inline-flex flex-wrap gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
       {options.map((opt) => {
         const isActive = opt.value === value;
         const isPending = pendingValue !== undefined && opt.value === pendingValue;
@@ -542,7 +542,7 @@ export default function DevicesPage() {
                             type="button"
                             onClick={() => sendAcCommand(device)}
                             disabled={sending || waiting}
-                            className={`w-full rounded-[10px] border py-2.5 text-sm font-semibold transition-colors ${
+                            className={`w-full rounded-full border py-2.5 text-sm font-semibold transition-colors ${
                               failed
                                 ? "border-transparent bg-warm text-white animate-pulse"
                                 : waiting
@@ -622,7 +622,7 @@ export default function DevicesPage() {
                               key={btn}
                               type="button"
                               onClick={() => sendIrCommand(device.name, btn)}
-                              className="rounded-[10px] border border-line bg-elevated px-3 py-1.5 text-sm font-medium text-soft hover:bg-mute/15 active:scale-[0.985] transition"
+                              className="rounded-full border border-line bg-elevated px-3 py-1.5 text-sm font-medium text-soft hover:bg-mute/15 active:scale-[0.985] transition"
                             >
                               {btn}
                             </button>
