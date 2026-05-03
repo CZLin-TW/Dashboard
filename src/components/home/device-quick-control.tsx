@@ -6,6 +6,14 @@ import { motion, AnimatePresence } from "motion/react";
 import { LayoutGrid, ChevronUp, Pin } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Toggle2,
+  Stepper,
+  Segment,
+  Field,
+  StatusLine,
+  PANEL_BASE,
+} from "@/components/ui/device-controls";
+import {
   type DeviceData,
   type DeviceOptions,
   type AcPendingState,
@@ -14,8 +22,8 @@ import {
   acPendingFromDevice,
 } from "./types";
 
-// 每類設備一組 accent 色：active 邊框/底色漸層、icon 顏色與光暈。
-// 用 hex arbitrary values 配自訂 palette（深藍/鼠尾草/珊瑚/藍灰），讓質感低飽和但有層次。
+// Tile 用的 accent：active 邊框/底色漸層、icon 顏色與光暈。
+// 跟裝置頁的 panel 視覺刻意不同——首頁 tile 是「快捷入口」、需要色相區分設備類型；裝置頁 panel 是「可控介面」、要安靜。
 type Accent = { iconClass: string; activeBorder: string; activeBg: string };
 const DEVICE_ACCENT: Record<string, Accent> = {
   // 空調：深藍 #3A6289（cooling）
@@ -41,13 +49,19 @@ interface Props {
  * 首頁裝置快捷卡：每台釘選裝置一個 icon button，展開後在同一 row 內顯示控制面板。
  * 為什麼 expanded panel 要嵌進 grid 而不是浮層：保留視覺脈絡（哪個 button 對應哪個面板）。
  *
+ * Panel 內部的 Toggle2 / Stepper / Segment / StatusLine 都用 src/components/ui/device-controls
+ * 的共用元件，跟裝置頁、排程頁視覺一致。
+ *
  * 內部狀態：
  *   expandedDevice  — 當前展開哪一台
  *   acPendingMap    — 每台 AC 還沒送出的草稿（電源/溫度/模式/風速）
- *   acDirtyMap      — 該草稿是否與 last 狀態有差異（決定「送出設定」按鈕亮綠色）
  *   acFailedMap     — 送出失敗的紅色閃爍 2 秒後自動清掉
+ *   acAwaitingMap   — 已送出、等待 last 狀態回讀的 amber 閃爍
  *   sending         — 全局送出中（避免使用者連點觸發多次）
  *   dhPending/Failed — 除濕機操作的 pending/failed 視覺反饋
+ *
+ * dirty（決定送出設定 vs 未變更）改成衍生值：比對 pending 與 device.last*
+ *   實際是否不同，這樣 A→B→A 改回原值會回到「未變更」。
  */
 export function DeviceQuickControl({
   devices,
@@ -57,7 +71,6 @@ export function DeviceQuickControl({
 }: Props) {
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
   const [acPendingMap, setAcPendingMap] = useState<Record<string, AcPendingState>>({});
-  const [acDirtyMap, setAcDirtyMap] = useState<Record<string, boolean>>({});
   const [acFailedMap, setAcFailedMap] = useState<Record<string, boolean>>({});
   const [acAwaitingMap, setAcAwaitingMap] = useState<Record<string, AcPendingState>>({});
   const [sending, setSending] = useState(false);
@@ -72,12 +85,23 @@ export function DeviceQuickControl({
     return acPendingMap[device.name] ?? acPendingFromDevice(device);
   }
 
+  function isAcDirty(device: DeviceData): boolean {
+    const pending = getAcPending(device);
+    const baseline = acPendingFromDevice(device);
+    if (pending.power !== baseline.power) return true;
+    if (!pending.power) return false;
+    return (
+      pending.temperature !== baseline.temperature ||
+      pending.mode !== baseline.mode ||
+      pending.fanSpeed !== baseline.fanSpeed
+    );
+  }
+
   function updateAcPending(device: DeviceData, updates: Partial<AcPendingState>) {
     setAcPendingMap((prev) => {
       const current = prev[device.name] ?? acPendingFromDevice(device);
       return { ...prev, [device.name]: { ...current, ...updates } };
     });
-    setAcDirtyMap((prev) => ({ ...prev, [device.name]: true }));
   }
 
   function flashAcFailed(deviceName: string) {
@@ -148,11 +172,6 @@ export function DeviceQuickControl({
                 delete next[device.name];
                 return next;
               });
-              setAcDirtyMap((prev) => {
-                const next = { ...prev };
-                delete next[device.name];
-                return next;
-              });
               clearAcAwaiting(device.name);
               return;
             }
@@ -176,7 +195,6 @@ export function DeviceQuickControl({
   }
 
   async function sendDehumidifierCommand(deviceName: string, params: Record<string, unknown>) {
-    // 推算這次操作期望的「最終狀態」，輪詢時用這個來判斷是否已生效
     const expected: { type: string; value: unknown } =
       params.power !== undefined ? { type: "power", value: params.power } :
       params.mode !== undefined ? { type: "mode", value: params.mode } :
@@ -193,7 +211,6 @@ export function DeviceQuickControl({
         body: JSON.stringify({ deviceName, action: "dehumidifier", params }),
       });
 
-      // 除濕機的雲端狀態更新有延遲，10 秒內每秒輪詢一次
       for (let i = 0; i < 10; i++) {
         await new Promise((r) => setTimeout(r, 1000));
         try {
@@ -216,7 +233,6 @@ export function DeviceQuickControl({
         }
       }
 
-      // 10 秒後還沒匹配 → 標 failed 閃爍，但仍 refetch 避免顯示與實際不一致
       setDhPending(null);
       setDhFailed(expected);
       setTimeout(() => setDhFailed(null), 2000);
@@ -243,160 +259,83 @@ export function DeviceQuickControl({
     }
   }
 
-  // ─── 渲染 helpers ───
-  const isDhPending = (type: string, value: unknown) =>
-    dhPending?.type === type && dhPending?.value === value;
-  const isDhFailed = (type: string, value: unknown) =>
-    dhFailed?.type === type && dhFailed?.value === value;
-
-  /** 除濕機按鈕的 className：失敗閃紅、pending 閃黃、active 藍、其他灰。 */
-  function dhBtnClass(type: string, value: unknown, isActive: boolean) {
-    const base = "rounded px-2.5 py-1 text-xs font-medium transition-colors";
-    if (isDhFailed(type, value)) return `${base} bg-warm text-white animate-pulse`;
-    if (isDhPending(type, value)) return `${base} bg-amber-500 text-white animate-pulse`;
-    if (isActive) return `${base} bg-cool text-white`;
-    return `${base} bg-elevated text-soft`;
-  }
-
   function renderAcPanel(device: DeviceData) {
     const pending = getAcPending(device);
-    const dirty = !!acDirtyMap[device.name];
+    const dirty = isAcDirty(device);
     const failed = !!acFailedMap[device.name];
     const awaiting = !!acAwaitingMap[device.name];
     const lastTime = device.lastUpdatedAt
       ? device.lastUpdatedAt.split(" ")[1] || device.lastUpdatedAt
-      : "";
+      : undefined;
 
     return (
       <>
-        {device.lastPower ? (
-          <p className="flex items-center gap-1.5 text-xs text-mute">
-            目前：
-            {device.lastPower === "on" ? (
-              <>
-                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                {device.lastTemperature !== undefined &&
-                  device.lastTemperature !== "" &&
-                  `${device.lastTemperature}°C`}
-                {device.lastMode && ` ${device.lastMode}`}
-                {device.lastFanSpeed && ` ${device.lastFanSpeed}`}
-              </>
-            ) : (
-              <>
-                <span className="inline-block h-2 w-2 rounded-full bg-mute/40" />
-                關閉
-              </>
-            )}
-            {lastTime && ` · ${lastTime}`}
-          </p>
+        {device.lastPower || awaiting ? (
+          <StatusLine
+            tone={awaiting ? "waiting" : device.lastPower === "on" ? "running" : "off"}
+            text={
+              awaiting
+                ? pending.power
+                  ? `送出中：${pending.temperature}°C ${pending.mode} ${pending.fanSpeed}`.trim()
+                  : "送出中：關閉"
+                : device.lastPower === "on"
+                ? `${device.lastTemperature ?? ""}°C ${device.lastMode ?? ""} ${device.lastFanSpeed ?? ""}`.trim()
+                : "關閉"
+            }
+            time={lastTime}
+          />
         ) : (
           <p className="text-xs text-mute">尚無使用記錄</p>
         )}
 
-        <div>
-          <label className="text-xs text-mute">電源</label>
-          <div className="mt-1 flex gap-2">
-            <button
-              onClick={() => updateAcPending(device, { power: true })}
-              className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
-                pending.power ? "bg-cool text-white" : "bg-elevated text-soft"
-              }`}
-            >
-              ON
-            </button>
-            <button
-              onClick={() => updateAcPending(device, { power: false })}
-              className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
-                !pending.power ? "bg-warm text-white" : "bg-elevated text-soft"
-              }`}
-            >
-              OFF
-            </button>
-          </div>
-        </div>
+        <Field label="電源">
+          <Toggle2 value={pending.power} onChange={(v) => updateAcPending(device, { power: v })} />
+        </Field>
 
-        <div>
-          <label className="text-xs text-mute">溫度</label>
-          <div className="mt-1 flex items-center gap-2">
-            <button
-              onClick={() =>
-                updateAcPending(device, {
-                  temperature: Math.max(options.ac.temperature.min, pending.temperature - 1),
-                })
-              }
-              className="flex h-7 w-7 items-center justify-center rounded bg-elevated hover:bg-mute/20 text-sm"
-            >
-              −
-            </button>
-            <span className="w-14 text-center font-bold">{pending.temperature}°C</span>
-            <button
-              onClick={() =>
-                updateAcPending(device, {
-                  temperature: Math.min(options.ac.temperature.max, pending.temperature + 1),
-                })
-              }
-              className="flex h-7 w-7 items-center justify-center rounded bg-elevated hover:bg-mute/20 text-sm"
-            >
-              +
-            </button>
-          </div>
-        </div>
+        <Field label="溫度">
+          <Stepper
+            value={pending.temperature}
+            onMinus={() => updateAcPending(device, { temperature: Math.max(options.ac.temperature.min, pending.temperature - 1) })}
+            onPlus={() => updateAcPending(device, { temperature: Math.min(options.ac.temperature.max, pending.temperature + 1) })}
+          />
+        </Field>
 
-        <div>
-          <label className="text-xs text-mute">模式</label>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {options.ac.modes.map((m) => (
-              <button
-                key={m.value}
-                onClick={() => updateAcPending(device, { mode: m.value })}
-                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                  pending.mode === m.value ? "bg-cool text-white" : "bg-elevated text-soft"
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <Field label="模式">
+          <Segment
+            options={options.ac.modes}
+            value={pending.mode}
+            onSelect={(v) => updateAcPending(device, { mode: v })}
+          />
+        </Field>
 
-        <div>
-          <label className="text-xs text-mute">風速</label>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {options.ac.fan_speeds.map((s) => (
-              <button
-                key={s.value}
-                onClick={() => updateAcPending(device, { fanSpeed: s.value })}
-                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                  pending.fanSpeed === s.value
-                    ? "bg-cool text-white"
-                    : "bg-elevated text-soft"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <Field label="風速">
+          <Segment
+            options={options.ac.fan_speeds}
+            value={pending.fanSpeed}
+            onSelect={(v) => updateAcPending(device, { fanSpeed: v })}
+          />
+        </Field>
 
         <button
+          type="button"
           onClick={() => sendAcCommand(device)}
-          disabled={sending}
-          className={`w-full rounded-lg py-2 text-sm font-bold transition-colors ${
+          disabled={sending || awaiting}
+          className={`w-full rounded-full border py-2.5 text-sm font-semibold transition-colors ${
             failed
-              ? "bg-warm text-white animate-pulse"
+              ? "border-transparent bg-warm text-white animate-pulse"
               : awaiting
-              ? "bg-amber-500 text-white animate-pulse"
+              ? "border-transparent bg-amber-500 text-white animate-pulse"
               : dirty
-              ? "bg-fresh text-white hover:bg-fresh/85"
-              : "bg-elevated text-mute"
+              ? "border-transparent bg-fresh text-white hover:bg-fresh/85"
+              : "border-dashed border-line-strong bg-elevated text-mute"
           }`}
         >
           {failed
             ? "失敗，請重試"
-            : awaiting
-            ? "確認中..."
             : sending
             ? "送出中..."
+            : awaiting
+            ? "確認中..."
             : dirty
             ? "送出設定"
             : "未變更"}
@@ -408,82 +347,47 @@ export function DeviceQuickControl({
   function renderDehumidifierPanel(device: DeviceData) {
     return (
       <>
-        <div>
-          {device.power !== undefined && (
-            <p className="flex items-center gap-1.5 text-xs text-mute">
-              目前：
-              <span className={`inline-block h-2 w-2 rounded-full ${device.power ? "bg-emerald-500" : "bg-mute/40"}`} />
-              {device.power ? "運轉中" : "關閉"}
-              {device.mode && ` · ${device.mode}`}
-              {device.targetHumidity && ` · ${device.targetHumidity}`}
-            </p>
-          )}
-        </div>
-        <div>
-          <label className="text-xs text-mute">電源</label>
-          <div className="mt-1 flex gap-2">
-            <button
-              onClick={() => sendDehumidifierCommand(device.name, { power: true })}
-              disabled={sending}
-              className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
-                isDhFailed("power", true)
-                  ? "bg-warm text-white animate-pulse"
-                  : isDhPending("power", true)
-                  ? "bg-amber-500 text-white animate-pulse"
-                  : device.power
-                  ? "bg-cool text-white"
-                  : "bg-elevated text-soft"
-              }`}
-            >
-              ON
-            </button>
-            <button
-              onClick={() => sendDehumidifierCommand(device.name, { power: false })}
-              disabled={sending}
-              className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
-                isDhFailed("power", false)
-                  ? "bg-warm text-white animate-pulse"
-                  : isDhPending("power", false)
-                  ? "bg-amber-500 text-white animate-pulse"
-                  : device.power === false
-                  ? "bg-warm text-white"
-                  : "bg-elevated text-soft"
-              }`}
-            >
-              OFF
-            </button>
-          </div>
-        </div>
-        <div>
-          <label className="text-xs text-mute">模式</label>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {options.dehumidifier.modes.map((m) => (
-              <button
-                key={m.value}
-                onClick={() => sendDehumidifierCommand(device.name, { mode: m.value })}
-                disabled={sending}
-                className={dhBtnClass("mode", m.value, device.mode === m.label)}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <label className="text-xs text-mute">目標濕度</label>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {options.dehumidifier.humidity.map((h) => (
-              <button
-                key={h}
-                onClick={() => sendDehumidifierCommand(device.name, { humidity: h })}
-                disabled={sending}
-                className={dhBtnClass("humidity", h, String(device.targetHumidity) === `${h}%`)}
-              >
-                {h}%
-              </button>
-            ))}
-          </div>
-        </div>
+        {device.power !== undefined && (
+          <StatusLine
+            tone={device.power ? "running" : "off"}
+            text={
+              device.power
+                ? `運轉中${device.mode ? ` · ${device.mode}` : ""}${device.targetHumidity ? ` · 目標 ${device.targetHumidity}` : ""}`
+                : "關閉"
+            }
+          />
+        )}
+        <Field label="電源">
+          <Toggle2
+            value={!!device.power}
+            onChange={(v) => sendDehumidifierCommand(device.name, { power: v })}
+            disabled={dhPending !== null}
+          />
+        </Field>
+        <Field label="模式">
+          <Segment
+            options={options.dehumidifier.modes}
+            value={options.dehumidifier.modes.find(m => m.label === device.mode)?.value}
+            onSelect={(v) => sendDehumidifierCommand(device.name, { mode: v })}
+            pendingValue={dhPending?.type === "mode" ? (dhPending.value as string) : undefined}
+            failedValue={dhFailed?.type === "mode" ? (dhFailed.value as string) : undefined}
+            disabled={dhPending !== null}
+          />
+        </Field>
+        <Field label="目標濕度">
+          <Segment
+            options={options.dehumidifier.humidity.map(h => ({ value: h, label: `${h}%` }))}
+            value={(() => {
+              const t = String(device.targetHumidity ?? "").replace("%", "");
+              const n = parseInt(t, 10);
+              return Number.isFinite(n) ? n : undefined;
+            })()}
+            onSelect={(v) => sendDehumidifierCommand(device.name, { humidity: v })}
+            pendingValue={dhPending?.type === "humidity" ? (dhPending.value as number) : undefined}
+            failedValue={dhFailed?.type === "humidity" ? (dhFailed.value as number) : undefined}
+            disabled={dhPending !== null}
+          />
+        </Field>
       </>
     );
   }
@@ -494,40 +398,42 @@ export function DeviceQuickControl({
       .map((b) => b.trim())
       .filter(Boolean);
     return (
-      <div>
-        <label className="text-xs text-mute">遙控按鈕</label>
-        <div className="mt-1 flex flex-wrap gap-2">
+      <Field label="遙控按鈕">
+        <div className="flex flex-wrap gap-2">
           {buttons.map((btn) => (
             <button
               key={btn}
+              type="button"
               onClick={() => sendIrCommand(device.name, btn)}
-              className="rounded-lg bg-elevated px-3 py-1.5 text-sm font-medium text-soft hover:bg-mute/20 active:bg-mute/30 transition-colors"
+              className="rounded-full border border-line bg-elevated px-3 py-1.5 text-sm font-medium text-soft hover:bg-mute/15 active:scale-[0.985] transition"
             >
               {btn}
             </button>
           ))}
         </div>
-        <p className="mt-1 text-xs text-mute">IR 單向發送，不會回傳狀態</p>
-      </div>
+        <p className="mt-2 text-xs text-mute">IR 為單向發送，不會回傳裝置狀態</p>
+      </Field>
     );
   }
 
   function renderPanel(device: DeviceData) {
     const Icon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
-    const accent = DEVICE_ACCENT[device.type] ?? DEFAULT_ACCENT;
     return (
-      <div className="rounded-2xl border border-mute/15 bg-gradient-to-br from-elevated to-surface p-4 space-y-4 shadow-inner shadow-mute/15">
-        <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-soft">
-            <Icon className={`h-4 w-4 ${accent.iconClass}`} strokeWidth={2} />
-            <span>{device.name}</span>
+      <div className={PANEL_BASE}>
+        <div className="flex items-center justify-between gap-2.5">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="grid h-4 w-4 place-items-center text-mute">
+              <Icon className="h-4 w-4" strokeWidth={1.8} />
+            </span>
+            <span className="truncate text-sm font-semibold text-foreground">{device.name}</span>
             {device.location && (
-              <span className="ml-1 text-xs font-normal text-mute">{device.location}</span>
+              <span className="text-xs text-mute">{device.location}</span>
             )}
-          </h3>
+          </div>
           <button
+            type="button"
             onClick={() => setExpandedDevice(null)}
-            className="flex items-center gap-1 text-xs text-mute hover:text-soft"
+            className="flex items-center gap-1 rounded-full border border-line bg-elevated px-2.5 py-1 text-xs text-mute hover:text-soft"
           >
             收合
             <ChevronUp className="h-3.5 w-3.5" strokeWidth={2} />
@@ -546,9 +452,9 @@ export function DeviceQuickControl({
       <Card>
         <CardHeader>
           <CardTitle>
-          <LayoutGrid className="h-4 w-4" strokeWidth={2} />
-          裝置快捷
-        </CardTitle>
+            <LayoutGrid className="h-4 w-4" strokeWidth={2} />
+            裝置快捷
+          </CardTitle>
           <Link href="/devices" className="text-sm text-cool hover:text-cool/80">
             查看全部 →
           </Link>
