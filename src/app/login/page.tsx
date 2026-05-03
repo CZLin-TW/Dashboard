@@ -40,22 +40,22 @@ function LoginContent() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-2xl bg-surface border border-mute/15 p-8 shadow-lg shadow-mute/15 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-fresh/15 text-fresh">
+      <div className="w-full max-w-sm rounded-[18px] bg-surface border border-line p-8 shadow-lg shadow-mute/10 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-fresh-bg text-fresh">
           <Zap className="h-8 w-8" strokeWidth={2} fill="currentColor" />
         </div>
         <h1 className="text-2xl font-bold text-soft mb-2">Smart Home Dashboard</h1>
         <p className="text-sm text-mute mb-8">請使用 LINE 帳號登入</p>
 
         {error && (
-          <div className="mb-6 rounded-lg bg-warm/10 border border-warm/30 px-4 py-3 text-sm text-warm">
+          <div className="mb-6 rounded-[12px] bg-warm-bg border border-warm/30 px-4 py-3 text-sm text-warm">
             {ERROR_MESSAGES[error] ?? "登入失敗，請重試"}
           </div>
         )}
 
         <a
           href="/api/auth/login"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#06C755] px-6 py-3.5 text-base font-bold text-white hover:bg-[#05b34d] transition-colors"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#06C755] px-6 py-3.5 text-base font-bold text-white hover:bg-[#05b34d] transition-colors"
         >
           <MessageCircle className="h-5 w-5" strokeWidth={2} />
           使用 LINE 登入

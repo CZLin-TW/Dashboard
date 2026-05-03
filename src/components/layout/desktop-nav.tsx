@@ -12,7 +12,7 @@ export function DesktopNav() {
   if (pathname === "/login") return null;
 
   return (
-    <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b border-mute/15 bg-surface/80 backdrop-blur-md px-6 py-3">
+    <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b border-line bg-surface/80 backdrop-blur-md px-6 py-3">
       <div className="flex items-center gap-8">
         <Link href="/" className="flex items-center gap-2 text-lg font-bold text-soft">
           <Zap className="h-5 w-5 text-fresh" strokeWidth={2} fill="currentColor" />
@@ -27,10 +27,10 @@ export function DesktopNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-cool/15 text-cool"
-                    : "text-mute hover:bg-mute/10 hover:text-soft"
+                    ? "bg-cool-bg text-cool"
+                    : "text-mute hover:bg-elevated hover:text-soft"
                 }`}
               >
                 <Icon className="h-4 w-4" strokeWidth={2} />

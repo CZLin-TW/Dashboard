@@ -10,7 +10,7 @@ export function MobileNav() {
   if (pathname === "/login") return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 flex md:hidden items-center justify-around border-t border-mute/15 bg-surface/85 backdrop-blur-md px-2 py-2 safe-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 flex md:hidden items-center justify-around border-t border-line bg-surface/85 backdrop-blur-md px-2 py-2 safe-bottom">
       {NAV_ITEMS.map((item) => {
         const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
         const Icon = item.icon;
@@ -18,7 +18,7 @@ export function MobileNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs transition-colors ${
+            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 text-xs transition-colors ${
               isActive ? "text-cool" : "text-mute hover:text-soft"
             }`}
           >
