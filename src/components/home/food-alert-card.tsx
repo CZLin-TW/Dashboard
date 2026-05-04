@@ -3,24 +3,16 @@
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { type FoodData, daysUntilExpiry, foodUrgency, urgencyRowClass } from "@/lib/types";
+import { type FoodData, expiryLabel, foodUrgency, urgencyRowClass } from "@/lib/types";
 
 interface Props {
   food: FoodData[];
 }
 
-function expiryText(days: number): string {
-  if (days < 0) return "已過期";
-  if (days === 0) return "今天到期";
-  if (days === 1) return "明天到期";
-  return `${days} 天後到期`;
-}
-
 /**
- * 即期食品卡：顯示 3 天內到期或已過期的品項。
- * 父層應只傳入 urgent 過濾後的 food，這個元件不再過濾。
- *
- * 視覺對齊 food 頁的 list row（品名 + 數量單位 + 期限 pill）。
+ * 即期食品卡：顯示父層篩好的 5 天內到期或已過期品項。
+ * 視覺對齊 food 頁的 list row（品名 + 數量單位 + 期限）；期限文字跟 cls
+ * 用共用的 expiryLabel helper。
  */
 export function FoodAlertCard({ food }: Props) {
   return (
@@ -37,7 +29,7 @@ export function FoodAlertCard({ food }: Props) {
       {food.length > 0 ? (
         <ul className="flex flex-col gap-1">
           {food.map((f, i) => {
-            const days = daysUntilExpiry(f["過期日"]);
+            const exp = expiryLabel(f["過期日"]);
             const urgency = foodUrgency(f["過期日"]);
             const urgencyCls = urgencyRowClass(urgency);
             const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
@@ -52,9 +44,7 @@ export function FoodAlertCard({ food }: Props) {
                     {f["數量"]} {f["單位"]}
                   </span>
                 </span>
-                <span className="num flex-shrink-0 text-xs font-semibold text-warm">
-                  {expiryText(days)}
-                </span>
+                <span className={`num flex-shrink-0 text-xs ${exp.cls}`}>{exp.text}</span>
               </li>
             );
           })}

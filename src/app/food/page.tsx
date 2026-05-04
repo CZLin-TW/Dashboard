@@ -8,7 +8,7 @@ import {
   PillButton,
   IconActionButton,
 } from "@/components/ui/device-controls";
-import { foodUrgency, urgencyRowClass } from "@/lib/types";
+import { expiryLabel, foodUrgency, urgencyRowClass } from "@/lib/types";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 
@@ -26,21 +26,6 @@ const UNITS = ["個", "顆", "瓶", "包", "盒", "小罐", "g", "kg", "ml", "L"
 
 const INPUT_BASE =
   "rounded-[10px] border border-line bg-elevated px-3 py-2 text-sm text-foreground placeholder:text-faint focus:border-cool focus:outline-none";
-
-function daysUntilExpiry(expiry: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.ceil((new Date(expiry).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function expiryLabel(expiry: string): { text: string; cls: string } {
-  const days = daysUntilExpiry(expiry);
-  if (days < 0) return { text: "已過期", cls: "text-warm font-semibold" };
-  if (days === 0) return { text: "今天到期", cls: "text-warm font-semibold" };
-  if (days === 1) return { text: "明天到期", cls: "text-warm font-semibold" };
-  if (days <= 3) return { text: `${days} 天後到期`, cls: "text-warm font-semibold" };
-  return { text: `${days} 天後`, cls: "text-mute" };
-}
 
 export default function FoodPage() {
   const { currentUser } = useUser();
