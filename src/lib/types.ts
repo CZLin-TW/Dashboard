@@ -186,3 +186,21 @@ export function urgencyRowClass(urgency: Urgency): string {
     return "bg-warm-bg/30 shadow-[inset_3px_0_0_var(--color-warm)]";
   return "";
 }
+
+/** 把日期跟今天比較，回傳人類可讀的相對描述（待辦 sub-line 用）。
+ *  範圍 ±7 天內才顯示，超過回 null（caller 只顯示原始日期）。
+ *  Overdue 一律「過期 N 天」（不單獨用「昨天」），語氣較急、語義跟 urgency overdue 對齊。 */
+export function relativeDateLabel(date: string): string | null {
+  if (!date) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  const days = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (days < -7 || days > 7) return null;
+  if (days < 0) return `過期 ${-days} 天`;
+  if (days === 0) return "今天";
+  if (days === 1) return "明天";
+  if (days === 2) return "後天";
+  return `${days} 天後`;
+}

@@ -9,7 +9,7 @@ import {
   PillButton,
   IconActionButton,
 } from "@/components/ui/device-controls";
-import { todoUrgency, urgencyRowClass } from "@/lib/types";
+import { todoUrgency, urgencyRowClass, relativeDateLabel } from "@/lib/types";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 
@@ -328,6 +328,10 @@ export default function TodosPage() {
                     </p>
                     <p className="num text-xs text-mute">
                       {todo["日期"]}
+                      {(() => {
+                        const rel = relativeDateLabel(todo["日期"]);
+                        return rel ? ` (${rel})` : "";
+                      })()}
                       {todo["時間"] && ` ${todo["時間"]}`}
                       {filter === "all" && ` · ${todo["負責人"]}`}
                       {todo["來源"] !== "本地" && ` · 來自 ${todo["來源"]}`}

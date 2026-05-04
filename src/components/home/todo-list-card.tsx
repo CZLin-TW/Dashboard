@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckSquare, Check } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { type TodoData, todoUrgency, urgencyRowClass } from "@/lib/types";
+import { type TodoData, todoUrgency, urgencyRowClass, relativeDateLabel } from "@/lib/types";
 
 interface Props {
   todos: TodoData[];
@@ -93,7 +93,13 @@ export function TodoListCard({ todos, onCompleted }: Props) {
                   {todo["事項"]}
                   {todo["時間"] && <span className="num ml-1.5 text-xs text-mute">{todo["時間"]}</span>}
                 </span>
-                <span className="num flex-shrink-0 text-xs text-mute">{todo["日期"]}</span>
+                <span className="num flex-shrink-0 text-xs text-mute">
+                  {todo["日期"]}
+                  {(() => {
+                    const rel = relativeDateLabel(todo["日期"]);
+                    return rel ? ` (${rel})` : "";
+                  })()}
+                </span>
               </li>
             );
           })}
