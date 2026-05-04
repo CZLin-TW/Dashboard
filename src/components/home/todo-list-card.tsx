@@ -8,8 +8,10 @@ import { type TodoData, todoUrgency, urgencyRowClass } from "@/lib/types";
 
 interface Props {
   todos: TodoData[];
-  /** 標記完成成功後呼叫，由父層 refetch 資料；失敗時不會被呼叫。 */
-  onCompleted: () => void;
+  /** 標記完成成功後呼叫，由父層 refetch 資料；失敗時不會被呼叫。
+   *  回傳 Promise 讓本層 await 確保 todos prop 更新後再清 completingItems
+   *  → React 同一輪 batch render，避免「動畫結束 → 項目還沒消失」的閃爍。 */
+  onCompleted: () => void | Promise<void>;
 }
 
 /**
@@ -22,31 +24,32 @@ interface Props {
 export function TodoListCard({ todos, onCompleted }: Props) {
   const [completingItems, setCompletingItems] = useState<Set<string>>(new Set());
 
-  function completeTodo(item: string) {
+  async function completeTodo(item: string) {
     setCompletingItems((prev) => new Set(prev).add(item));
-    fetch(`/api/todos?item=${encodeURIComponent(item)}`, { method: "DELETE" })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        // 動畫秀完才 refetch，避免列表瞬間消失少了「畫個勾」的反饋
-        setTimeout(() => {
-          setCompletingItems((prev) => {
-            const next = new Set(prev);
-            next.delete(item);
-            return next;
-          });
-          onCompleted();
-        }, 500);
-      })
-      .catch((err) => {
-        console.error(`[completeTodo] ${item} failed:`, err);
-        // 撤銷樂觀更新，讓使用者重試
-        setCompletingItems((prev) => {
-          const next = new Set(prev);
-          next.delete(item);
-          return next;
-        });
-        alert(`完成失敗：${item}（${err instanceof Error ? err.message : "請稍後再試"}）`);
+    try {
+      const res = await fetch(`/api/todos?item=${encodeURIComponent(item)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // 動畫秀完才 refetch，避免列表瞬間消失少了「畫個勾」的反饋
+      await new Promise((r) => setTimeout(r, 500));
+      // 等 parent refetch 真的回來、todos prop 已更新（不再含此項）後才清掉
+      // completingItems 的 entry。React 會把 parent setData 跟 child
+      // setCompletingItems 在同一輪 batch 一起 render，視覺上一次消失。
+      await Promise.resolve(onCompleted());
+      setCompletingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(item);
+        return next;
       });
+    } catch (err) {
+      console.error(`[completeTodo] ${item} failed:`, err);
+      // 撤銷樂觀更新，讓使用者重試
+      setCompletingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(item);
+        return next;
+      });
+      alert(`完成失敗：${item}（${err instanceof Error ? err.message : "請稍後再試"}）`);
+    }
   }
 
   return (

@@ -103,18 +103,29 @@ export default function TodosPage() {
     });
   }
 
-  function completeTodo(item: string) {
+  async function completeTodo(item: string) {
     setCompletingItems((prev) => new Set(prev).add(item));
-    fetch(`/api/todos?item=${encodeURIComponent(item)}`, { method: "DELETE" }).then(() => {
-      setTimeout(() => {
-        setCompletingItems((prev) => {
-          const next = new Set(prev);
-          next.delete(item);
-          return next;
-        });
-        fetchTodos();
-      }, 500);
-    });
+    try {
+      const res = await fetch(`/api/todos?item=${encodeURIComponent(item)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await new Promise((r) => setTimeout(r, 500));
+      // 等 refetch 真的回來、todos 已不含此項才清 completingItems，
+      // 避免「動畫結束 → 項目還沒消失」的閃爍（同首頁 TodoListCard 邏輯）。
+      await fetchTodos();
+      setCompletingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(item);
+        return next;
+      });
+    } catch (err) {
+      console.error(`[completeTodo] ${item} failed:`, err);
+      setCompletingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(item);
+        return next;
+      });
+      alert(`完成失敗：${item}（${err instanceof Error ? err.message : "請稍後再試"}）`);
+    }
   }
 
   function deleteTodo(item: string) {
