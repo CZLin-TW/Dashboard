@@ -26,8 +26,11 @@ interface TodoItem {
 
 type FilterTab = "mine" | "all";
 
+// 不放 w-full 在 base，避免 flex item 被同時套 flex-1 + w-full 後在
+// Chrome desktop 的 <input type="date"> 上被擠扁；單一 input 場合 caller
+// 自己加 w-full（跟 food 頁同 pattern）。
 const INPUT_BASE =
-  "w-full rounded-[10px] border border-line bg-elevated px-3 py-2 text-sm text-foreground placeholder:text-faint focus:border-cool focus:outline-none";
+  "rounded-[10px] border border-line bg-elevated px-3 py-2 text-sm text-foreground placeholder:text-faint focus:border-cool focus:outline-none";
 
 export default function TodosPage() {
   const { currentUser } = useUser();
@@ -169,14 +172,14 @@ export default function TodosPage() {
               value={newTodo.item}
               onChange={(e) => setNewTodo((p) => ({ ...p, item: e.target.value }))}
               placeholder="待辦事項內容"
-              className={INPUT_BASE}
+              className={`w-full ${INPUT_BASE}`}
             />
             <Field label="日期 *">
               <input
                 type="date"
                 value={newTodo.date}
                 onChange={(e) => setNewTodo((p) => ({ ...p, date: e.target.value }))}
-                className={`${INPUT_BASE} appearance-none`}
+                className={`w-full ${INPUT_BASE} appearance-none`}
               />
             </Field>
             <div>
@@ -197,7 +200,7 @@ export default function TodosPage() {
                   type="time"
                   value={newTodo.time}
                   onChange={(e) => setNewTodo((p) => ({ ...p, time: e.target.value }))}
-                  className={`mt-2 ${INPUT_BASE} appearance-none`}
+                  className={`mt-2 w-full ${INPUT_BASE} appearance-none`}
                 />
               )}
             </div>
@@ -205,7 +208,7 @@ export default function TodosPage() {
               <select
                 value={newTodo.type}
                 onChange={(e) => setNewTodo((p) => ({ ...p, type: e.target.value }))}
-                className={`field-select ${INPUT_BASE}`}
+                className={`field-select w-full ${INPUT_BASE}`}
               >
                 <option value="私人">私人</option>
                 <option value="公開">公開</option>
@@ -250,7 +253,7 @@ export default function TodosPage() {
                       type="text"
                       value={editTodo.item}
                       onChange={(e) => setEditTodo((p) => ({ ...p, item: e.target.value }))}
-                      className={INPUT_BASE}
+                      className={`w-full ${INPUT_BASE}`}
                     />
                     <div className="flex gap-2">
                       <input
