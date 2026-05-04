@@ -11,6 +11,7 @@ import {
 import { todoUrgency, urgencyRowClass, relativeDateLabel } from "@/lib/types";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
+import { useCompleteTodo } from "@/hooks/use-complete-todo";
 
 interface TodoItem {
   "事項": string;
@@ -37,7 +38,7 @@ export default function TodosPage() {
   const [hasTime, setHasTime] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editTodo, setEditTodo] = useState({ item: "", date: "", time: "", type: "私人" });
-  const [completingItems, setCompletingItems] = useState<Set<string>>(new Set());
+  const { completeTodo, isCompleting } = useCompleteTodo(fetchTodos);
 
   // 隱私：移除「我的 / 全部」切換，永遠只顯示「自己負責 + 公開」項目；
   // 沒登入則完全不顯示（避免他人 device 看到任何個人待辦）。
@@ -109,30 +110,6 @@ export default function TodosPage() {
     });
   }
 
-  async function completeTodo(item: string) {
-    setCompletingItems((prev) => new Set(prev).add(item));
-    try {
-      const res = await fetch(`/api/todos?item=${encodeURIComponent(item)}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await new Promise((r) => setTimeout(r, 500));
-      // 等 refetch 真的回來、todos 已不含此項才清 completingItems，
-      // 避免「動畫結束 → 項目還沒消失」的閃爍（同首頁 TodoListCard 邏輯）。
-      await fetchTodos();
-      setCompletingItems((prev) => {
-        const next = new Set(prev);
-        next.delete(item);
-        return next;
-      });
-    } catch (err) {
-      console.error(`[completeTodo] ${item} failed:`, err);
-      setCompletingItems((prev) => {
-        const next = new Set(prev);
-        next.delete(item);
-        return next;
-      });
-      alert(`完成失敗：${item}（${err instanceof Error ? err.message : "請稍後再試"}）`);
-    }
-  }
 
   function deleteTodo(item: string) {
     if (!confirm(`確定要刪除「${item}」嗎？`)) return;
@@ -287,7 +264,7 @@ export default function TodosPage() {
                 );
               }
 
-              const isCompleting = completingItems.has(todo["事項"]);
+              const completing = isCompleting(todo["事項"]);
               const isPublic = todo["類型"] === "公開";
               const urgency = todoUrgency(todo["日期"], todo["時間"]);
               const urgencyCls = urgencyRowClass(urgency);
@@ -298,20 +275,20 @@ export default function TodosPage() {
                 <li
                   key={sheetIndex}
                   className={`flex items-center gap-3 rounded-[12px] px-3 py-2.5 transition-all duration-500 ${urgencyCls} ${hoverCls} ${
-                    isCompleting ? "opacity-40 line-through scale-95" : ""
+                    completing ? "opacity-40 line-through scale-95" : ""
                   }`}
                 >
                   <button
-                    onClick={() => !isCompleting && completeTodo(todo["事項"])}
-                    disabled={isCompleting}
+                    onClick={() => !completing && completeTodo(todo["事項"])}
+                    disabled={completing}
                     className={`flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors ${
-                      isCompleting
+                      completing
                         ? "border-fresh bg-fresh text-white"
                         : "border-line-strong bg-surface hover:border-fresh hover:bg-fresh/15"
                     }`}
                     title="標記完成"
                   >
-                    {isCompleting && <Check className="h-3 w-3" strokeWidth={3} />}
+                    {completing && <Check className="h-3 w-3" strokeWidth={3} />}
                   </button>
                   <div className="flex-1 min-w-0">
                     <p className="flex items-center gap-1.5 text-sm text-foreground">

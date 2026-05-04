@@ -1,56 +1,27 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { CheckSquare, Check } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { type TodoData, todoUrgency, urgencyRowClass, relativeDateLabel } from "@/lib/types";
+import { useCompleteTodo } from "@/hooks/use-complete-todo";
 
 interface Props {
   todos: TodoData[];
   /** 標記完成成功後呼叫，由父層 refetch 資料；失敗時不會被呼叫。
-   *  回傳 Promise 讓本層 await 確保 todos prop 更新後再清 completingItems
+   *  回傳 Promise 讓 useCompleteTodo 等 todos prop 真的更新後再清 completing
    *  → React 同一輪 batch render，避免「動畫結束 → 項目還沒消失」的閃爍。 */
   onCompleted: () => void | Promise<void>;
 }
 
 /**
  * 首頁待辦卡：顯示父層篩好的「我的」待辦，每筆可勾選打勾。
- * 樂觀更新：點擊後立刻顯示完成動畫，背景送 DELETE。
- * 失敗時撤銷動畫 + alert 提示，避免使用者以為已經完成。
+ * 完成邏輯（樂觀更新 + 動畫 + refetch 同步）由 useCompleteTodo hook 管。
  *
  * 視覺對齊 todos 頁的 list row（同尺寸 checkbox、同 .num 日期）。
  */
 export function TodoListCard({ todos, onCompleted }: Props) {
-  const [completingItems, setCompletingItems] = useState<Set<string>>(new Set());
-
-  async function completeTodo(item: string) {
-    setCompletingItems((prev) => new Set(prev).add(item));
-    try {
-      const res = await fetch(`/api/todos?item=${encodeURIComponent(item)}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      // 動畫秀完才 refetch，避免列表瞬間消失少了「畫個勾」的反饋
-      await new Promise((r) => setTimeout(r, 500));
-      // 等 parent refetch 真的回來、todos prop 已更新（不再含此項）後才清掉
-      // completingItems 的 entry。React 會把 parent setData 跟 child
-      // setCompletingItems 在同一輪 batch 一起 render，視覺上一次消失。
-      await Promise.resolve(onCompleted());
-      setCompletingItems((prev) => {
-        const next = new Set(prev);
-        next.delete(item);
-        return next;
-      });
-    } catch (err) {
-      console.error(`[completeTodo] ${item} failed:`, err);
-      // 撤銷樂觀更新，讓使用者重試
-      setCompletingItems((prev) => {
-        const next = new Set(prev);
-        next.delete(item);
-        return next;
-      });
-      alert(`完成失敗：${item}（${err instanceof Error ? err.message : "請稍後再試"}）`);
-    }
-  }
+  const { completeTodo, isCompleting } = useCompleteTodo(onCompleted);
 
   return (
     <Card>
@@ -66,7 +37,7 @@ export function TodoListCard({ todos, onCompleted }: Props) {
       {todos.length > 0 ? (
         <ul className="flex flex-col gap-1">
           {todos.map((todo, i) => {
-            const isCompleting = completingItems.has(todo["事項"]);
+            const completing = isCompleting(todo["事項"]);
             const urgency = todoUrgency(todo["日期"], todo["時間"]);
             const urgencyCls = urgencyRowClass(urgency);
             const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
@@ -74,20 +45,20 @@ export function TodoListCard({ todos, onCompleted }: Props) {
               <li
                 key={i}
                 className={`flex items-center gap-3 rounded-[12px] px-2 py-1.5 transition-all duration-500 ${urgencyCls} ${hoverCls} ${
-                  isCompleting ? "opacity-40 line-through scale-95" : ""
+                  completing ? "opacity-40 line-through scale-95" : ""
                 }`}
               >
                 <button
-                  onClick={() => !isCompleting && completeTodo(todo["事項"])}
-                  disabled={isCompleting}
+                  onClick={() => !completing && completeTodo(todo["事項"])}
+                  disabled={completing}
                   className={`flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors ${
-                    isCompleting
+                    completing
                       ? "border-fresh bg-fresh text-white"
                       : "border-line-strong bg-surface hover:border-fresh hover:bg-fresh/15"
                   }`}
                   title="標記完成"
                 >
-                  {isCompleting && <Check className="h-3 w-3" strokeWidth={3} />}
+                  {completing && <Check className="h-3 w-3" strokeWidth={3} />}
                 </button>
                 <span className="flex-1 truncate text-sm text-foreground">
                   {todo["事項"]}
