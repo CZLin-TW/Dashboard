@@ -65,6 +65,12 @@ function parseScheduleParams(rawJson: string): ParsedParams {
   return parsed;
 }
 
+/** 穩定排序的 JSON 字串，給 params diff 比對用（避免 key 順序不同造成假差異）。 */
+function stableJson(obj: Record<string, unknown>): string {
+  const sortedKeys = Object.keys(obj).sort();
+  return JSON.stringify(sortedKeys.map((k) => [k, obj[k]]));
+}
+
 function toFormInitial(s: Schedule, deviceData: DeviceData | undefined): ScheduleFormInitial {
   const trigger = s["觸發時間"] ?? "";
   const [date, time] = trigger.split(" ");
@@ -120,20 +126,41 @@ export default function SchedulesPage() {
     fetchSchedules();
   }
 
-  async function handleEdit(originalDevice: string, originalTrigger: string, state: ScheduleFormState) {
+  async function handleEdit(originalSchedule: Schedule, state: ScheduleFormState) {
     if (!currentUser) return;
+    const originalDevice = originalSchedule["設備名稱"] ?? "";
+    const originalTrigger = originalSchedule["觸發時間"] ?? "";
+    const originalAction = originalSchedule["動作"] ?? "";
+    const originalParamsStr = originalSchedule["參數"] ?? "";
+
+    // Diff 對齊 todo / food：只送有改動的欄位。
+    // params 比較先 parse 成 object 再用排序後的 JSON 比，避免 sheet 寫入 key 順序不同造成假差異。
+    const body: Record<string, unknown> = {
+      device_name: originalDevice,
+      trigger_time: originalTrigger,
+      person: currentUser.name,
+    };
+    if (state.device_name !== originalDevice) body.device_name_new = state.device_name;
+    if (state.target_action !== originalAction) body.target_action_new = state.target_action;
+    if (state.trigger_time !== originalTrigger) body.trigger_time_new = state.trigger_time;
+    let paramsChanged = true;
+    try {
+      const orig = JSON.parse(originalParamsStr) as Record<string, unknown>;
+      paramsChanged = stableJson(orig) !== stableJson(state.params);
+    } catch { /* 原始 JSON 壞的，當作有改 */ }
+    if (paramsChanged) body.params_new = state.params;
+
+    const hasChange = "device_name_new" in body || "target_action_new" in body
+      || "trigger_time_new" in body || "params_new" in body;
+    if (!hasChange) {
+      setEditKey(null);
+      return;
+    }
+
     const res = await fetch("/api/schedules", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        device_name: originalDevice,
-        trigger_time: originalTrigger,
-        device_name_new: state.device_name,
-        target_action_new: state.target_action,
-        params_new: state.params,
-        trigger_time_new: state.trigger_time,
-        person: currentUser.name,
-      }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -209,47 +236,50 @@ export default function SchedulesPage() {
               const isEditing = editKey === rowKey;
               const dev = controllable.find((d) => d.name === deviceName);
 
-              return (
-                <div key={index} className="flex flex-col">
-                  <div className="flex items-center gap-3 rounded-[12px] px-3 py-2.5 hover:bg-elevated/50 transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground">
-                        <span className="font-semibold">{deviceName}</span>
-                        <span className="ml-2 text-mute">— {parsed.display}</span>
-                      </p>
-                      <p className="num text-xs text-mute">
-                        {trigger} · {creator}
-                      </p>
-                    </div>
-                    <span className="flex-shrink-0 rounded-full bg-amber-bg px-2 py-0.5 text-[11.5px] font-semibold text-amber">
-                      待執行
-                    </span>
-                    <IconActionButton
-                      onClick={() => (isEditing ? setEditKey(null) : openEdit(rowKey))}
-                      title={isEditing ? "收合編輯" : "編輯"}
-                      icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
-                    />
-                    <IconActionButton
-                      onClick={() => deleteSchedule(deviceName, trigger)}
-                      tone="danger"
-                      title="刪除"
-                      icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
+              if (isEditing) {
+                return (
+                  <div key={index} className="rounded-[12px] bg-elevated/50 px-3 py-3">
+                    <ScheduleForm
+                      key={rowKey}
+                      mode="edit"
+                      initial={toFormInitial(s, dev)}
+                      devices={devices}
+                      options={options}
+                      onSubmit={(state) => handleEdit(s, state)}
+                      onCancel={() => setEditKey(null)}
                     />
                   </div>
+                );
+              }
 
-                  {isEditing && (
-                    <div className="mt-1 mx-3 mb-2 rounded-[12px] bg-elevated/50 px-3 py-3">
-                      <ScheduleForm
-                        key={rowKey}
-                        mode="edit"
-                        initial={toFormInitial(s, dev)}
-                        devices={devices}
-                        options={options}
-                        onSubmit={(state) => handleEdit(deviceName, trigger, state)}
-                        onCancel={() => setEditKey(null)}
-                      />
-                    </div>
-                  )}
+              return (
+                <div
+                  key={index}
+                  className="flex items-center gap-3 rounded-[12px] px-3 py-2.5 hover:bg-elevated/50 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground">
+                      <span className="font-semibold">{deviceName}</span>
+                      <span className="ml-2 text-mute">— {parsed.display}</span>
+                    </p>
+                    <p className="num text-xs text-mute">
+                      {trigger} · {creator}
+                    </p>
+                  </div>
+                  <span className="flex-shrink-0 rounded-full bg-amber-bg px-2 py-0.5 text-[11.5px] font-semibold text-amber">
+                    待執行
+                  </span>
+                  <IconActionButton
+                    onClick={() => openEdit(rowKey)}
+                    title="編輯"
+                    icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
+                  />
+                  <IconActionButton
+                    onClick={() => deleteSchedule(deviceName, trigger)}
+                    tone="danger"
+                    title="刪除"
+                    icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
+                  />
                 </div>
               );
             })}
