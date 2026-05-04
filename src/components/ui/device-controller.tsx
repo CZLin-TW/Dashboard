@@ -47,6 +47,10 @@ export function DeviceController({
   const [sending, setSending] = useState(false);
   const [dhPending, setDhPending] = useState<{ type: string; value: unknown } | null>(null);
   const [dhFailed, setDhFailed] = useState<{ type: string; value: unknown } | null>(null);
+  // IR fire-and-forget：tap 顯示 fresh 綠表示「指令送出中」，failed 顯示 warm 紅。
+  // 不做 success state——HTTP 200 只代表 Hub 收到、不代表裝置真的動作了，給綠燈會誤導。
+  const [irTap, setIrTap] = useState<string | null>(null);
+  const [irFailed, setIrFailed] = useState<{ button: string; message: string } | null>(null);
 
   function getAcPending(): AcPendingState {
     return pending ?? acPendingFromDevice(device);
@@ -187,6 +191,11 @@ export function DeviceController({
   }
 
   async function sendIrCommand(button: string) {
+    setIrTap(button);
+    setIrFailed(null);
+    // tap 動畫長 ~250ms 就淡掉，獨立於 fetch。fetch 通常更快，但若慢於 250ms
+    // 也不延長 tap——tap 是「點擊回饋」，fetch 結果靠 failed state 表達。
+    setTimeout(() => setIrTap((cur) => (cur === button ? null : cur)), 250);
     try {
       const res = await fetch("/api/devices/control", {
         method: "POST",
@@ -195,11 +204,13 @@ export function DeviceController({
       });
       if (!res.ok) {
         console.error(`[sendIrCommand] ${device.name}/${button} failed: HTTP ${res.status}`);
-        alert(`IR 指令失敗：${device.name} - ${button}（HTTP ${res.status}）`);
+        setIrFailed({ button, message: `送出失敗（HTTP ${res.status}）` });
+        setTimeout(() => setIrFailed((cur) => (cur?.button === button ? null : cur)), 2000);
       }
     } catch (err) {
       console.error(`[sendIrCommand] ${device.name}/${button} network error:`, err);
-      alert(`IR 指令網路錯誤：${device.name} - ${button}`);
+      setIrFailed({ button, message: "送出失敗（網路錯誤）" });
+      setTimeout(() => setIrFailed((cur) => (cur?.button === button ? null : cur)), 2000);
     }
   }
 
@@ -340,18 +351,35 @@ export function DeviceController({
     return (
       <Field label="遙控按鈕">
         <div className="flex flex-wrap gap-2">
-          {buttons.map((btn) => (
-            <button
-              key={btn}
-              type="button"
-              onClick={() => sendIrCommand(btn)}
-              className="rounded-full border border-line bg-elevated px-3 py-1.5 text-sm font-medium text-soft hover:bg-mute/15 active:scale-[0.985] transition"
-            >
-              {btn}
-            </button>
-          ))}
+          {buttons.map((btn) => {
+            const isTap = irTap === btn;
+            const isFailed = irFailed?.button === btn;
+            // 配色語言對齊全站：fresh = 送出中、warm = 失敗。沒有「成功」狀態，
+            // 因為 IR 沒有狀態 ground truth，HTTP 200 只代表 Hub 收到。
+            const stateCls = isFailed
+              ? "border-transparent bg-warm text-white animate-pulse"
+              : isTap
+              ? "border-transparent bg-fresh text-white scale-[0.97]"
+              : "border-line bg-elevated text-soft hover:bg-mute/15 active:scale-[0.985]";
+            return (
+              <button
+                key={btn}
+                type="button"
+                onClick={() => sendIrCommand(btn)}
+                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-all duration-150 ${stateCls}`}
+              >
+                {btn}
+              </button>
+            );
+          })}
         </div>
-        <p className="mt-2 text-xs text-mute">IR 為單向發送，不會回傳裝置狀態</p>
+        {irFailed ? (
+          <p className="mt-2 text-xs text-warm">
+            {irFailed.button}：{irFailed.message}
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-mute">IR 為單向發送，不會回傳裝置狀態</p>
+        )}
       </Field>
     );
   }
