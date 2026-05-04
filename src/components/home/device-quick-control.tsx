@@ -79,9 +79,8 @@ export function DeviceQuickControl({
   function isAcDirty(device: DeviceData): boolean {
     const pending = getAcPending(device);
     const baseline = acPendingFromDevice(device);
-    if (pending.power !== baseline.power) return true;
-    if (!pending.power) return false;
     return (
+      pending.power !== baseline.power ||
       pending.temperature !== baseline.temperature ||
       pending.mode !== baseline.mode ||
       pending.fanSpeed !== baseline.fanSpeed

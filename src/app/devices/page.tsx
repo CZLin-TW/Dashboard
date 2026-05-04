@@ -69,15 +69,17 @@ export default function DevicesPage() {
     return acPendingMap[device.name] ?? acPendingFromDevice(device);
   }
 
-  /** pending 是否與 device 的 last* baseline 不同。
-   *  電源狀態不同就算 dirty；都是 ON 才再比 temp/mode/fan；都是 OFF 時其他欄位無關。
-   *  這樣 A→B→A 改回原值時會回到「未變更」狀態。 */
+  /** pending 是否與 device 的 last* baseline 不同（純值比對）。
+   *  四個欄位 (power/temp/mode/fan) 任一不同就算 dirty。
+   *  早期版本當 pending.power=false 時直接 return false（OFF 時其他欄位
+   *  視為無意義不算 dirty），但這樣使用者改溫度/模式時看不到視覺反饋
+   *  (按鈕仍「未變更」)、UX 混亂。改成純比對後送出 OFF 時順便把溫度/模式
+   *  也寫進 last 欄位，下次開機就用該設定。 */
   function isAcDirty(device: DeviceData): boolean {
     const pending = getAcPending(device);
     const baseline = acPendingFromDevice(device);
-    if (pending.power !== baseline.power) return true;
-    if (!pending.power) return false;
     return (
+      pending.power !== baseline.power ||
       pending.temperature !== baseline.temperature ||
       pending.mode !== baseline.mode ||
       pending.fanSpeed !== baseline.fanSpeed
