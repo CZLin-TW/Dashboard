@@ -5,7 +5,6 @@ import { CheckSquare, Plus, Lock, Pencil, X, Check } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Field,
-  TabsPill,
   PillButton,
   IconActionButton,
 } from "@/components/ui/device-controls";
@@ -24,8 +23,6 @@ interface TodoItem {
   "屬性": string;
 }
 
-type FilterTab = "mine" | "all";
-
 // 不放 w-full 在 base，避免 flex item 被同時套 flex-1 + w-full 後在
 // Chrome desktop 的 <input type="date"> 上被擠扁；單一 input 場合 caller
 // 自己加 w-full（跟 food 頁同 pattern）。
@@ -35,7 +32,6 @@ const INPUT_BASE =
 export default function TodosPage() {
   const { currentUser } = useUser();
   const { data: todos, loading, refetch: fetchTodos } = useCachedFetch<TodoItem[]>("/api/todos", []);
-  const [filter, setFilter] = useState<FilterTab>("mine");
   const [showAdd, setShowAdd] = useState(false);
   const [newTodo, setNewTodo] = useState({ item: "", date: "", time: "", type: "私人" });
   const [hasTime, setHasTime] = useState(false);
@@ -43,18 +39,25 @@ export default function TodosPage() {
   const [editTodo, setEditTodo] = useState({ item: "", date: "", time: "", type: "私人" });
   const [completingItems, setCompletingItems] = useState<Set<string>>(new Set());
 
-  const filteredTodos = todos.filter((t) => {
-    if (t["狀態"] !== "待辦") return false;
-    if (filter === "mine" && currentUser) {
-      const name = currentUser.name;
-      return t["負責人"] === name || t["負責人"] === name.substring(0, 2);
-    }
-    return true;
-  }).sort((a, b) => {
-    const dateA = `${a["日期"]} ${a["時間"] || "99:99"}`;
-    const dateB = `${b["日期"]} ${b["時間"] || "99:99"}`;
-    return dateA.localeCompare(dateB);
-  });
+  // 隱私：移除「我的 / 全部」切換，永遠只顯示「自己負責 + 公開」項目；
+  // 沒登入則完全不顯示（避免他人 device 看到任何個人待辦）。
+  const myName = currentUser?.name ?? "";
+  const myShortName = myName.substring(0, 2);
+  function isMine(t: TodoItem): boolean {
+    if (!currentUser) return false;
+    return t["負責人"] === myName || t["負責人"] === myShortName;
+  }
+  function isPublic(t: TodoItem): boolean {
+    return t["類型"] === "公開";
+  }
+
+  const filteredTodos = todos
+    .filter((t) => t["狀態"] === "待辦" && (isMine(t) || isPublic(t)))
+    .sort((a, b) => {
+      const dateA = `${a["日期"]} ${a["時間"] || "99:99"}`;
+      const dateB = `${b["日期"]} ${b["時間"] || "99:99"}`;
+      return dateA.localeCompare(dateB);
+    });
 
   function addTodo() {
     if (!newTodo.item.trim() || !newTodo.date || !currentUser) return;
@@ -155,15 +158,6 @@ export default function TodosPage() {
         </PillButton>
       </div>
 
-      <TabsPill
-        value={filter}
-        onChange={setFilter}
-        options={[
-          { value: "mine", label: "我的" },
-          { value: "all", label: "全部" },
-        ]}
-      />
-
       {showAdd && (
         <Card>
           <div className="space-y-3">
@@ -227,9 +221,7 @@ export default function TodosPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>
-            {filter === "mine" ? `${currentUser?.name ?? ""} 的待辦` : "所有待辦"}
-          </CardTitle>
+          <CardTitle>待辦事項</CardTitle>
           <span className="num text-xs text-mute">{filteredTodos.length} 項</span>
         </CardHeader>
         {loading ? (
@@ -333,7 +325,7 @@ export default function TodosPage() {
                         return rel ? ` (${rel})` : "";
                       })()}
                       {todo["時間"] && ` ${todo["時間"]}`}
-                      {filter === "all" && ` · ${todo["負責人"]}`}
+                      {!isMine(todo) && todo["負責人"] && ` · ${todo["負責人"]}`}
                       {todo["來源"] !== "本地" && ` · 來自 ${todo["來源"]}`}
                     </p>
                   </div>

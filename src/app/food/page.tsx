@@ -5,7 +5,6 @@ import { Apple, Plus, Pencil, X } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Field,
-  TabsPill,
   PillButton,
   IconActionButton,
 } from "@/components/ui/device-controls";
@@ -22,8 +21,6 @@ interface FoodItem {
   "新增者": string;
   "狀態": string;
 }
-
-type FilterTab = "all" | "urgent" | "normal";
 
 const UNITS = ["個", "顆", "瓶", "包", "盒", "小罐", "g", "kg", "ml", "L"];
 
@@ -48,25 +45,14 @@ function expiryLabel(expiry: string): { text: string; cls: string } {
 export default function FoodPage() {
   const { currentUser } = useUser();
   const { data: items, loading, refetch: fetchFood } = useCachedFetch<FoodItem[]>("/api/food", []);
-  const [filter, setFilter] = useState<FilterTab>("all");
   const [showAdd, setShowAdd] = useState(false);
   const [newFood, setNewFood] = useState({ name: "", quantity: "", unit: "個", expiry: "" });
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editFood, setEditFood] = useState({ name: "", quantity: "", unit: "個", expiry: "" });
 
   const filtered = items
-    .filter((item) => {
-      if (item["狀態"] !== "有效") return false;
-      const days = daysUntilExpiry(item["過期日"]);
-      if (filter === "urgent") return days <= 3;
-      if (filter === "normal") return days > 3;
-      return true;
-    })
+    .filter((item) => item["狀態"] === "有效")
     .sort((a, b) => new Date(a["過期日"]).getTime() - new Date(b["過期日"]).getTime());
-
-  const urgentCount = items.filter(
-    (i) => i["狀態"] === "有效" && daysUntilExpiry(i["過期日"]) <= 3,
-  ).length;
 
   function addFood() {
     if (!newFood.name.trim() || !newFood.expiry || !currentUser) return;
@@ -139,16 +125,6 @@ export default function FoodPage() {
           新增
         </PillButton>
       </div>
-
-      <TabsPill
-        value={filter}
-        onChange={setFilter}
-        options={[
-          { value: "all", label: "全部" },
-          { value: "urgent", label: "即期", badge: urgentCount },
-          { value: "normal", label: "正常" },
-        ]}
-      />
 
       {showAdd && (
         <Card>
