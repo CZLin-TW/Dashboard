@@ -1,29 +1,23 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { LayoutGrid, Activity } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import {
-  AcPendingState,
   DeviceData,
   DeviceOptions,
   DEFAULT_OPTIONS,
   DEVICE_ICONS,
   DEVICE_ICON_FALLBACK,
-  acPendingFromDevice,
 } from "@/lib/types";
 import {
-  Toggle2,
-  Stepper,
-  Segment,
-  Field,
   PinButton,
-  StatusLine,
   ClimateReadout,
   PANEL_BASE,
 } from "@/components/ui/device-controls";
+import { DeviceController } from "@/components/ui/device-controller";
 
 function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
   const searchParams = useSearchParams();
@@ -56,138 +50,7 @@ export default function DevicesPage() {
   const devices = rawDevices.map(d => ({ ...d, ...(liveStatus[d.name] ?? {}) }));
   const pin = usePinnedDevices();
 
-  const [dhPending, setDhPending] = useState<{ type: string; value: unknown } | null>(null);
-  const [dhFailed, setDhFailed] = useState<{ type: string; value: unknown } | null>(null);
   const deviceRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
-  const [acPendingMap, setAcPendingMap] = useState<Record<string, AcPendingState>>({});
-  const [acFailedMap, setAcFailedMap] = useState<Record<string, boolean>>({});
-  const [acWaitingMap, setAcWaitingMap] = useState<Record<string, boolean>>({});
-  const [acSendingMap, setAcSendingMap] = useState<Record<string, boolean>>({});
-
-  function getAcPending(device: DeviceData): AcPendingState {
-    return acPendingMap[device.name] ?? acPendingFromDevice(device);
-  }
-
-  /** pending 是否與 device 的 last* baseline 不同（純值比對）。
-   *  四個欄位 (power/temp/mode/fan) 任一不同就算 dirty。
-   *  早期版本當 pending.power=false 時直接 return false（OFF 時其他欄位
-   *  視為無意義不算 dirty），但這樣使用者改溫度/模式時看不到視覺反饋
-   *  (按鈕仍「未變更」)、UX 混亂。改成純比對後送出 OFF 時順便把溫度/模式
-   *  也寫進 last 欄位，下次開機就用該設定。 */
-  function isAcDirty(device: DeviceData): boolean {
-    const pending = getAcPending(device);
-    const baseline = acPendingFromDevice(device);
-    return (
-      pending.power !== baseline.power ||
-      pending.temperature !== baseline.temperature ||
-      pending.mode !== baseline.mode ||
-      pending.fanSpeed !== baseline.fanSpeed
-    );
-  }
-
-  function updateAcPending(device: DeviceData, updates: Partial<AcPendingState>) {
-    setAcPendingMap((prev) => {
-      const current = prev[device.name] ?? acPendingFromDevice(device);
-      return { ...prev, [device.name]: { ...current, ...updates } };
-    });
-  }
-
-  function flashAcFailed(deviceName: string) {
-    setAcFailedMap((prev) => ({ ...prev, [deviceName]: true }));
-    setTimeout(() => {
-      setAcFailedMap((prev) => { const next = { ...prev }; delete next[deviceName]; return next; });
-    }, 2000);
-  }
-
-  async function sendAcCommand(device: DeviceData) {
-    const pending = getAcPending(device);
-    setAcSendingMap((prev) => ({ ...prev, [device.name]: true }));
-    try {
-      const res = await fetch("/api/devices/control", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceName: device.name, action: "setAll", params: pending }),
-      });
-      if (!res.ok) {
-        console.error(`[sendAcCommand] ${device.name} failed: HTTP ${res.status}`);
-        flashAcFailed(device.name);
-        return;
-      }
-      setAcWaitingMap((prev) => ({ ...prev, [device.name]: true }));
-      await fetchDevices();
-      setAcPendingMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
-      setAcWaitingMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
-    } catch (err) {
-      console.error(`[sendAcCommand] ${device.name} network error:`, err);
-      flashAcFailed(device.name);
-      setAcWaitingMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
-    } finally {
-      setAcSendingMap((prev) => { const next = { ...prev }; delete next[device.name]; return next; });
-    }
-  }
-
-  async function sendDehumidifierCommand(deviceName: string, params: Record<string, unknown>) {
-    const expected: { type: string; value: unknown } =
-      params.power !== undefined ? { type: "power", value: params.power } :
-      params.mode !== undefined ? { type: "mode", value: params.mode } :
-      { type: "humidity", value: params.humidity };
-
-    setDhPending(expected);
-    setDhFailed(null);
-
-    try {
-      await fetch("/api/devices/control", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceName, action: "dehumidifier", params }),
-      });
-
-      for (let i = 0; i < 10; i++) {
-        await new Promise(r => setTimeout(r, 1000));
-        try {
-          const res = await fetch("/api/devices/status");
-          const data = await res.json();
-          const dh = data?.[deviceName];
-          if (dh) {
-            const matched =
-              (expected.type === "power" && dh.power === expected.value) ||
-              (expected.type === "mode" && dh.mode === expected.value) ||
-              (expected.type === "humidity" && String(dh.targetHumidity) === `${expected.value}%`);
-            if (matched) {
-              setDhPending(null);
-              refetchStatus();
-              return;
-            }
-          }
-        } catch { /* continue polling */ }
-      }
-
-      setDhPending(null);
-      setDhFailed(expected);
-      setTimeout(() => setDhFailed(null), 2000);
-      refetchStatus();
-    } catch {
-      setDhPending(null);
-    }
-  }
-
-  async function sendIrCommand(deviceName: string, button: string) {
-    try {
-      const res = await fetch("/api/devices/control", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceName, action: "ir", params: { button } }),
-      });
-      if (!res.ok) {
-        console.error(`[sendIrCommand] ${deviceName}/${button} failed: HTTP ${res.status}`);
-        alert(`IR 指令失敗：${deviceName} - ${button}（HTTP ${res.status}）`);
-      }
-    } catch (err) {
-      console.error(`[sendIrCommand] ${deviceName}/${button} network error:`, err);
-      alert(`IR 指令網路錯誤：${deviceName} - ${button}`);
-    }
-  }
 
   const sensors = devices.filter(d => d.type === "感應器");
   const controllable = devices.filter(d => d.type !== "感應器");
@@ -314,158 +177,12 @@ export default function DevicesPage() {
                       />
                     </div>
 
-                    {/* AC 控制 */}
-                    {device.type === "空調" && (() => {
-                      const pending = getAcPending(device);
-                      const dirty = isAcDirty(device);
-                      const failed = !!acFailedMap[device.name];
-                      const waiting = !!acWaitingMap[device.name];
-                      const sending = !!acSendingMap[device.name];
-                      const lastTime = device.lastUpdatedAt
-                        ? device.lastUpdatedAt.split(" ")[1] || device.lastUpdatedAt
-                        : undefined;
-
-                      return (
-                        <>
-                          {device.lastPower || waiting ? (
-                            <StatusLine
-                              tone={waiting ? "waiting" : device.lastPower === "on" ? "running" : "off"}
-                              text={
-                                waiting
-                                  ? pending.power
-                                    ? `送出中：${pending.temperature}°C ${pending.mode} ${pending.fanSpeed}`.trim()
-                                    : "送出中：關閉"
-                                  : device.lastPower === "on"
-                                  ? `${device.lastTemperature ?? ""}°C ${device.lastMode ?? ""} ${device.lastFanSpeed ?? ""}`.trim()
-                                  : "關閉"
-                              }
-                              time={lastTime}
-                            />
-                          ) : (
-                            <p className="text-xs text-mute">尚無使用記錄</p>
-                          )}
-
-                          <Field label="電源">
-                            <Toggle2 value={pending.power} onChange={(v) => updateAcPending(device, { power: v })} />
-                          </Field>
-
-                          <Field label="溫度">
-                            <Stepper
-                              value={pending.temperature}
-                              onMinus={() => updateAcPending(device, { temperature: Math.max(options.ac.temperature.min, pending.temperature - 1) })}
-                              onPlus={() => updateAcPending(device, { temperature: Math.min(options.ac.temperature.max, pending.temperature + 1) })}
-                            />
-                          </Field>
-
-                          <Field label="模式">
-                            <Segment
-                              options={options.ac.modes}
-                              value={pending.mode}
-                              onSelect={(v) => updateAcPending(device, { mode: v })}
-                            />
-                          </Field>
-
-                          <Field label="風速">
-                            <Segment
-                              options={options.ac.fan_speeds}
-                              value={pending.fanSpeed}
-                              onSelect={(v) => updateAcPending(device, { fanSpeed: v })}
-                            />
-                          </Field>
-
-                          <button
-                            type="button"
-                            onClick={() => sendAcCommand(device)}
-                            disabled={sending || waiting}
-                            className={`w-full rounded-full border py-2.5 text-sm font-semibold transition-colors ${
-                              failed
-                                ? "border-transparent bg-warm text-white animate-pulse"
-                                : waiting
-                                ? "border-transparent bg-amber-500 text-white animate-pulse"
-                                : dirty
-                                ? "border-transparent bg-fresh text-white hover:bg-fresh/85"
-                                : "border-dashed border-line-strong bg-elevated text-mute"
-                            }`}
-                          >
-                            {failed
-                              ? "失敗，請重試"
-                              : sending
-                              ? "送出中..."
-                              : waiting
-                              ? "確認中..."
-                              : dirty
-                              ? "送出設定"
-                              : "未變更"}
-                          </button>
-                        </>
-                      );
-                    })()}
-
-                    {/* 除濕機控制 */}
-                    {device.type === "除濕機" && (
-                      <>
-                        {device.power !== undefined && (
-                          <StatusLine
-                            tone={device.power ? "running" : "off"}
-                            text={
-                              device.power
-                                ? `運轉中${device.mode ? ` · ${device.mode}` : ""}${device.targetHumidity ? ` · 目標 ${device.targetHumidity}` : ""}`
-                                : "關閉"
-                            }
-                          />
-                        )}
-                        <Field label="電源">
-                          <Toggle2
-                            value={!!device.power}
-                            onChange={(v) => sendDehumidifierCommand(device.name, { power: v })}
-                            disabled={dhPending !== null}
-                          />
-                        </Field>
-                        <Field label="模式">
-                          <Segment
-                            options={options.dehumidifier.modes}
-                            value={options.dehumidifier.modes.find(m => m.label === device.mode)?.value}
-                            onSelect={(v) => sendDehumidifierCommand(device.name, { mode: v })}
-                            pendingValue={dhPending?.type === "mode" ? (dhPending.value as string) : undefined}
-                            failedValue={dhFailed?.type === "mode" ? (dhFailed.value as string) : undefined}
-                            disabled={dhPending !== null}
-                          />
-                        </Field>
-                        <Field label="目標濕度">
-                          <Segment
-                            options={options.dehumidifier.humidity.map(h => ({ value: h, label: `${h}%` }))}
-                            value={(() => {
-                              const t = String(device.targetHumidity ?? "").replace("%", "");
-                              const n = parseInt(t, 10);
-                              return Number.isFinite(n) ? n : undefined;
-                            })()}
-                            onSelect={(v) => sendDehumidifierCommand(device.name, { humidity: v })}
-                            pendingValue={dhPending?.type === "humidity" ? (dhPending.value as number) : undefined}
-                            failedValue={dhFailed?.type === "humidity" ? (dhFailed.value as number) : undefined}
-                            disabled={dhPending !== null}
-                          />
-                        </Field>
-                      </>
-                    )}
-
-                    {/* IR 控制 */}
-                    {device.type === "IR" && (
-                      <Field label="遙控按鈕">
-                        <div className="flex flex-wrap gap-2">
-                          {(device.buttons ?? "").split(",").map(b => b.trim()).filter(Boolean).map((btn) => (
-                            <button
-                              key={btn}
-                              type="button"
-                              onClick={() => sendIrCommand(device.name, btn)}
-                              className="rounded-full border border-line bg-elevated px-3 py-1.5 text-sm font-medium text-soft hover:bg-mute/15 active:scale-[0.985] transition"
-                            >
-                              {btn}
-                            </button>
-                          ))}
-                        </div>
-                        <p className="mt-2 text-xs text-mute">IR 為單向發送，不會回傳裝置狀態</p>
-                      </Field>
-                    )}
+                    <DeviceController
+                      device={device}
+                      options={options}
+                      onAcCommandSuccess={fetchDevices}
+                      onDehumidifierCommandSuccess={refetchStatus}
+                    />
                   </div>
                 );
               })}
