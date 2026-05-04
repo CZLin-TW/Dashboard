@@ -116,7 +116,7 @@ export default function FoodPage() {
       <div className="flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
           <Apple className="h-5 w-5 text-mute" strokeWidth={2} />
-          食品庫存
+          庫存
         </h1>
         <PillButton
           onClick={() => setShowAdd(!showAdd)}
