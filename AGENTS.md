@@ -10,13 +10,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **bump 時機**：使用者**體感得到**的變化才 bump（新功能、UI/行為改動、會被察覺的 bug fix）。純 refactor、註解、文件、type 整理**不 bump**。bump 副作用：所有使用者的 localStorage 快取會被清空（`use-cached-fetch.ts` 用 APP_VERSION 當 key prefix），首次載入會慢一拍——這也是不亂 bump 的另一個理由。
 
-**bump 流程**（兩 repo 必須同步）：
-1. Dashboard 改 `package.json:version`
-2. home-butler 也要改 `config.py:APP_VERSION` 成同一個值（LINE bot 會用這個值回答「目前版本？」）
-3. 兩邊各 commit、push 到 `main`
-4. 若只動其中一邊，bot 跟 Dashboard header 顯示的版本會對不上
+**bump 流程**（只動 Dashboard 一處）：
+1. 改 `package.json:version`
+2. commit、push 到 `main`
+3. 完。home-butler 會在 runtime 透過 `/api/version` 公開端點撈最新值（1 小時 cache），LINE bot 自然同步——不需要也不應該再去動 home-butler。
 
-本專案不使用 git tag / GitHub Releases；版本以 `package.json` / `config.py` 內的字串為準，git history 自己就是版本軌跡。
+`/api/version` 是 middleware whitelist 的公開端點，純粹回 `{ version }`，給 home-butler 後端用；前端自己用 `process.env.APP_VERSION`（`next.config.ts` 在 build-time 從 package.json 注入）。
+
+本專案不使用 git tag / GitHub Releases；版本以 `package.json` 為準，git history 自己就是版本軌跡。
 
 # Git push 環境差異
 
