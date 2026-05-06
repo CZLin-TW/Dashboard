@@ -73,19 +73,22 @@ export default function HomePage() {
     .map((name) => allDevices.find((d) => d.name === name))
     .filter((d): d is DeviceData => d !== undefined && d.type !== "感應器");
 
-  // 「我的」待辦：負責人 = 登入者全名，或前 2 字（家庭成員可能用暱稱簡寫）
-  // 首頁只顯示「需要注意」的：5 天內到期 OR 已過期，最多 5 筆。
+  // 隱私邏輯跟 /todos 頁一致：自己負責 OR 類型公開（沒登入則完全不顯示）。
+  // 負責人比對全名或前 2 字（家庭成員可能用暱稱簡寫）。
+  // 首頁額外只挑「需要注意」的：5 天內到期 OR 已過期，最多 5 筆。
   const fiveDaysMs = 5 * 24 * 60 * 60 * 1000;
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
-  const myTodos = todos
-    .filter(
-      (t) =>
-        t["狀態"] === "待辦" &&
-        (!currentUser ||
-          t["負責人"] === currentUser.name ||
-          t["負責人"] === currentUser.name.substring(0, 2)),
-    )
+  const visibleTodos = todos
+    .filter((t) => {
+      if (t["狀態"] !== "待辦") return false;
+      if (!currentUser) return false;
+      const isMine =
+        t["負責人"] === currentUser.name ||
+        t["負責人"] === currentUser.name.substring(0, 2);
+      const isPublic = t["類型"] === "公開";
+      return isMine || isPublic;
+    })
     .filter((t) => {
       if (!t["日期"]) return false;
       const target = new Date(t["日期"]);
@@ -114,7 +117,7 @@ export default function HomePage() {
         onDehumidifierCommandSent={refetchStatus}
       />
       <div className="grid gap-4 sm:grid-cols-2">
-        <TodoListCard todos={myTodos} onCompleted={refetchDashboard} />
+        <TodoListCard todos={visibleTodos} onCompleted={refetchDashboard} />
         <FoodAlertCard food={urgentFood} />
       </div>
     </div>
