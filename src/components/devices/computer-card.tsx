@@ -59,8 +59,7 @@ function ChartTitle({ label, unit }: { label: string; unit: string }) {
   );
 }
 
-/** 卡片頂部一格 metric。label / 型號直排（左），用量 + 溫度橫排（右）。
- *  CPU/GPU 同色：用量跟溫度都用 color，視覺一致。 */
+/** 卡片頂部一格 metric。「CPU：R5-7600X」label 一行，右邊用量+溫度橫排同色。 */
 function MetricBlock({
   name,
   model,
@@ -76,11 +75,10 @@ function MetricBlock({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[12px] bg-elevated/40 px-3 py-2">
-      <span className="flex min-w-0 flex-col gap-0.5 leading-tight">
-        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-mute">
-          {name}
-        </span>
-        <span className="num truncate text-[10.5px] text-faint">{model}</span>
+      <span className="min-w-0 truncate text-[12px] text-mute">
+        <span className="font-semibold uppercase tracking-[0.06em]">{name}</span>
+        <span>：</span>
+        <span className="num">{model}</span>
       </span>
       <div className="flex flex-shrink-0 items-baseline gap-3">
         <span className="num text-base font-semibold" style={{ color }}>

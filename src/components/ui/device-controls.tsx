@@ -204,9 +204,11 @@ export function StatusLine({
       : "bg-mute/40";
   return (
     <div className="flex items-center gap-2 text-[12.5px] text-mute">
-      <span className={`inline-block h-1.5 w-1.5 rounded-full ${dot}`} />
-      <span className="text-soft">{text}</span>
-      {time && <span className="num text-mute">· {time}</span>}
+      <span className={`inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${dot}`} />
+      <span className="text-soft">
+        {text}
+        {time && <span className="num ml-2 text-mute">· {time}</span>}
+      </span>
     </div>
   );
 }
