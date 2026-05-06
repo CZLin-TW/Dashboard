@@ -20,14 +20,29 @@ import {
 
 interface Props {
   ip: string;
+  cpuModel: string;
+  gpuModel: string;
   history: ComputerHistoryPoint[];
   current: ComputerSnapshot;
 }
 
 const CHART_HEIGHT = 140;
 
-// 5 個 tick 對應 24h、18h、12h、6h、0h ago。NUM_POINTS=144 → index 0/36/72/108/143。
-const TICK_INDICES = [0, 36, 72, 108, 143];
+const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const RANGE_MS = 24 * 60 * 60 * 1000;
+
+/** X 軸 tick：從最右點時間的最近整點往前每 6 小時，落在 24h 範圍內的全部回傳。
+ *  例：rightmost=13:12 → 13:00, 07:00, 01:00, 19:00（4 個）。 */
+function computeTicks(rightmost: number): number[] {
+  const RANGE_START = rightmost - RANGE_MS;
+  const startHour = new Date(rightmost);
+  startHour.setMinutes(0, 0, 0);
+  const ticks: number[] = [];
+  for (let t = startHour.getTime(); t >= RANGE_START; t -= TICK_INTERVAL_MS) {
+    ticks.push(t);
+  }
+  return ticks.reverse();
+}
 
 function formatHHMM(t: number): string {
   const d = new Date(t);
@@ -44,28 +59,34 @@ function ChartTitle({ label, unit }: { label: string; unit: string }) {
   );
 }
 
-/** 卡片頂部一格 metric。label 在上、數字在下、橫排排兩格（用量｜溫度）。 */
+/** 卡片頂部一格 metric。label / 型號直排（左），用量 + 溫度橫排（右）。
+ *  CPU/GPU 同色：用量跟溫度都用 color，視覺一致。 */
 function MetricBlock({
   name,
+  model,
   pct,
   tempC,
-  pctColor,
-  tempColor,
+  color,
 }: {
   name: string;
+  model: string;
   pct: number;
   tempC: number;
-  pctColor: string;
-  tempColor: string;
+  color: string;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-[12px] bg-elevated/40 px-3 py-2">
-      <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-mute">{name}</span>
-      <div className="flex items-baseline gap-3">
-        <span className="num text-base font-semibold" style={{ color: pctColor }}>
+    <div className="flex items-center justify-between gap-3 rounded-[12px] bg-elevated/40 px-3 py-2">
+      <span className="flex min-w-0 flex-col gap-0.5 leading-tight">
+        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-mute">
+          {name}
+        </span>
+        <span className="num truncate text-[10.5px] text-faint">{model}</span>
+      </span>
+      <div className="flex flex-shrink-0 items-baseline gap-3">
+        <span className="num text-base font-semibold" style={{ color }}>
           {pct}%
         </span>
-        <span className="num text-base font-semibold" style={{ color: tempColor }}>
+        <span className="num text-base font-semibold" style={{ color }}>
           {tempC}°C
         </span>
       </div>
@@ -73,15 +94,14 @@ function MetricBlock({
   );
 }
 
-export function ComputerCard({ ip, history, current }: Props) {
-  const ticks = TICK_INDICES.map((i) => history[i]?.t).filter((v): v is number => v !== undefined);
+export function ComputerCard({ ip, cpuModel, gpuModel, history, current }: Props) {
+  const rightmost = history[history.length - 1]?.t ?? Date.now();
+  const ticks = computeTicks(rightmost);
 
-  // 線條色：用 CSS 變數，跟全站 design token 一致。
-  const C_CPU = "var(--color-cool)";
-  const C_GPU = "var(--color-fresh)";
+  // 配色簡化：CPU = fresh（用量+溫度同色），GPU = warm（用量+溫度同色），RAM = amber
+  const C_CPU = "var(--color-fresh)";
+  const C_GPU = "var(--color-warm)";
   const C_RAM = "var(--color-amber)";
-  const C_CPU_TEMP = "var(--color-warm)";
-  const C_GPU_TEMP = "var(--color-pin)";
 
   return (
     <Card>
@@ -108,17 +128,17 @@ export function ComputerCard({ ip, history, current }: Props) {
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <MetricBlock
           name="CPU"
+          model={cpuModel}
           pct={current.cpuPct}
           tempC={current.cpuTempC}
-          pctColor={C_CPU}
-          tempColor={C_CPU_TEMP}
+          color={C_CPU}
         />
         <MetricBlock
           name="GPU"
+          model={gpuModel}
           pct={current.gpuPct}
           tempC={current.gpuTempC}
-          pctColor={C_GPU}
-          tempColor={C_GPU_TEMP}
+          color={C_GPU}
         />
       </div>
 
@@ -206,7 +226,7 @@ export function ComputerCard({ ip, history, current }: Props) {
               type="monotone"
               dataKey="cpuTemp"
               name="CPU"
-              stroke={C_CPU_TEMP}
+              stroke={C_CPU}
               strokeWidth={2}
               dot={false}
             />
@@ -214,7 +234,7 @@ export function ComputerCard({ ip, history, current }: Props) {
               type="monotone"
               dataKey="gpuTemp"
               name="GPU"
-              stroke={C_GPU_TEMP}
+              stroke={C_GPU}
               strokeWidth={2}
               dot={false}
             />

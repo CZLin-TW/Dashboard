@@ -21,8 +21,11 @@ import { DeviceController } from "@/components/ui/device-controller";
 import { ComputerCard } from "@/components/devices/computer-card";
 import { generateComputerMock } from "@/lib/computer-mock";
 
-// TODO: mockup — 之後接後端會改從 /api/computers 之類撈設定。先寫死兩台 F@H 機器的 IP。
-const COMPUTER_IPS = ["192.168.68.53", "192.168.68.55"];
+// TODO: mockup — 之後接後端會改從 /api/computers 之類撈設定（含硬體型號由 agent 啟動時讀本機 spec）。
+const COMPUTERS = [
+  { ip: "192.168.68.53", cpuModel: "R5-7600X", gpuModel: "RTX-4070Ti" },
+  { ip: "192.168.68.55", cpuModel: "Xeon-1230v2", gpuModel: "GTX-1650S" },
+];
 
 function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
   const searchParams = useSearchParams();
@@ -61,7 +64,10 @@ export default function DevicesPage() {
   const controllable = devices.filter(d => d.type !== "感應器");
 
   // mockup 階段用假資料。useMemo 鎖定一次計算，避免每 render 重生 history（時間軸會跳動）。
-  const computers = useMemo(() => COMPUTER_IPS.map((ip) => generateComputerMock(ip)), []);
+  const computers = useMemo(
+    () => COMPUTERS.map((c) => ({ ...c, ...generateComputerMock(c.ip) })),
+    []
+  );
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -208,7 +214,14 @@ export default function DevicesPage() {
         </h1>
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {computers.map((c) => (
-            <ComputerCard key={c.ip} ip={c.ip} history={c.history} current={c.current} />
+            <ComputerCard
+              key={c.ip}
+              ip={c.ip}
+              cpuModel={c.cpuModel}
+              gpuModel={c.gpuModel}
+              history={c.history}
+              current={c.current}
+            />
           ))}
         </div>
       </section>
