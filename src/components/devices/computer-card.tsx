@@ -130,8 +130,8 @@ export function ComputerCard({ pc }: Props) {
         </span>
       </div>
 
-      {/* ── 當下值：CPU/GPU 各一行（用量｜溫度） ── */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {/* ── 當下值：CPU/GPU 各自一行（用量｜溫度） ── */}
+      <div className="grid grid-cols-1 gap-2">
         <MetricBlock
           name="CPU"
           model={pc.cpu_model || ""}
