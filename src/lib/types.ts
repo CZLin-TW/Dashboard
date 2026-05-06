@@ -80,6 +80,7 @@ export interface TodoData {
   "時間": string;
   "負責人": string;
   "狀態": string;
+  "類型": string;
 }
 
 export interface FoodData {
