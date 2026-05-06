@@ -37,7 +37,9 @@ export async function DELETE(request: Request) {
   try {
     const url = new URL(request.url);
     const item = url.searchParams.get("item") ?? "";
-    const data = await butlerDelete("/api/todos", { item });
+    const date_orig = url.searchParams.get("date_orig") ?? "";
+    const time_orig = url.searchParams.get("time_orig") ?? "";
+    const data = await butlerDelete("/api/todos", { item, date_orig, time_orig });
     return NextResponse.json(data);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

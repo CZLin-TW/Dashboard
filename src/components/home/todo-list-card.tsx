@@ -37,7 +37,7 @@ export function TodoListCard({ todos, onCompleted }: Props) {
       {todos.length > 0 ? (
         <ul className="flex flex-col gap-1">
           {todos.map((todo, i) => {
-            const completing = isCompleting(todo["事項"]);
+            const completing = isCompleting(todo);
             const urgency = todoUrgency(todo["日期"], todo["時間"]);
             const urgencyCls = urgencyRowClass(urgency);
             const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
@@ -49,7 +49,7 @@ export function TodoListCard({ todos, onCompleted }: Props) {
                 }`}
               >
                 <button
-                  onClick={() => !completing && completeTodo(todo["事項"])}
+                  onClick={() => !completing && completeTodo(todo)}
                   disabled={completing}
                   className={`flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors ${
                     completing

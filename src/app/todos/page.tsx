@@ -98,6 +98,8 @@ export default function TodosPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         item: original["事項"],
+        date_orig: original["日期"],
+        time_orig: original["時間"],
         item_new: editTodo.item !== original["事項"] ? editTodo.item : undefined,
         date: editTodo.date !== original["日期"] ? editTodo.date : undefined,
         time: editTodo.time !== original["時間"] ? editTodo.time : undefined,
@@ -111,9 +113,14 @@ export default function TodosPage() {
   }
 
 
-  function deleteTodo(item: string) {
-    if (!confirm(`確定要刪除「${item}」嗎？`)) return;
-    fetch(`/api/todos?item=${encodeURIComponent(item)}`, { method: "DELETE" }).then(() => fetchTodos());
+  function deleteTodo(todo: TodoItem) {
+    if (!confirm(`確定要刪除「${todo["事項"]}」嗎？`)) return;
+    const params = new URLSearchParams({
+      item: todo["事項"],
+      date_orig: todo["日期"] || "",
+      time_orig: todo["時間"] || "",
+    });
+    fetch(`/api/todos?${params}`, { method: "DELETE" }).then(() => fetchTodos());
   }
 
   function getSheetIndex(todo: TodoItem): number {
@@ -264,7 +271,7 @@ export default function TodosPage() {
                 );
               }
 
-              const completing = isCompleting(todo["事項"]);
+              const completing = isCompleting(todo);
               const isPublic = todo["類型"] === "公開";
               const urgency = todoUrgency(todo["日期"], todo["時間"]);
               const urgencyCls = urgencyRowClass(urgency);
@@ -279,7 +286,7 @@ export default function TodosPage() {
                   }`}
                 >
                   <button
-                    onClick={() => !completing && completeTodo(todo["事項"])}
+                    onClick={() => !completing && completeTodo(todo)}
                     disabled={completing}
                     className={`flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors ${
                       completing
@@ -321,7 +328,7 @@ export default function TodosPage() {
                         icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
                       />
                       <IconActionButton
-                        onClick={() => deleteTodo(todo["事項"])}
+                        onClick={() => deleteTodo(todo)}
                         tone="danger"
                         title="刪除"
                         icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
