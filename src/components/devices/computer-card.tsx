@@ -75,7 +75,7 @@ function MetricBlock({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[12px] bg-elevated/40 px-3 py-2">
-      <span className="min-w-0 truncate text-[12px] text-mute">
+      <span className="min-w-0 truncate text-base text-mute">
         <span className="font-semibold uppercase tracking-[0.06em]">{name}</span>
         <span>：</span>
         <span className="num">{model}</span>
