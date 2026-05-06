@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, Suspense } from "react";
+import { useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { LayoutGrid, Activity, Cpu } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
@@ -19,13 +19,7 @@ import {
 } from "@/components/ui/device-controls";
 import { DeviceController } from "@/components/ui/device-controller";
 import { ComputerCard } from "@/components/devices/computer-card";
-import { generateComputerMock } from "@/lib/computer-mock";
-
-// TODO: mockup — 之後接後端會改從 /api/computers 之類撈設定（含硬體型號由 agent 啟動時讀本機 spec）。
-const COMPUTERS = [
-  { ip: "192.168.68.53", cpuModel: "R5-7600X", gpuModel: "RTX-4070Ti" },
-  { ip: "192.168.68.55", cpuModel: "Xeon-1230v2", gpuModel: "GTX-1650S" },
-];
+import type { ComputerPC } from "@/lib/computer";
 
 function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
   const searchParams = useSearchParams();
@@ -63,11 +57,17 @@ export default function DevicesPage() {
   const sensors = devices.filter(d => d.type === "感應器");
   const controllable = devices.filter(d => d.type !== "感應器");
 
-  // mockup 階段用假資料。useMemo 鎖定一次計算，避免每 render 重生 history（時間軸會跳動）。
-  const computers = useMemo(
-    () => COMPUTERS.map((c) => ({ ...c, ...generateComputerMock(c.ip) })),
-    []
-  );
+  // PC 監控：從 home-butler in-memory ring buffer 拉，agent 每 60s push 一次。
+  // 60 秒 auto-refetch 跟 agent push 節奏對齊（最差 stale 約 60-120s）。
+  const {
+    data: computersMap,
+    refetch: refetchComputers,
+  } = useCachedFetch<Record<string, ComputerPC>>("/api/computers/status", {});
+  useEffect(() => {
+    const id = setInterval(() => refetchComputers(), 60_000);
+    return () => clearInterval(id);
+  }, [refetchComputers]);
+  const computers = Object.values(computersMap).sort((a, b) => a.ip.localeCompare(b.ip));
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -206,24 +206,21 @@ export default function DevicesPage() {
       })()}
       </section>
 
-      {/* ── 電腦（mockup） ── */}
+      {/* ── 電腦 ── */}
       <section className="space-y-3">
         <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
           <Cpu className="h-5 w-5 text-mute" strokeWidth={2} />
           電腦
         </h1>
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {computers.map((c) => (
-            <ComputerCard
-              key={c.ip}
-              ip={c.ip}
-              cpuModel={c.cpuModel}
-              gpuModel={c.gpuModel}
-              history={c.history}
-              current={c.current}
-            />
-          ))}
-        </div>
+        {computers.length === 0 ? (
+          <p className="px-1 text-sm text-mute">目前沒有電腦在線（agent 啟動後會自動出現）</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {computers.map((c) => (
+              <ComputerCard key={c.ip} pc={c} />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

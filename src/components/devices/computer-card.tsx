@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Cpu } from "lucide-react";
 import {
   CartesianGrid,
@@ -13,26 +14,21 @@ import {
 } from "recharts";
 import { Card } from "@/components/ui/card";
 import {
-  type ComputerHistoryPoint,
-  type ComputerSnapshot,
-  relativeMinutes,
-} from "@/lib/computer-mock";
+  type ComputerPC,
+  relativeFromHeartbeat,
+  toChartHistory,
+} from "@/lib/computer";
 
 interface Props {
-  ip: string;
-  cpuModel: string;
-  gpuModel: string;
-  history: ComputerHistoryPoint[];
-  current: ComputerSnapshot;
+  pc: ComputerPC;
 }
 
 const CHART_HEIGHT = 140;
-
 const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const RANGE_MS = 24 * 60 * 60 * 1000;
 
 /** X 軸 tick：從最右點時間的最近整點往前每 6 小時，落在 24h 範圍內的全部回傳。
- *  例：rightmost=13:12 → 13:00, 07:00, 01:00, 19:00（4 個）。 */
+ *  例：rightmost=13:12 → 13:00, 07:00, 01:00, 19:00。 */
 function computeTicks(rightmost: number): number[] {
   const RANGE_START = rightmost - RANGE_MS;
   const startHour = new Date(rightmost);
@@ -51,6 +47,16 @@ function formatHHMM(t: number): string {
   return `${hh}:${mm}`;
 }
 
+/** 顯示用的整數百分比；null 顯示「—」。 */
+function fmtPct(v: number | null | undefined): string {
+  return v == null ? "—" : `${Math.round(v)}`;
+}
+
+/** 顯示用的整數溫度；null（例如 PC 沒裝 LHM）顯示「—」。 */
+function fmtTemp(v: number | null | undefined): string {
+  return v == null ? "—" : `${Math.round(v)}`;
+}
+
 function ChartTitle({ label, unit }: { label: string; unit: string }) {
   return (
     <h3 className="px-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-mute">
@@ -59,18 +65,17 @@ function ChartTitle({ label, unit }: { label: string; unit: string }) {
   );
 }
 
-/** 卡片頂部一格 metric。「CPU：R5-7600X」label 一行，右邊用量+溫度橫排同色。 */
 function MetricBlock({
   name,
   model,
-  pct,
-  tempC,
+  pctText,
+  tempText,
   color,
 }: {
   name: string;
   model: string;
-  pct: number;
-  tempC: number;
+  pctText: string;
+  tempText: string;
   color: string;
 }) {
   return (
@@ -78,28 +83,31 @@ function MetricBlock({
       <span className="min-w-0 truncate text-base text-mute">
         <span className="font-semibold uppercase tracking-[0.06em]">{name}</span>
         <span>：</span>
-        <span className="num">{model}</span>
+        <span className="num">{model || "—"}</span>
       </span>
       <div className="flex flex-shrink-0 items-baseline gap-3">
         <span className="num text-base font-semibold" style={{ color }}>
-          {pct}%
+          {pctText}%
         </span>
         <span className="num text-base font-semibold" style={{ color }}>
-          {tempC}°C
+          {tempText}°C
         </span>
       </div>
     </div>
   );
 }
 
-export function ComputerCard({ ip, cpuModel, gpuModel, history, current }: Props) {
-  const rightmost = history[history.length - 1]?.t ?? Date.now();
-  const ticks = computeTicks(rightmost);
+export function ComputerCard({ pc }: Props) {
+  const chartHistory = useMemo(() => toChartHistory(pc.history), [pc.history]);
 
-  // 配色簡化：CPU = fresh（用量+溫度同色），GPU = warm（用量+溫度同色），RAM = amber
+  // 配色簡化：CPU = fresh（用量+溫度同色）、GPU = warm（用量+溫度同色）、RAM = amber
   const C_CPU = "var(--color-fresh)";
   const C_GPU = "var(--color-warm)";
   const C_RAM = "var(--color-amber)";
+
+  const rightmost = chartHistory[chartHistory.length - 1]?.t ?? Date.now();
+  const ticks = computeTicks(rightmost);
+  const hasHistory = chartHistory.length > 0;
 
   return (
     <Card>
@@ -109,15 +117,15 @@ export function ComputerCard({ ip, cpuModel, gpuModel, history, current }: Props
           <span className="grid h-4 w-4 place-items-center text-mute">
             <Cpu className="h-4 w-4" strokeWidth={1.8} />
           </span>
-          <span className="num truncate text-sm font-semibold text-foreground">{ip}</span>
+          <span className="num truncate text-sm font-semibold text-foreground">{pc.ip}</span>
         </div>
         <span className="flex flex-shrink-0 items-center gap-1.5">
           <span
-            className={`h-2 w-2 rounded-full ${current.online ? "bg-fresh" : "bg-mute"}`}
+            className={`h-2 w-2 rounded-full ${pc.online ? "bg-fresh" : "bg-mute"}`}
             aria-hidden
           />
           <span className="text-[11.5px] text-mute">
-            {current.online ? relativeMinutes(current.lastHeartbeatAt) : "離線"}
+            {pc.online ? relativeFromHeartbeat(pc.last_heartbeat_at) : "離線"}
           </span>
         </span>
       </div>
@@ -126,119 +134,111 @@ export function ComputerCard({ ip, cpuModel, gpuModel, history, current }: Props
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <MetricBlock
           name="CPU"
-          model={cpuModel}
-          pct={current.cpuPct}
-          tempC={current.cpuTempC}
+          model={pc.cpu_model || ""}
+          pctText={fmtPct(pc.current?.cpu_pct)}
+          tempText={fmtTemp(pc.current?.cpu_temp_c)}
           color={C_CPU}
         />
         <MetricBlock
           name="GPU"
-          model={gpuModel}
-          pct={current.gpuPct}
-          tempC={current.gpuTempC}
+          model={pc.gpu_model || ""}
+          pctText={fmtPct(pc.current?.gpu_pct)}
+          tempText={fmtTemp(pc.current?.gpu_temp_c)}
           color={C_GPU}
         />
       </div>
 
-      {/* ── 圖 1：使用率 % ── */}
-      <div className="space-y-1.5">
-        <ChartTitle label="使用率" unit="%" />
-        <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-          <LineChart data={history} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
-            <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="t"
-              type="number"
-              domain={["dataMin", "dataMax"]}
-              ticks={ticks}
-              tickFormatter={formatHHMM}
-              tick={{ fontSize: 10, fill: "var(--color-mute)" }}
-              stroke="var(--color-line)"
-            />
-            <YAxis
-              domain={[0, 100]}
-              ticks={[0, 25, 50, 75, 100]}
-              tick={{ fontSize: 10, fill: "var(--color-mute)" }}
-              stroke="var(--color-line)"
-            />
-            <Tooltip
-              contentStyle={{
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-line)",
-                borderRadius: 10,
-                fontSize: 12,
-              }}
-              labelFormatter={(t) => formatHHMM(Number(t))}
-              formatter={(v) => `${v}%`}
-            />
-            <Legend
-              verticalAlign="top"
-              height={24}
-              iconType="plainline"
-              wrapperStyle={{ fontSize: 11, paddingLeft: 8 }}
-            />
-            <Line type="monotone" dataKey="cpu" name="CPU" stroke={C_CPU} strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="gpu" name="GPU" stroke={C_GPU} strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="ram" name="RAM" stroke={C_RAM} strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      {!hasHistory ? (
+        <p className="px-1 text-sm text-mute">等待 agent heartbeat 累積資料...</p>
+      ) : (
+        <>
+          {/* ── 圖 1：使用率 % ── */}
+          <div className="space-y-1.5">
+            <ChartTitle label="使用率" unit="%" />
+            <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+              <LineChart data={chartHistory} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="t"
+                  type="number"
+                  domain={["dataMin", "dataMax"]}
+                  ticks={ticks}
+                  tickFormatter={formatHHMM}
+                  tick={{ fontSize: 10, fill: "var(--color-mute)" }}
+                  stroke="var(--color-line)"
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  ticks={[0, 25, 50, 75, 100]}
+                  tick={{ fontSize: 10, fill: "var(--color-mute)" }}
+                  stroke="var(--color-line)"
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--color-surface)",
+                    border: "1px solid var(--color-line)",
+                    borderRadius: 10,
+                    fontSize: 12,
+                  }}
+                  labelFormatter={(t) => formatHHMM(Number(t))}
+                  formatter={(v) => `${v}%`}
+                />
+                <Legend
+                  verticalAlign="top"
+                  height={24}
+                  iconType="plainline"
+                  wrapperStyle={{ fontSize: 11, paddingLeft: 8 }}
+                />
+                <Line type="monotone" dataKey="cpu" name="CPU" stroke={C_CPU} strokeWidth={2} dot={false} connectNulls />
+                <Line type="monotone" dataKey="gpu" name="GPU" stroke={C_GPU} strokeWidth={2} dot={false} connectNulls />
+                <Line type="monotone" dataKey="ram" name="RAM" stroke={C_RAM} strokeWidth={2} dot={false} connectNulls />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
 
-      {/* ── 圖 2：溫度 °C ── */}
-      <div className="space-y-1.5">
-        <ChartTitle label="溫度" unit="°C" />
-        <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-          <LineChart data={history} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
-            <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
-            <XAxis
-              dataKey="t"
-              type="number"
-              domain={["dataMin", "dataMax"]}
-              ticks={ticks}
-              tickFormatter={formatHHMM}
-              tick={{ fontSize: 10, fill: "var(--color-mute)" }}
-              stroke="var(--color-line)"
-            />
-            <YAxis
-              domain={["auto", "auto"]}
-              tick={{ fontSize: 10, fill: "var(--color-mute)" }}
-              stroke="var(--color-line)"
-            />
-            <Tooltip
-              contentStyle={{
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-line)",
-                borderRadius: 10,
-                fontSize: 12,
-              }}
-              labelFormatter={(t) => formatHHMM(Number(t))}
-              formatter={(v) => `${v}°C`}
-            />
-            <Legend
-              verticalAlign="top"
-              height={24}
-              iconType="plainline"
-              wrapperStyle={{ fontSize: 11, paddingLeft: 8 }}
-            />
-            <Line
-              type="monotone"
-              dataKey="cpuTemp"
-              name="CPU"
-              stroke={C_CPU}
-              strokeWidth={2}
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="gpuTemp"
-              name="GPU"
-              stroke={C_GPU}
-              strokeWidth={2}
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+          {/* ── 圖 2：溫度 °C ── */}
+          <div className="space-y-1.5">
+            <ChartTitle label="溫度" unit="°C" />
+            <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+              <LineChart data={chartHistory} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="t"
+                  type="number"
+                  domain={["dataMin", "dataMax"]}
+                  ticks={ticks}
+                  tickFormatter={formatHHMM}
+                  tick={{ fontSize: 10, fill: "var(--color-mute)" }}
+                  stroke="var(--color-line)"
+                />
+                <YAxis
+                  domain={["auto", "auto"]}
+                  tick={{ fontSize: 10, fill: "var(--color-mute)" }}
+                  stroke="var(--color-line)"
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--color-surface)",
+                    border: "1px solid var(--color-line)",
+                    borderRadius: 10,
+                    fontSize: 12,
+                  }}
+                  labelFormatter={(t) => formatHHMM(Number(t))}
+                  formatter={(v) => `${v}°C`}
+                />
+                <Legend
+                  verticalAlign="top"
+                  height={24}
+                  iconType="plainline"
+                  wrapperStyle={{ fontSize: 11, paddingLeft: 8 }}
+                />
+                <Line type="monotone" dataKey="cpuTemp" name="CPU" stroke={C_CPU} strokeWidth={2} dot={false} connectNulls />
+                <Line type="monotone" dataKey="gpuTemp" name="GPU" stroke={C_GPU} strokeWidth={2} dot={false} connectNulls />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
     </Card>
   );
 }
