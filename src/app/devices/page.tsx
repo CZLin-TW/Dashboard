@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, Suspense } from "react";
+import { useEffect, useMemo, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { LayoutGrid, Activity } from "lucide-react";
+import { LayoutGrid, Activity, Cpu } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import {
@@ -18,6 +18,11 @@ import {
   PANEL_BASE,
 } from "@/components/ui/device-controls";
 import { DeviceController } from "@/components/ui/device-controller";
+import { ComputerCard } from "@/components/devices/computer-card";
+import { generateComputerMock } from "@/lib/computer-mock";
+
+// TODO: mockup — 之後接後端會改從 /api/computers 之類撈設定。先寫死兩台 F@H 機器的 IP。
+const COMPUTER_IPS = ["192.168.68.53", "192.168.68.55"];
 
 function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
   const searchParams = useSearchParams();
@@ -54,6 +59,9 @@ export default function DevicesPage() {
 
   const sensors = devices.filter(d => d.type === "感應器");
   const controllable = devices.filter(d => d.type !== "感應器");
+
+  // mockup 階段用假資料。useMemo 鎖定一次計算，避免每 render 重生 history（時間軸會跳動）。
+  const computers = useMemo(() => COMPUTER_IPS.map((ip) => generateComputerMock(ip)), []);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -190,6 +198,19 @@ export default function DevicesPage() {
           </div>
         ));
       })()}
+      </section>
+
+      {/* ── 電腦（mockup） ── */}
+      <section className="space-y-3">
+        <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
+          <Cpu className="h-5 w-5 text-mute" strokeWidth={2} />
+          電腦
+        </h1>
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {computers.map((c) => (
+            <ComputerCard key={c.ip} ip={c.ip} history={c.history} current={c.current} />
+          ))}
+        </div>
       </section>
     </div>
   );
