@@ -60,6 +60,7 @@ function SubChart({ data, ticks, yTicks, dataKey, color, unit, domain }: SubChar
         <YAxis
           domain={domain}
           ticks={yTicks}
+          interval={0}
           tick={{ fontSize: 10, fill: "var(--color-mute)" }}
           stroke="var(--color-line)"
           width={36}

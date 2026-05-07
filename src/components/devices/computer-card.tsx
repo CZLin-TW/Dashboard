@@ -179,6 +179,7 @@ export function ComputerCard({ pc, tempDomain }: Props) {
                 <YAxis
                   domain={[0, 100]}
                   ticks={[0, 25, 50, 75, 100]}
+                  interval={0}
                   tick={{ fontSize: 10, fill: "var(--color-mute)" }}
                   stroke="var(--color-line)"
                 />
@@ -223,6 +224,7 @@ export function ComputerCard({ pc, tempDomain }: Props) {
                 <YAxis
                   domain={tempDomain}
                   ticks={tempYTicks}
+                  interval={0}
                   tick={{ fontSize: 10, fill: "var(--color-mute)" }}
                   stroke="var(--color-line)"
                 />
