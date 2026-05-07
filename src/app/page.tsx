@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
@@ -12,6 +13,7 @@ import {
   DEFAULT_OPTIONS,
   daysUntilExpiry,
 } from "@/lib/types";
+import { type Sensor, computeSensorDomains } from "@/lib/sensor";
 import { WeatherCard } from "@/components/home/weather-card";
 import { IndoorSensorCard } from "@/components/home/indoor-sensor-card";
 import { DeviceQuickControl } from "@/components/home/device-quick-control";
@@ -65,10 +67,26 @@ export default function HomePage() {
 
   const pin = usePinnedDevices();
 
+  // 拉感測器歷史（給釘選的 IndoorSensorCard 畫 24h 折線圖）。
+  // 60s auto-refetch 跟 home-butler 內部 polling 節奏對齊。
+  const {
+    data: sensorsMap,
+    refetch: refetchSensors,
+  } = useCachedFetch<Record<string, Sensor>>("/api/sensors/status", {});
+  useEffect(() => {
+    const id = setInterval(() => refetchSensors(), 60_000);
+    return () => clearInterval(id);
+  }, [refetchSensors]);
+
   // 首頁只顯示釘選的；裝置頁有完整列表
   const pinnedSensor = pin.pinnedSensor
     ? allDevices.find((d) => d.name === pin.pinnedSensor) ?? null
     : null;
+  const pinnedSensorHistory = pin.pinnedSensor ? sensorsMap[pin.pinnedSensor] ?? null : null;
+  // 首頁只算釘選那一個感測器的自有 domain（只有它自己一張圖）
+  const { tempDomain: pinnedTempDomain, humDomain: pinnedHumDomain } = computeSensorDomains(
+    pinnedSensorHistory ? [pinnedSensorHistory] : [],
+  );
   const controllableDevices = pin.pinnedDevices
     .map((name) => allDevices.find((d) => d.name === name))
     .filter((d): d is DeviceData => d !== undefined && d.type !== "感應器");
@@ -109,7 +127,12 @@ export default function HomePage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <WeatherCard weather={weather} />
-      <IndoorSensorCard sensor={pinnedSensor} />
+      <IndoorSensorCard
+        sensor={pinnedSensor}
+        sensorHistory={pinnedSensorHistory}
+        tempDomain={pinnedTempDomain}
+        humDomain={pinnedHumDomain}
+      />
       <DeviceQuickControl
         devices={controllableDevices}
         options={options}

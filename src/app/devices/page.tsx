@@ -19,7 +19,9 @@ import {
 } from "@/components/ui/device-controls";
 import { DeviceController } from "@/components/ui/device-controller";
 import { ComputerCard } from "@/components/devices/computer-card";
+import { SensorChart } from "@/components/devices/sensor-chart";
 import type { ComputerPC } from "@/lib/computer";
+import { type Sensor, computeSensorDomains } from "@/lib/sensor";
 
 function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
   const searchParams = useSearchParams();
@@ -68,6 +70,18 @@ export default function DevicesPage() {
     return () => clearInterval(id);
   }, [refetchComputers]);
   const computers = Object.values(computersMap).sort((a, b) => a.ip.localeCompare(b.ip));
+
+  // 感測器歷史：home-butler 內部 polling 累積。
+  const {
+    data: sensorsMap,
+    refetch: refetchSensors,
+  } = useCachedFetch<Record<string, Sensor>>("/api/sensors/status", {});
+  useEffect(() => {
+    const id = setInterval(() => refetchSensors(), 60_000);
+    return () => clearInterval(id);
+  }, [refetchSensors]);
+  // 跨所有感測器算共用 Y 範圍，三張卡的圖視覺對齊
+  const sensorDomains = computeSensorDomains(Object.values(sensorsMap));
 
   // 跨所有 PC 算共用溫度 Y 範圍（含 history + current 的 cpu/gpu 溫度）。
   // round 到 5°C 整數 + ±5 buffer，避免線貼邊界、且 tick 看起來整齊。
@@ -137,6 +151,16 @@ export default function DevicesPage() {
                     />
                   </div>
                   <ClimateReadout temp={s.temperature} humidity={s.humidity} size="md" />
+                  {sensorsMap[s.name] && sensorsMap[s.name].history.length > 0 ? (
+                    <SensorChart
+                      history={sensorsMap[s.name].history}
+                      tempDomain={sensorDomains.tempDomain}
+                      humDomain={sensorDomains.humDomain}
+                      variant="stacked"
+                    />
+                  ) : (
+                    <p className="px-1 text-xs text-mute">等待 24h 資料累積...</p>
+                  )}
                 </div>
               );
             })}

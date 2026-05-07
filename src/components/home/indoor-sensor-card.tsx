@@ -5,19 +5,25 @@ import { Pin } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClimateReadout } from "@/components/ui/device-controls";
 import { type DeviceData, DEVICE_ICONS, DEVICE_ICON_FALLBACK } from "@/lib/types";
+import type { Sensor } from "@/lib/sensor";
+import { SensorChart } from "@/components/devices/sensor-chart";
 
 interface Props {
   sensor: DeviceData | null;
+  /** 對應 sensor.name 的歷史資料（從 /api/sensors/status 拉到，page 層 lookup 後傳入）。
+   *  null 時不畫圖，純 readout。 */
+  sensorHistory?: Sensor | null;
+  tempDomain?: [number, number];
+  humDomain?: [number, number];
 }
 
 /**
- * 室內感應器卡：顯示使用者釘選的感測器即時溫濕度。
+ * 室內感應器卡：左半 ClimateReadout、右半 24h 折線圖（溫度上、濕度下、compact 版本）。
  * 沒釘選時顯示提示，引導使用者到裝置頁釘選。
  *
- * 視覺對齊裝置頁的 sensor panel：Thermometer icon + 房間名 + ClimateReadout。
  * 不放 PinButton——pin 操作集中在裝置頁，首頁只是展示已釘選的結果。
  */
-export function IndoorSensorCard({ sensor }: Props) {
+export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain }: Props) {
   const SensorIcon = DEVICE_ICONS["感應器"] ?? DEVICE_ICON_FALLBACK;
 
   return (
@@ -33,7 +39,20 @@ export function IndoorSensorCard({ sensor }: Props) {
           <div className="text-sm font-semibold text-foreground">
             {sensor.location || sensor.name}
           </div>
-          <ClimateReadout temp={sensor.temperature} humidity={sensor.humidity} size="lg" />
+          {/* 桌機左 readout / 右圖；手機 stack（圖在下方） */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-center">
+            <ClimateReadout temp={sensor.temperature} humidity={sensor.humidity} size="lg" />
+            {sensorHistory && tempDomain && humDomain ? (
+              <SensorChart
+                history={sensorHistory.history}
+                tempDomain={tempDomain}
+                humDomain={humDomain}
+                variant="compact"
+              />
+            ) : (
+              <p className="px-1 text-xs text-mute">等待 24h 資料累積...</p>
+            )}
+          </div>
         </div>
       ) : (
         <p className="flex items-center gap-1 text-sm text-mute">
