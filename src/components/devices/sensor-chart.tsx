@@ -36,13 +36,14 @@ function formatHHMM(t: number): string {
 interface SubChartProps {
   data: SensorChartPoint[];
   ticks: number[];
+  yTicks: number[];
   dataKey: "temp" | "humidity";
   color: string;
   unit: string;
   domain: [number, number];
 }
 
-function SubChart({ data, ticks, dataKey, color, unit, domain }: SubChartProps) {
+function SubChart({ data, ticks, yTicks, dataKey, color, unit, domain }: SubChartProps) {
   return (
     <ResponsiveContainer width="100%" height={120}>
       <LineChart data={data} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
@@ -58,6 +59,7 @@ function SubChart({ data, ticks, dataKey, color, unit, domain }: SubChartProps) 
         />
         <YAxis
           domain={domain}
+          ticks={yTicks}
           tick={{ fontSize: 10, fill: "var(--color-mute)" }}
           stroke="var(--color-line)"
           width={36}
@@ -86,6 +88,18 @@ function SubChart({ data, ticks, dataKey, color, unit, domain }: SubChartProps) 
   );
 }
 
+/** 從 domain 跟 step 算明確 ticks（避免 Recharts auto-tick 對奇數差範圍挑出
+ *  非整數倍 tick 造成數值斷層、看起來不規則的問題）。 */
+function makeYTicks(domain: [number, number], step: number): number[] {
+  const [lo, hi] = domain;
+  const start = Math.ceil(lo / step) * step;
+  const ticks: number[] = [];
+  for (let v = start; v <= hi + 1e-9; v += step) {
+    ticks.push(v);
+  }
+  return ticks;
+}
+
 interface Props {
   history: SensorHistoryRaw[];
   tempDomain: [number, number];
@@ -102,6 +116,10 @@ export function SensorChart({ history, tempDomain, humDomain }: Props) {
 
   const rightmost = data[data.length - 1].t;
   const ticks = computeTicks(rightmost);
+  // 溫度 1°C 步進，但範圍大時加大避免擠
+  const tempStep = (tempDomain[1] - tempDomain[0]) <= 8 ? 1 : 2;
+  const tempYTicks = makeYTicks(tempDomain, tempStep);
+  const humYTicks = makeYTicks(humDomain, 5);
 
   return (
     <div className="space-y-1">
@@ -112,6 +130,7 @@ export function SensorChart({ history, tempDomain, humDomain }: Props) {
         <SubChart
           data={data}
           ticks={ticks}
+          yTicks={tempYTicks}
           dataKey="temp"
           color="var(--color-warm)"
           unit="°C"
@@ -125,6 +144,7 @@ export function SensorChart({ history, tempDomain, humDomain }: Props) {
         <SubChart
           data={data}
           ticks={ticks}
+          yTicks={humYTicks}
           dataKey="humidity"
           color="var(--color-cool)"
           unit="%"

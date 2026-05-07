@@ -112,6 +112,12 @@ export function ComputerCard({ pc, tempDomain }: Props) {
   const ticks = computeTicks(rightmost);
   const hasHistory = chartHistory.length > 0;
 
+  // 溫度圖明確指定 Y ticks（避免 Recharts auto-tick 對奇數差範圍挑出 5 47 53 之類斷層）
+  const tempStep = tempDomain[1] - tempDomain[0] <= 30 ? 5 : 10;
+  const tempStart = Math.ceil(tempDomain[0] / tempStep) * tempStep;
+  const tempYTicks: number[] = [];
+  for (let v = tempStart; v <= tempDomain[1] + 1e-9; v += tempStep) tempYTicks.push(v);
+
   return (
     <Card>
       {/* ── 卡頭：IP + 在線指示燈 + heartbeat ── */}
@@ -216,6 +222,7 @@ export function ComputerCard({ pc, tempDomain }: Props) {
                 />
                 <YAxis
                   domain={tempDomain}
+                  ticks={tempYTicks}
                   tick={{ fontSize: 10, fill: "var(--color-mute)" }}
                   stroke="var(--color-line)"
                 />
