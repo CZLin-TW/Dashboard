@@ -39,19 +39,24 @@ export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain 
           <div className="text-sm font-semibold text-foreground">
             {sensor.location || sensor.name}
           </div>
-          {/* 桌機左 readout / 右圖；手機 stack（圖在下方） */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-center">
-            <ClimateReadout temp={sensor.temperature} humidity={sensor.humidity} size="lg" />
-            {sensorHistory && tempDomain && humDomain ? (
-              <SensorChart
-                history={sensorHistory.history}
-                tempDomain={tempDomain}
-                humDomain={humDomain}
-                variant="compact"
-              />
-            ) : (
-              <p className="px-1 text-xs text-mute">等待 24h 資料累積...</p>
-            )}
+          {/* 永遠橫排：左邊 ClimateReadout 占其自然寬度，右邊 chart 撐剩餘空間。
+              chart 高度跟 ClimateReadout 接近，加進來不會增加卡片整體高度。 */}
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0">
+              <ClimateReadout temp={sensor.temperature} humidity={sensor.humidity} size="lg" />
+            </div>
+            <div className="flex-1 min-w-0">
+              {sensorHistory && tempDomain && humDomain ? (
+                <SensorChart
+                  history={sensorHistory.history}
+                  tempDomain={tempDomain}
+                  humDomain={humDomain}
+                  variant="compact"
+                />
+              ) : (
+                <p className="px-1 text-xs text-mute">等待 24h 資料累積...</p>
+              )}
+            </div>
           </div>
         </div>
       ) : (

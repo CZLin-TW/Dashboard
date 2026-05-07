@@ -112,14 +112,17 @@ export function SensorChart({ history, tempDomain, humDomain, variant = "stacked
   const rightmost = data[data.length - 1].t;
   const ticks = computeTicks(rightmost);
   const compact = variant === "compact";
-  const height = compact ? 80 : 120;
+  const height = compact ? 36 : 120;
 
+  // compact 拿掉 label（首頁卡片右半側空間有限，省高度給 chart 本身）
   return (
-    <div className="space-y-1">
+    <div className={compact ? "flex flex-col gap-1" : "space-y-1"}>
       <div>
-        <h3 className={`px-1 ${compact ? "text-[10px]" : "text-[11px]"} font-semibold uppercase tracking-[0.06em] text-mute`}>
-          溫度 <span className="font-normal normal-case tracking-normal">(°C)</span>
-        </h3>
+        {!compact && (
+          <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-mute">
+            溫度 <span className="font-normal normal-case tracking-normal">(°C)</span>
+          </h3>
+        )}
         <SubChart
           data={data}
           ticks={ticks}
@@ -132,9 +135,11 @@ export function SensorChart({ history, tempDomain, humDomain, variant = "stacked
         />
       </div>
       <div>
-        <h3 className={`px-1 ${compact ? "text-[10px]" : "text-[11px]"} font-semibold uppercase tracking-[0.06em] text-mute`}>
-          濕度 <span className="font-normal normal-case tracking-normal">(%)</span>
-        </h3>
+        {!compact && (
+          <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-mute">
+            濕度 <span className="font-normal normal-case tracking-normal">(%)</span>
+          </h3>
+        )}
         <SubChart
           data={data}
           ticks={ticks}
