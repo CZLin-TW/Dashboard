@@ -69,6 +69,25 @@ export default function DevicesPage() {
   }, [refetchComputers]);
   const computers = Object.values(computersMap).sort((a, b) => a.ip.localeCompare(b.ip));
 
+  // 跨所有 PC 算共用溫度 Y 範圍（含 history + current 的 cpu/gpu 溫度）。
+  // round 到 5°C 整數 + ±5 buffer，避免線貼邊界、且 tick 看起來整齊。
+  // 沒任何溫度資料時 fallback 30~90（合理的 PC 溫度區間）。
+  const tempDomain: [number, number] = (() => {
+    const temps: number[] = [];
+    for (const c of computers) {
+      for (const p of c.history) {
+        if (p.cpu_temp_c != null) temps.push(p.cpu_temp_c);
+        if (p.gpu_temp_c != null) temps.push(p.gpu_temp_c);
+      }
+      if (c.current?.cpu_temp_c != null) temps.push(c.current.cpu_temp_c);
+      if (c.current?.gpu_temp_c != null) temps.push(c.current.gpu_temp_c);
+    }
+    if (temps.length === 0) return [30, 90];
+    const lo = Math.floor(Math.min(...temps) / 5) * 5 - 5;
+    const hi = Math.ceil(Math.max(...temps) / 5) * 5 + 5;
+    return [lo, hi];
+  })();
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <Suspense>
@@ -217,7 +236,7 @@ export default function DevicesPage() {
         ) : (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {computers.map((c) => (
-              <ComputerCard key={c.ip} pc={c} />
+              <ComputerCard key={c.ip} pc={c} tempDomain={tempDomain} />
             ))}
           </div>
         )}

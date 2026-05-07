@@ -21,6 +21,9 @@ import {
 
 interface Props {
   pc: ComputerPC;
+  /** 溫度圖共用的 Y 軸範圍（整數 °C），讓多張卡之間視覺可比較。
+   *  caller 從 cross-PC 的 cpu/gpu 溫度算 min/max + buffer 後傳入。 */
+  tempDomain: [number, number];
 }
 
 const CHART_HEIGHT = 140;
@@ -97,7 +100,7 @@ function MetricBlock({
   );
 }
 
-export function ComputerCard({ pc }: Props) {
+export function ComputerCard({ pc, tempDomain }: Props) {
   const chartHistory = useMemo(() => toChartHistory(pc.history), [pc.history]);
 
   // 配色簡化：CPU = fresh（用量+溫度同色）、GPU = warm（用量+溫度同色）、RAM = amber
@@ -212,7 +215,7 @@ export function ComputerCard({ pc }: Props) {
                   stroke="var(--color-line)"
                 />
                 <YAxis
-                  domain={["auto", "auto"]}
+                  domain={tempDomain}
                   tick={{ fontSize: 10, fill: "var(--color-mute)" }}
                   stroke="var(--color-line)"
                 />
