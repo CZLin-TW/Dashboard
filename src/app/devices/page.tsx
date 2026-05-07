@@ -156,7 +156,6 @@ export default function DevicesPage() {
                       history={sensorsMap[s.name].history}
                       tempDomain={sensorDomains.tempDomain}
                       humDomain={sensorDomains.humDomain}
-                      variant="stacked"
                     />
                   ) : (
                     <p className="px-1 text-xs text-mute">等待 24h 資料累積...</p>

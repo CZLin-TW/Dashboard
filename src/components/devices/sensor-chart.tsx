@@ -40,21 +40,12 @@ interface SubChartProps {
   color: string;
   unit: string;
   domain: [number, number];
-  height: number;
-  compact?: boolean;
 }
 
-function SubChart({ data, ticks, dataKey, color, unit, domain, height, compact }: SubChartProps) {
+function SubChart({ data, ticks, dataKey, color, unit, domain }: SubChartProps) {
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      <LineChart
-        data={data}
-        margin={
-          compact
-            ? { top: 4, right: 4, left: -24, bottom: 0 }
-            : { top: 6, right: 8, left: -16, bottom: 0 }
-        }
-      >
+    <ResponsiveContainer width="100%" height={120}>
+      <LineChart data={data} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
         <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
         <XAxis
           dataKey="t"
@@ -62,14 +53,14 @@ function SubChart({ data, ticks, dataKey, color, unit, domain, height, compact }
           domain={["dataMin", "dataMax"]}
           ticks={ticks}
           tickFormatter={formatHHMM}
-          tick={{ fontSize: compact ? 9 : 10, fill: "var(--color-mute)" }}
+          tick={{ fontSize: 10, fill: "var(--color-mute)" }}
           stroke="var(--color-line)"
         />
         <YAxis
           domain={domain}
-          tick={{ fontSize: compact ? 9 : 10, fill: "var(--color-mute)" }}
+          tick={{ fontSize: 10, fill: "var(--color-mute)" }}
           stroke="var(--color-line)"
-          width={compact ? 28 : 36}
+          width={36}
         />
         <Tooltip
           contentStyle={{
@@ -99,11 +90,11 @@ interface Props {
   history: SensorHistoryRaw[];
   tempDomain: [number, number];
   humDomain: [number, number];
-  /** "stacked" = 兩張上下排（給 /devices 卡片下方）；"compact" = 同上下排但較矮（給首頁右半側）。 */
-  variant?: "stacked" | "compact";
 }
 
-export function SensorChart({ history, tempDomain, humDomain, variant = "stacked" }: Props) {
+/** 兩張 stacked 折線圖（溫度上 warm 色 / 濕度下 cool 色）。
+ *  /devices 感測器卡固定顯示；首頁 IndoorSensorCard 包進 expandable 區塊裡。 */
+export function SensorChart({ history, tempDomain, humDomain }: Props) {
   const data = toSensorChartHistory(history);
   if (data.length === 0) {
     return <p className="px-1 text-xs text-mute">等待資料累積...</p>;
@@ -111,18 +102,13 @@ export function SensorChart({ history, tempDomain, humDomain, variant = "stacked
 
   const rightmost = data[data.length - 1].t;
   const ticks = computeTicks(rightmost);
-  const compact = variant === "compact";
-  const height = compact ? 36 : 120;
 
-  // compact 拿掉 label（首頁卡片右半側空間有限，省高度給 chart 本身）
   return (
-    <div className={compact ? "flex flex-col gap-1" : "space-y-1"}>
+    <div className="space-y-1">
       <div>
-        {!compact && (
-          <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-mute">
-            溫度 <span className="font-normal normal-case tracking-normal">(°C)</span>
-          </h3>
-        )}
+        <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-mute">
+          溫度 <span className="font-normal normal-case tracking-normal">(°C)</span>
+        </h3>
         <SubChart
           data={data}
           ticks={ticks}
@@ -130,16 +116,12 @@ export function SensorChart({ history, tempDomain, humDomain, variant = "stacked
           color="var(--color-warm)"
           unit="°C"
           domain={tempDomain}
-          height={height}
-          compact={compact}
         />
       </div>
       <div>
-        {!compact && (
-          <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-mute">
-            濕度 <span className="font-normal normal-case tracking-normal">(%)</span>
-          </h3>
-        )}
+        <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-mute">
+          濕度 <span className="font-normal normal-case tracking-normal">(%)</span>
+        </h3>
         <SubChart
           data={data}
           ticks={ticks}
@@ -147,8 +129,6 @@ export function SensorChart({ history, tempDomain, humDomain, variant = "stacked
           color="var(--color-cool)"
           unit="%"
           domain={humDomain}
-          height={height}
-          compact={compact}
         />
       </div>
     </div>
