@@ -40,15 +40,33 @@ export interface ComputerChartPoint {
   gpuTemp: number | null;
 }
 
+// agent 預期每 60s push 一次。相鄰兩點時間差超過這個就視為 gap，插 null 讓
+// Recharts 斷線（connectNulls={false} 配合）；不插的話 Recharts 會把跨 gap 的
+// 兩點直接連長線，視覺假象（看起來那段時間都很平）。
+const PC_GAP_THRESHOLD_MS = 120 * 1000;
+
 export function toChartHistory(raw: ComputerHistoryRaw[]): ComputerChartPoint[] {
-  return raw.map((p) => ({
-    t: p.t * 1000,
-    cpu: p.cpu_pct,
-    ram: p.ram_pct,
-    gpu: p.gpu_pct,
-    cpuTemp: p.cpu_temp_c,
-    gpuTemp: p.gpu_temp_c,
-  }));
+  const out: ComputerChartPoint[] = [];
+  let prevT: number | null = null;
+  for (const p of raw) {
+    const tMs = p.t * 1000;
+    if (prevT !== null && tMs - prevT > PC_GAP_THRESHOLD_MS) {
+      out.push({
+        t: (prevT + tMs) / 2,
+        cpu: null, ram: null, gpu: null, cpuTemp: null, gpuTemp: null,
+      });
+    }
+    out.push({
+      t: tMs,
+      cpu: p.cpu_pct,
+      ram: p.ram_pct,
+      gpu: p.gpu_pct,
+      cpuTemp: p.cpu_temp_c,
+      gpuTemp: p.gpu_temp_c,
+    });
+    prevT = tMs;
+  }
+  return out;
 }
 
 /** 「N 分鐘前」「剛剛」之類的相對時間（給 heartbeat label）。

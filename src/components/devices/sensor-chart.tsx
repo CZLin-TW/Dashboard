@@ -81,7 +81,6 @@ function SubChart({ data, ticks, yTicks, dataKey, color, unit, domain }: SubChar
           stroke={color}
           strokeWidth={2}
           dot={false}
-          connectNulls
           isAnimationActive={false}
         />
       </LineChart>

@@ -199,9 +199,9 @@ export function ComputerCard({ pc, tempDomain }: Props) {
                   iconType="plainline"
                   wrapperStyle={{ fontSize: 11, paddingLeft: 8 }}
                 />
-                <Line type="monotone" dataKey="cpu" name="CPU" stroke={C_CPU} strokeWidth={2} dot={false} connectNulls />
-                <Line type="monotone" dataKey="gpu" name="GPU" stroke={C_GPU} strokeWidth={2} dot={false} connectNulls />
-                <Line type="monotone" dataKey="ram" name="RAM" stroke={C_RAM} strokeWidth={2} dot={false} connectNulls />
+                <Line type="monotone" dataKey="cpu" name="CPU" stroke={C_CPU} strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="gpu" name="GPU" stroke={C_GPU} strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="ram" name="RAM" stroke={C_RAM} strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -244,8 +244,8 @@ export function ComputerCard({ pc, tempDomain }: Props) {
                   iconType="plainline"
                   wrapperStyle={{ fontSize: 11, paddingLeft: 8 }}
                 />
-                <Line type="monotone" dataKey="cpuTemp" name="CPU" stroke={C_CPU} strokeWidth={2} dot={false} connectNulls />
-                <Line type="monotone" dataKey="gpuTemp" name="GPU" stroke={C_GPU} strokeWidth={2} dot={false} connectNulls />
+                <Line type="monotone" dataKey="cpuTemp" name="CPU" stroke={C_CPU} strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="gpuTemp" name="GPU" stroke={C_GPU} strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>

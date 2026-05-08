@@ -25,8 +25,22 @@ export interface SensorChartPoint {
   humidity: number | null;
 }
 
+// home-butler polling 每 5 分鐘一次。相鄰兩點超過這個就視為 gap、插 null
+// 讓 Recharts 斷線。
+const SENSOR_GAP_THRESHOLD_MS = 600 * 1000;
+
 export function toSensorChartHistory(raw: SensorHistoryRaw[]): SensorChartPoint[] {
-  return raw.map((p) => ({ t: p.t * 1000, temp: p.temp, humidity: p.humidity }));
+  const out: SensorChartPoint[] = [];
+  let prevT: number | null = null;
+  for (const p of raw) {
+    const tMs = p.t * 1000;
+    if (prevT !== null && tMs - prevT > SENSOR_GAP_THRESHOLD_MS) {
+      out.push({ t: (prevT + tMs) / 2, temp: null, humidity: null });
+    }
+    out.push({ t: tMs, temp: p.temp, humidity: p.humidity });
+    prevT = tMs;
+  }
+  return out;
 }
 
 /** 跨多個感測器算共用 Y 範圍（round 到整數 + buffer），讓兩張 chart 視覺對齊。 */
