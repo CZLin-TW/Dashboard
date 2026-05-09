@@ -4,6 +4,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -11,6 +12,8 @@ import {
 } from "recharts";
 import { type SensorChartPoint, toSensorChartHistory } from "@/lib/sensor";
 import type { SensorHistoryRaw } from "@/lib/sensor";
+import type { AcSegment } from "@/lib/ac";
+import { modeColor } from "@/lib/ac";
 
 const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const RANGE_MS = 24 * 60 * 60 * 1000;
@@ -41,13 +44,26 @@ interface SubChartProps {
   color: string;
   unit: string;
   domain: [number, number];
+  acSegments?: AcSegment[];
 }
 
-function SubChart({ data, ticks, yTicks, dataKey, color, unit, domain }: SubChartProps) {
+function SubChart({ data, ticks, yTicks, dataKey, color, unit, domain, acSegments }: SubChartProps) {
   return (
     <ResponsiveContainer width="100%" height={120}>
       <LineChart data={data} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
         <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
+        {/* AC on 區段背景色塊（畫在 grid 之後、line 之前，視覺在 line 底下） */}
+        {acSegments?.map((seg, i) => (
+          <ReferenceArea
+            key={i}
+            x1={seg.startT}
+            x2={seg.endT}
+            fill={modeColor(seg.mode)}
+            fillOpacity={0.18}
+            strokeOpacity={0}
+            ifOverflow="visible"
+          />
+        ))}
         <XAxis
           dataKey="t"
           type="number"
@@ -104,11 +120,13 @@ interface Props {
   history: SensorHistoryRaw[];
   tempDomain: [number, number];
   humDomain: [number, number];
+  /** 該感測器所屬 location 的 AC on 區段，畫在 chart 背景。空 array 不畫。 */
+  acSegments?: AcSegment[];
 }
 
-/** 兩張 stacked 折線圖（溫度上 warm 色 / 濕度下 cool 色）。
+/** 兩張 stacked 折線圖（溫度上 warm 色 / 濕度下 cool 色），背景可疊 AC on 區段色塊。
  *  /devices 感測器卡固定顯示；首頁 IndoorSensorCard 包進 expandable 區塊裡。 */
-export function SensorChart({ history, tempDomain, humDomain }: Props) {
+export function SensorChart({ history, tempDomain, humDomain, acSegments }: Props) {
   const data = toSensorChartHistory(history);
   if (data.length === 0) {
     return <p className="px-1 text-xs text-mute">等待資料累積...</p>;
@@ -116,7 +134,6 @@ export function SensorChart({ history, tempDomain, humDomain }: Props) {
 
   const rightmost = data[data.length - 1].t;
   const ticks = computeTicks(rightmost);
-  // 溫度 1°C 步進，但範圍大時加大避免擠
   const tempStep = (tempDomain[1] - tempDomain[0]) <= 8 ? 1 : 2;
   const tempYTicks = makeYTicks(tempDomain, tempStep);
   const humYTicks = makeYTicks(humDomain, 5);
@@ -135,6 +152,7 @@ export function SensorChart({ history, tempDomain, humDomain }: Props) {
           color="var(--color-warm)"
           unit="°C"
           domain={tempDomain}
+          acSegments={acSegments}
         />
       </div>
       <div>
@@ -149,6 +167,7 @@ export function SensorChart({ history, tempDomain, humDomain }: Props) {
           color="var(--color-cool)"
           unit="%"
           domain={humDomain}
+          acSegments={acSegments}
         />
       </div>
     </div>
