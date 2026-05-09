@@ -22,6 +22,7 @@ import { ComputerCard } from "@/components/devices/computer-card";
 import { SensorChart } from "@/components/devices/sensor-chart";
 import type { ComputerPC } from "@/lib/computer";
 import { type Sensor, computeSensorDomains } from "@/lib/sensor";
+import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
 
 function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
   const searchParams = useSearchParams();
@@ -82,6 +83,16 @@ export default function DevicesPage() {
   }, [refetchSensors]);
   // 跨所有感測器算共用 Y 範圍，三張卡的圖視覺對齊
   const sensorDomains = computeSensorDomains(Object.values(sensorsMap));
+
+  // 空調狀態歷史，給 sensor chart 背景畫 AC on 區段色塊
+  const {
+    data: acsMap,
+    refetch: refetchAcs,
+  } = useCachedFetch<Record<string, AcDevice>>("/api/ac/status", {});
+  useEffect(() => {
+    const id = setInterval(() => refetchAcs(), 60_000);
+    return () => clearInterval(id);
+  }, [refetchAcs]);
 
   // 跨所有 PC 算共用溫度 Y 範圍（含 history + current 的 cpu/gpu 溫度）。
   // round 到 5°C 整數 + ±5 buffer，避免線貼邊界、且 tick 看起來整齊。
@@ -156,6 +167,7 @@ export default function DevicesPage() {
                       history={sensorsMap[s.name].history}
                       tempDomain={sensorDomains.tempDomain}
                       humDomain={sensorDomains.humDomain}
+                      acSegments={getAcSegmentsForLocation(acsMap, s.location || "")}
                     />
                   ) : (
                     <p className="px-1 text-xs text-mute">等待 24h 資料累積...</p>

@@ -14,6 +14,7 @@ import {
   daysUntilExpiry,
 } from "@/lib/types";
 import { type Sensor, computeSensorDomains } from "@/lib/sensor";
+import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
 import { WeatherCard } from "@/components/home/weather-card";
 import { IndoorSensorCard } from "@/components/home/indoor-sensor-card";
 import { DeviceQuickControl } from "@/components/home/device-quick-control";
@@ -78,6 +79,16 @@ export default function HomePage() {
     return () => clearInterval(id);
   }, [refetchSensors]);
 
+  // 拉空調狀態歷史（給 IndoorSensorCard chart 背景畫 AC on 區段色塊）。
+  const {
+    data: acsMap,
+    refetch: refetchAcs,
+  } = useCachedFetch<Record<string, AcDevice>>("/api/ac/status", {});
+  useEffect(() => {
+    const id = setInterval(() => refetchAcs(), 60_000);
+    return () => clearInterval(id);
+  }, [refetchAcs]);
+
   // 首頁只顯示釘選的；裝置頁有完整列表
   const pinnedSensor = pin.pinnedSensor
     ? allDevices.find((d) => d.name === pin.pinnedSensor) ?? null
@@ -87,6 +98,10 @@ export default function HomePage() {
   const { tempDomain: pinnedTempDomain, humDomain: pinnedHumDomain } = computeSensorDomains(
     pinnedSensorHistory ? [pinnedSensorHistory] : [],
   );
+  // 釘選 sensor 所屬的 location 對應的 AC on 區段
+  const pinnedAcSegments = pinnedSensorHistory
+    ? getAcSegmentsForLocation(acsMap, pinnedSensorHistory.location || "")
+    : [];
   const controllableDevices = pin.pinnedDevices
     .map((name) => allDevices.find((d) => d.name === name))
     .filter((d): d is DeviceData => d !== undefined && d.type !== "感應器");
@@ -132,6 +147,7 @@ export default function HomePage() {
         sensorHistory={pinnedSensorHistory}
         tempDomain={pinnedTempDomain}
         humDomain={pinnedHumDomain}
+        acSegments={pinnedAcSegments}
       />
       <DeviceQuickControl
         devices={controllableDevices}
