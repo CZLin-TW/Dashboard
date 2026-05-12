@@ -8,7 +8,7 @@ import {
   type AcPendingState,
   acPendingFromDevice,
 } from "@/lib/types";
-import { Toggle2, Stepper, Segment, Field, StatusLine } from "./device-controls";
+import { Toggle2, Stepper, Segment, Dropdown, Field, StatusLine } from "./device-controls";
 
 const DURATION_OPTIONS: { value: number; label: string }[] = [
   { value: 10, label: "10 分" },
@@ -383,34 +383,39 @@ export function DeviceController({
             }
           />
         )}
-        <Field label="電源">
-          <Toggle2
-            value={!!device.power}
-            onChange={(v) => sendDehumidifierCommand({ power: v })}
-            disabled={manualDisabled}
-          />
-        </Field>
-        <Field label="自動模式">
-          <Toggle2
-            value={autoOn}
-            onChange={(v) => sendAutoRuleUpdate({ auto_mode: v })}
-            disabled={autoRulePending}
-          />
-        </Field>
+        {/* Row 1: 電源 toggle + 自動模式 toggle + 監控時間 dropdown */}
+        <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
+          <Field label="電源">
+            <Toggle2
+              value={!!device.power}
+              onChange={(v) => sendDehumidifierCommand({ power: v })}
+              disabled={manualDisabled}
+            />
+          </Field>
+          <Field label="自動模式">
+            <Toggle2
+              value={autoOn}
+              onChange={(v) => sendAutoRuleUpdate({ auto_mode: v })}
+              disabled={autoRulePending}
+            />
+          </Field>
+          <Field label="監控時間">
+            <Dropdown
+              options={DURATION_OPTIONS}
+              value={dehumRule?.duration_min ?? 30}
+              onSelect={(v) => sendAutoRuleUpdate({ duration_min: v })}
+              disabled={autoConfigDisabled}
+            />
+          </Field>
+        </div>
+        {/* Row 2: 監控感測器 dropdown (寬度同 panel) */}
         <Field label="監控感測器">
-          <Segment
+          <Dropdown
             options={(availableSensors ?? []).map((s) => ({ value: s, label: s }))}
             value={dehumRule?.sensor_name || undefined}
             onSelect={(v) => sendAutoRuleUpdate({ sensor_name: v })}
             disabled={autoConfigDisabled}
-          />
-        </Field>
-        <Field label="監控時間">
-          <Segment
-            options={DURATION_OPTIONS}
-            value={dehumRule?.duration_min ?? 30}
-            onSelect={(v) => sendAutoRuleUpdate({ duration_min: v })}
-            disabled={autoConfigDisabled}
+            className="w-full"
           />
         </Field>
         {phaseText && (

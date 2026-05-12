@@ -154,6 +154,47 @@ export function Field({ label, children }: { label: string; children: React.Reac
   );
 }
 
+/** 原生 select 包一層樣式，視覺與 Segment / Toggle2 對齊（同樣的 line / elevated 色、圓角、字級）。
+ *  寬度由外層 className 控制：預設 inline 自適應，傳 "w-full" 就會撐滿父容器。 */
+export function Dropdown<T extends string | number>({
+  options,
+  value,
+  onSelect,
+  disabled,
+  placeholder = "請選擇",
+  className = "",
+}: {
+  options: { value: T; label: string }[];
+  value: T | undefined;
+  onSelect: (v: T) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  className?: string;
+}) {
+  // 用 String() 在原生 select 上 round-trip — 還原時用 options 找回原型別
+  const selectedStr = value !== undefined && value !== null ? String(value) : "";
+  return (
+    <select
+      value={selectedStr}
+      onChange={(e) => {
+        const opt = options.find((o) => String(o.value) === e.target.value);
+        if (opt) onSelect(opt.value);
+      }}
+      disabled={disabled}
+      className={`rounded-[19px] border border-line bg-elevated px-3.5 py-1.5 text-[13px] font-medium text-soft transition-colors hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+    >
+      {selectedStr === "" && (
+        <option value="" disabled>{placeholder}</option>
+      )}
+      {options.map((opt) => (
+        <option key={String(opt.value)} value={String(opt.value)}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** 圓形 pin button（panel 右上）。pinned=pin 紫底白字、disabled=灰、未釘=elevated 灰底。 */
 export function PinButton({
   pinned,
