@@ -8,6 +8,7 @@ import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import {
   DeviceData,
   DeviceOptions,
+  DehumidifierAutoRule,
   DEFAULT_OPTIONS,
   DEVICE_ICONS,
   DEVICE_ICON_FALLBACK,
@@ -81,6 +82,17 @@ export default function DevicesPage() {
     const id = setInterval(() => refetchSensors(), 60_000);
     return () => clearInterval(id);
   }, [refetchSensors]);
+
+  // 除濕機自動規則：每台一份，key = device_name
+  const {
+    data: dehumRulesMap,
+    refetch: refetchDehumRules,
+  } = useCachedFetch<Record<string, DehumidifierAutoRule>>("/api/dehumidifier/auto-rule", {});
+  useEffect(() => {
+    const id = setInterval(() => refetchDehumRules(), 60_000);
+    return () => clearInterval(id);
+  }, [refetchDehumRules]);
+  const availableSensorNames = Object.keys(sensorsMap);
   // 跨所有感測器算共用 Y 範圍，三張卡的圖視覺對齊
   const sensorDomains = computeSensorDomains(Object.values(sensorsMap));
 
@@ -250,6 +262,9 @@ export default function DevicesPage() {
                       options={options}
                       onAcCommandSuccess={fetchDevices}
                       onDehumidifierCommandSuccess={refetchStatus}
+                      dehumRule={device.type === "除濕機" ? (dehumRulesMap[device.name] ?? null) : undefined}
+                      availableSensors={device.type === "除濕機" ? availableSensorNames : undefined}
+                      onDehumRuleUpdate={refetchDehumRules}
                     />
                   </div>
                 );

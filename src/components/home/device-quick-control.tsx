@@ -10,6 +10,7 @@ import { DeviceController } from "@/components/ui/device-controller";
 import {
   type DeviceData,
   type DeviceOptions,
+  type DehumidifierAutoRule,
   DEVICE_ICONS,
   DEVICE_ICON_FALLBACK,
 } from "@/lib/types";
@@ -26,6 +27,12 @@ interface Props {
   onAcCommandSent: () => Promise<void> | void;
   /** 除濕機指令送出且輪詢確認後呼叫，由父層 refetch /api/devices/status。 */
   onDehumidifierCommandSent: () => Promise<void> | void;
+  /** 除濕機自動規則 map（key=device_name），給展開後的 controller 用。 */
+  dehumRulesMap?: Record<string, DehumidifierAutoRule>;
+  /** 可選的感測器名稱清單，給自動規則下拉用。 */
+  availableSensors?: string[];
+  /** 自動規則異動後呼叫，由父層 refetch /api/dehumidifier/auto-rule。 */
+  onDehumRuleUpdate?: () => Promise<void> | void;
 }
 
 /**
@@ -43,6 +50,9 @@ export function DeviceQuickControl({
   options,
   onAcCommandSent,
   onDehumidifierCommandSent,
+  dehumRulesMap,
+  availableSensors,
+  onDehumRuleUpdate,
 }: Props) {
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
 
@@ -78,6 +88,9 @@ export function DeviceQuickControl({
           options={options}
           onAcCommandSuccess={onAcCommandSent}
           onDehumidifierCommandSuccess={onDehumidifierCommandSent}
+          dehumRule={device.type === "除濕機" ? (dehumRulesMap?.[device.name] ?? null) : undefined}
+          availableSensors={device.type === "除濕機" ? availableSensors : undefined}
+          onDehumRuleUpdate={onDehumRuleUpdate}
         />
       </div>
     );

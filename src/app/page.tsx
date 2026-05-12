@@ -8,6 +8,7 @@ import {
   type WeatherData,
   type DeviceData,
   type DeviceOptions,
+  type DehumidifierAutoRule,
   type TodoData,
   type FoodData,
   DEFAULT_OPTIONS,
@@ -89,6 +90,16 @@ export default function HomePage() {
     return () => clearInterval(id);
   }, [refetchAcs]);
 
+  // 除濕機自動規則（給釘選的除濕機展開 panel 用）
+  const {
+    data: dehumRulesMap,
+    refetch: refetchDehumRules,
+  } = useCachedFetch<Record<string, DehumidifierAutoRule>>("/api/dehumidifier/auto-rule", {});
+  useEffect(() => {
+    const id = setInterval(() => refetchDehumRules(), 60_000);
+    return () => clearInterval(id);
+  }, [refetchDehumRules]);
+
   // 首頁只顯示釘選的；裝置頁有完整列表
   const pinnedSensor = pin.pinnedSensor
     ? allDevices.find((d) => d.name === pin.pinnedSensor) ?? null
@@ -154,6 +165,9 @@ export default function HomePage() {
         options={options}
         onAcCommandSent={refetchDashboard}
         onDehumidifierCommandSent={refetchStatus}
+        dehumRulesMap={dehumRulesMap}
+        availableSensors={Object.keys(sensorsMap)}
+        onDehumRuleUpdate={refetchDehumRules}
       />
       <div className="grid gap-4 sm:grid-cols-2">
         <TodoListCard todos={visibleTodos} onCompleted={refetchDashboard} />

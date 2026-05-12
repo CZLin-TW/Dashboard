@@ -4,10 +4,20 @@ import { useState } from "react";
 import {
   type DeviceData,
   type DeviceOptions,
+  type DehumidifierAutoRule,
   type AcPendingState,
   acPendingFromDevice,
 } from "@/lib/types";
 import { Toggle2, Stepper, Segment, Field, StatusLine } from "./device-controls";
+
+const DURATION_OPTIONS: { value: number; label: string }[] = [
+  { value: 10, label: "10 分" },
+  { value: 15, label: "15 分" },
+  { value: 30, label: "30 分" },
+  { value: 60, label: "1 小時" },
+  { value: 120, label: "2 小時" },
+  { value: 240, label: "4 小時" },
+];
 
 // ─────────────────────────────────────────────────────────────
 // 單一裝置的控制邏輯（state + send + render fields）— 裝置頁、首頁
@@ -33,6 +43,12 @@ interface Props {
   /** 除濕機指令送出且輪詢確認後呼叫，由父層 refetch /api/devices/status。
    *  失敗（10 秒沒匹配）也會呼叫。 */
   onDehumidifierCommandSuccess?: () => Promise<void> | void;
+  /** 除濕機自動規則（home-butler 取回）。null 表示這台從未設過規則。 */
+  dehumRule?: DehumidifierAutoRule | null;
+  /** 可選的感測器名稱清單，給自動規則下拉用。 */
+  availableSensors?: string[];
+  /** 規則設定後呼叫，父層 refetch /api/dehumidifier/auto-rule。 */
+  onDehumRuleUpdate?: () => Promise<void> | void;
 }
 
 export function DeviceController({
@@ -40,6 +56,9 @@ export function DeviceController({
   options,
   onAcCommandSuccess,
   onDehumidifierCommandSuccess,
+  dehumRule,
+  availableSensors,
+  onDehumRuleUpdate,
 }: Props) {
   const [pending, setPending] = useState<AcPendingState | null>(null);
   const [acFailed, setAcFailed] = useState(false);
@@ -47,6 +66,7 @@ export function DeviceController({
   const [sending, setSending] = useState(false);
   const [dhPending, setDhPending] = useState<{ type: string; value: unknown } | null>(null);
   const [dhFailed, setDhFailed] = useState<{ type: string; value: unknown } | null>(null);
+  const [autoRulePending, setAutoRulePending] = useState(false);
   // IR fire-and-forget：tap 顯示 fresh 綠表示「指令送出中」，failed 顯示 warm 紅。
   // 不做 success state——HTTP 200 只代表 Hub 收到、不代表裝置真的動作了，給綠燈會誤導。
   const [irTap, setIrTap] = useState<string | null>(null);
@@ -190,6 +210,42 @@ export function DeviceController({
     }
   }
 
+  async function sendAutoRuleUpdate(patch: {
+    auto_mode?: boolean;
+    sensor_name?: string;
+    duration_min?: number;
+  }) {
+    // toggle ON 時：把當下 UI 的「模式 + 目標濕度」snapshot 進 rule
+    // (這是後端「當下 UI 設定 = ON 時送的設定」的實作)
+    const isTogglingOn = patch.auto_mode === true && !dehumRule?.auto_mode;
+    const body: Record<string, unknown> = {
+      device_name: device.name,
+      auto_mode: patch.auto_mode ?? dehumRule?.auto_mode ?? false,
+    };
+    if (patch.sensor_name !== undefined) body.sensor_name = patch.sensor_name;
+    if (patch.duration_min !== undefined) body.duration_min = patch.duration_min;
+    if (isTogglingOn) {
+      const t = String(device.targetHumidity ?? "").replace("%", "");
+      const n = parseInt(t, 10);
+      body.threshold = Number.isFinite(n) ? n : 50;
+      body.on_mode = device.mode || "目標濕度";
+    }
+
+    setAutoRulePending(true);
+    try {
+      await fetch("/api/dehumidifier/auto-rule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (onDehumRuleUpdate) await onDehumRuleUpdate();
+    } catch (err) {
+      console.error(`[autoRule] ${device.name} error:`, err);
+    } finally {
+      setAutoRulePending(false);
+    }
+  }
+
   async function sendIrCommand(button: string) {
     setIrTap(button);
     setIrFailed(null);
@@ -296,6 +352,25 @@ export function DeviceController({
   }
 
   if (device.type === "除濕機") {
+    const autoOn = dehumRule?.auto_mode === true;
+    // 自動模式 ON 時鎖定電源/模式/目標濕度/感測器/時間，唯一可動的是 auto toggle
+    const manualDisabled = dhPending !== null || autoOn;
+    const autoConfigDisabled = autoRulePending || autoOn;
+
+    // 規則 phase 對應的人類可讀文字（只在「值得顯示」時才印一行）
+    const phaseText = (() => {
+      if (!autoOn) return null;
+      const phase = dehumRule?.auto_phase;
+      const cd = dehumRule?.countdown_min;
+      if (phase === "armed_above")
+        return `已連續超過門檻，再 ${cd ?? "?"} 分觸發開啟`;
+      if (phase === "armed_below")
+        return `已連續低於門檻，再 ${cd ?? "?"} 分觸發關閉`;
+      if (phase === "sensor_lost_warning")
+        return "感測器離線 ≥30 分，1 小時內未恢復將自動解除";
+      return null;
+    })();
+
     return (
       <>
         {device.power !== undefined && (
@@ -312,9 +387,35 @@ export function DeviceController({
           <Toggle2
             value={!!device.power}
             onChange={(v) => sendDehumidifierCommand({ power: v })}
-            disabled={dhPending !== null}
+            disabled={manualDisabled}
           />
         </Field>
+        <Field label="自動模式">
+          <Toggle2
+            value={autoOn}
+            onChange={(v) => sendAutoRuleUpdate({ auto_mode: v })}
+            disabled={autoRulePending}
+          />
+        </Field>
+        <Field label="監控感測器">
+          <Segment
+            options={(availableSensors ?? []).map((s) => ({ value: s, label: s }))}
+            value={dehumRule?.sensor_name || undefined}
+            onSelect={(v) => sendAutoRuleUpdate({ sensor_name: v })}
+            disabled={autoConfigDisabled}
+          />
+        </Field>
+        <Field label="監控時間">
+          <Segment
+            options={DURATION_OPTIONS}
+            value={dehumRule?.duration_min ?? 30}
+            onSelect={(v) => sendAutoRuleUpdate({ duration_min: v })}
+            disabled={autoConfigDisabled}
+          />
+        </Field>
+        {phaseText && (
+          <StatusLine tone="waiting" text={phaseText} />
+        )}
         <Field label="模式">
           <Segment
             options={options.dehumidifier.modes}
@@ -322,7 +423,7 @@ export function DeviceController({
             onSelect={(v) => sendDehumidifierCommand({ mode: v })}
             pendingValue={dhPending?.type === "mode" ? (dhPending.value as string) : undefined}
             failedValue={dhFailed?.type === "mode" ? (dhFailed.value as string) : undefined}
-            disabled={dhPending !== null}
+            disabled={manualDisabled}
           />
         </Field>
         <Field label="目標濕度">
@@ -336,7 +437,7 @@ export function DeviceController({
             onSelect={(v) => sendDehumidifierCommand({ humidity: v })}
             pendingValue={dhPending?.type === "humidity" ? (dhPending.value as number) : undefined}
             failedValue={dhFailed?.type === "humidity" ? (dhFailed.value as number) : undefined}
-            disabled={dhPending !== null}
+            disabled={manualDisabled}
           />
         </Field>
       </>

@@ -62,6 +62,25 @@ export interface AcPendingState {
   fanSpeed: string;
 }
 
+/** 除濕機條件式自動規則（home-butler 後端定義，UI 顯示用）。
+ *  auto_phase 文字定義在 home-butler/dehumidifier_auto.py。 */
+export interface DehumidifierAutoRule {
+  auto_mode: boolean;
+  sensor_name: string;
+  duration_min: number;
+  threshold: number;     // = UI 目標濕度 segment 當下值，雙重身分當門檻
+  on_mode: string;       // = UI 模式 segment 當下值，自動 ON 時送這個
+  auto_phase?: string;   // disabled / idle_dry / idle_humid / armed_above / armed_below / sensor_lost_warning
+  countdown_min?: number | null;
+  last_event?: string;
+  last_event_at?: string;
+  runtime?: {
+    above_since: number | null;
+    below_since: number | null;
+    sensor_missing_ticks: number;
+  };
+}
+
 export interface DeviceOptions {
   ac: {
     modes: Array<{ value: string; label: string }>;
