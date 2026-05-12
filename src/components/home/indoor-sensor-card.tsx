@@ -47,7 +47,7 @@ export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain,
       {sensor ? (
         <div className="flex flex-col gap-2.5">
           <div className="text-sm font-semibold text-foreground">
-            {sensor.location || sensor.name}
+            {sensor.name || sensor.location}
           </div>
           {/* readout 整列點擊展開（chart 有資料才能展開）；右邊 chevron 表 affordance */}
           <button
