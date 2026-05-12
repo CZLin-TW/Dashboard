@@ -218,6 +218,25 @@ export function DeviceController({
     // toggle ON 時：把當下 UI 的「模式 + 目標濕度」snapshot 進 rule
     // (這是後端「當下 UI 設定 = ON 時送的設定」的實作)
     const isTogglingOn = patch.auto_mode === true && !dehumRule?.auto_mode;
+
+    // 進入自動模式前：若除濕機現在開著，先送 mode 切換指令把模式改成「連續除濕」
+    // 再 POST rule（一定要 await 完成才 POST rule，否則 home-butler 已經
+    // is_locked=true 會擋掉 mode 切換）。device OFF 時不切，等規則之後
+    // fire ON 時後端會一起送 turn_on + set_mode 連續除濕。
+    //
+    // 為什麼一定要切「連續除濕」：其他模式（尤其「目標濕度」）除濕機會看
+    // 機體周邊濕度自己達標停機，但外部 sensor 還沒到 → 永遠 trigger 不
+    // 到 auto-OFF。連續除濕忽略內部判定，控制權完全交給外部 sensor +
+    // hysteresis。
+    if (isTogglingOn && device.power) {
+      setAutoRulePending(true);
+      try {
+        await sendDehumidifierCommand({ mode: "連續除濕" });
+      } finally {
+        setAutoRulePending(false);
+      }
+    }
+
     const body: Record<string, unknown> = {
       device_name: device.name,
       auto_mode: patch.auto_mode ?? dehumRule?.auto_mode ?? false,
@@ -228,7 +247,7 @@ export function DeviceController({
       const t = String(device.targetHumidity ?? "").replace("%", "");
       const n = parseInt(t, 10);
       body.threshold = Number.isFinite(n) ? n : 50;
-      body.on_mode = device.mode || "目標濕度";
+      body.on_mode = "連續除濕";
     }
 
     setAutoRulePending(true);
