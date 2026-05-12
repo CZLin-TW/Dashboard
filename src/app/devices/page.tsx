@@ -173,12 +173,18 @@ export default function DevicesPage() {
                       title={pinned ? "已釘選至首頁" : "釘選至首頁"}
                     />
                   </div>
-                  <ClimateReadout temp={s.temperature} humidity={s.humidity} size="md" />
+                  <ClimateReadout
+                    temp={s.temperature}
+                    humidity={s.humidity}
+                    co2={sensorsMap[s.name]?.current?.co2 ?? null}
+                    size="md"
+                  />
                   {sensorsMap[s.name] && sensorsMap[s.name].history.length > 0 ? (
                     <SensorChart
                       history={sensorsMap[s.name].history}
                       tempDomain={sensorDomains.tempDomain}
                       humDomain={sensorDomains.humDomain}
+                      co2Domain={sensorsMap[s.name].history.some((p) => p.co2 != null) ? sensorDomains.co2Domain : null}
                       acSegments={getAcSegmentsForLocation(acsMap, s.location || "")}
                     />
                   ) : (

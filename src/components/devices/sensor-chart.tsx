@@ -40,7 +40,7 @@ interface SubChartProps {
   data: SensorChartPoint[];
   ticks: number[];
   yTicks: number[];
-  dataKey: "temp" | "humidity";
+  dataKey: "temp" | "humidity" | "co2";
   color: string;
   unit: string;
   domain: [number, number];
@@ -120,13 +120,16 @@ interface Props {
   history: SensorHistoryRaw[];
   tempDomain: [number, number];
   humDomain: [number, number];
+  /** Meter Pro CO2 才有；其他感測器傳 null，第三個 panel 不渲染。 */
+  co2Domain?: [number, number] | null;
   /** 該感測器所屬 location 的 AC on 區段，畫在 chart 背景。空 array 不畫。 */
   acSegments?: AcSegment[];
 }
 
-/** 兩張 stacked 折線圖（溫度上 warm 色 / 濕度下 cool 色），背景可疊 AC on 區段色塊。
- *  /devices 感測器卡固定顯示；首頁 IndoorSensorCard 包進 expandable 區塊裡。 */
-export function SensorChart({ history, tempDomain, humDomain, acSegments }: Props) {
+/** Stacked 折線圖（溫度 warm / 濕度 cool /（可選）CO2 amber），背景可疊 AC on 區段色塊。
+ *  /devices 感測器卡固定顯示；首頁 IndoorSensorCard 包進 expandable 區塊裡。
+ *  CO2 panel 僅當 history 有 co2 值（透過 co2Domain 非 null 判斷）時才渲染。 */
+export function SensorChart({ history, tempDomain, humDomain, co2Domain, acSegments }: Props) {
   const data = toSensorChartHistory(history);
   if (data.length === 0) {
     return <p className="px-1 text-xs text-mute">等待資料累積...</p>;
@@ -137,6 +140,7 @@ export function SensorChart({ history, tempDomain, humDomain, acSegments }: Prop
   const tempStep = (tempDomain[1] - tempDomain[0]) <= 8 ? 1 : 2;
   const tempYTicks = makeYTicks(tempDomain, tempStep);
   const humYTicks = makeYTicks(humDomain, 5);
+  const co2YTicks = co2Domain ? makeYTicks(co2Domain, 200) : [];
 
   return (
     <div className="space-y-1">
@@ -170,6 +174,23 @@ export function SensorChart({ history, tempDomain, humDomain, acSegments }: Prop
           acSegments={acSegments}
         />
       </div>
+      {co2Domain && (
+        <div>
+          <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-mute">
+            CO<sub>2</sub> <span className="font-normal normal-case tracking-normal">(ppm)</span>
+          </h3>
+          <SubChart
+            data={data}
+            ticks={ticks}
+            yTicks={co2YTicks}
+            dataKey="co2"
+            color="var(--color-amber)"
+            unit=" ppm"
+            domain={co2Domain}
+            acSegments={acSegments}
+          />
+        </div>
+      )}
     </div>
   );
 }

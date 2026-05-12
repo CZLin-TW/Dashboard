@@ -106,7 +106,7 @@ export default function HomePage() {
     : null;
   const pinnedSensorHistory = pin.pinnedSensor ? sensorsMap[pin.pinnedSensor] ?? null : null;
   // 首頁只算釘選那一個感測器的自有 domain（只有它自己一張圖）
-  const { tempDomain: pinnedTempDomain, humDomain: pinnedHumDomain } = computeSensorDomains(
+  const { tempDomain: pinnedTempDomain, humDomain: pinnedHumDomain, co2Domain: pinnedCo2Domain } = computeSensorDomains(
     pinnedSensorHistory ? [pinnedSensorHistory] : [],
   );
   // 釘選 sensor 所屬的 location 對應的 AC on 區段
@@ -158,6 +158,7 @@ export default function HomePage() {
         sensorHistory={pinnedSensorHistory}
         tempDomain={pinnedTempDomain}
         humDomain={pinnedHumDomain}
+        co2Domain={pinnedCo2Domain}
         acSegments={pinnedAcSegments}
       />
       <DeviceQuickControl

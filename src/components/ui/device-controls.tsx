@@ -262,16 +262,19 @@ export function StatusLine({
   );
 }
 
-/** 大字溫度 + 中點 + 濕度的 readout 排版。
+/** 大字溫度 + 中點 + 濕度（+ 中點 + CO2）的 readout 排版。
  *  devices 頁的感應器卡、首頁室內感應器卡、首頁天氣卡都用這個。
- *  `temp` / `humidity` 接 number | null | undefined（缺值顯示「--」）。 */
+ *  `temp` / `humidity` / `co2` 接 number | null | undefined（缺值顯示「--」）。
+ *  `co2` 為 undefined 或 null 時不渲染（保持原本兩欄樣式）。 */
 export function ClimateReadout({
   temp,
   humidity,
+  co2,
   size = "lg",
 }: {
   temp: number | string | null | undefined;
   humidity: number | string | null | undefined;
+  co2?: number | string | null;
   /** lg 給首頁主卡、md 給裝置頁感應器卡裡面 */
   size?: "lg" | "md";
 }) {
@@ -302,6 +305,15 @@ export function ClimateReadout({
         {humidity ?? "--"}
         <span className={humUnitCls}>%</span>
       </span>
+      {co2 != null && (
+        <>
+          <span className="text-mute">·</span>
+          <span className={humCls}>
+            {co2}
+            <span className={humUnitCls}> ppm</span>
+          </span>
+        </>
+      )}
     </div>
   );
 }

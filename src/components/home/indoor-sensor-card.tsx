@@ -18,6 +18,8 @@ interface Props {
   sensorHistory?: Sensor | null;
   tempDomain?: [number, number];
   humDomain?: [number, number];
+  /** Meter Pro CO2 才有；null 不畫第三個 panel。 */
+  co2Domain?: [number, number] | null;
   /** 該 sensor location 對應的 AC on 區段（page 層 lookup 後傳入）。 */
   acSegments?: AcSegment[];
 }
@@ -28,7 +30,7 @@ interface Props {
  *
  * 不放 PinButton——pin 操作集中在裝置頁，首頁只是展示已釘選的結果。
  */
-export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain, acSegments }: Props) {
+export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain, co2Domain, acSegments }: Props) {
   const SensorIcon = DEVICE_ICONS["感應器"] ?? DEVICE_ICON_FALLBACK;
   const [expanded, setExpanded] = useState(false);
   const canExpand =
@@ -56,7 +58,12 @@ export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain,
               canExpand ? "hover:bg-elevated/40 cursor-pointer" : "cursor-default"
             }`}
           >
-            <ClimateReadout temp={sensor.temperature} humidity={sensor.humidity} size="lg" />
+            <ClimateReadout
+              temp={sensor.temperature}
+              humidity={sensor.humidity}
+              co2={sensorHistory?.current?.co2 ?? null}
+              size="lg"
+            />
             {canExpand && (
               <ChevronDown
                 className={`h-4 w-4 flex-shrink-0 text-mute transition-transform ${
@@ -84,6 +91,7 @@ export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain,
                   history={sensorHistory!.history}
                   tempDomain={tempDomain!}
                   humDomain={humDomain!}
+                  co2Domain={co2Domain ?? null}
                   acSegments={acSegments}
                 />
               </motion.div>
