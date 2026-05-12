@@ -52,7 +52,9 @@ function SubChart({ data, ticks, yTicks, dataKey, color, unit, domain, acSegment
     <ResponsiveContainer width="100%" height={120}>
       <LineChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
-        {/* AC on 區段背景色塊（畫在 grid 之後、line 之前，視覺在 line 底下） */}
+        {/* AC on 區段背景色塊（畫在 grid 之後、line 之前，視覺在 line 底下）。
+            ifOverflow="hidden"：跨越可視時間邊界的 AC 段裁切到 chart 區內，不
+            溢出到 Y 軸標籤區。data 短時（新 sensor 累積中）尤其重要。 */}
         {acSegments?.map((seg, i) => (
           <ReferenceArea
             key={i}
@@ -61,7 +63,7 @@ function SubChart({ data, ticks, yTicks, dataKey, color, unit, domain, acSegment
             fill={modeColor(seg.mode)}
             fillOpacity={0.18}
             strokeOpacity={0}
-            ifOverflow="visible"
+            ifOverflow="hidden"
           />
         ))}
         <XAxis
