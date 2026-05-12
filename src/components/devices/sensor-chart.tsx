@@ -50,7 +50,7 @@ interface SubChartProps {
 function SubChart({ data, ticks, yTicks, dataKey, color, unit, domain, acSegments }: SubChartProps) {
   return (
     <ResponsiveContainer width="100%" height={120}>
-      <LineChart data={data} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
+      <LineChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
         {/* AC on 區段背景色塊（畫在 grid 之後、line 之前，視覺在 line 底下） */}
         {acSegments?.map((seg, i) => (
@@ -79,7 +79,7 @@ function SubChart({ data, ticks, yTicks, dataKey, color, unit, domain, acSegment
           interval={0}
           tick={{ fontSize: 10, fill: "var(--color-mute)" }}
           stroke="var(--color-line)"
-          width={36}
+          width={48}
         />
         <Tooltip
           contentStyle={{
