@@ -17,7 +17,8 @@ export const PANEL_BASE =
   "rounded-[14px] border border-line bg-surface p-3.5 shadow-sm shadow-mute/5 flex flex-col gap-3.5";
 
 /** ON/OFF 二段式 pill 開關。on=fresh 綠、off=warm 紅。
- *  外層 rounded-[19px] / 內按鈕 rounded-full / padding 3px → 同心圓弧。 */
+ *  外層 rounded-[19px] / 內按鈕 rounded-full / padding 3px → 同心圓弧。
+ *  disabled 時亮色（fresh/warm）改 faint 灰，視覺明確告知不可動。 */
 export function Toggle2({
   value,
   onChange,
@@ -27,15 +28,19 @@ export function Toggle2({
   onChange: (v: boolean) => void;
   disabled?: boolean;
 }) {
+  const onCls = disabled
+    ? value ? "bg-faint text-white" : "text-faint"
+    : value ? "bg-fresh text-white shadow-sm" : "text-mute";
+  const offCls = disabled
+    ? !value ? "bg-faint text-white" : "text-faint"
+    : !value ? "bg-warm text-white shadow-sm" : "text-mute";
   return (
     <div className="inline-flex gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
       <button
         type="button"
         disabled={disabled}
         onClick={() => onChange(true)}
-        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-          value ? "bg-fresh text-white shadow-sm" : "text-mute"
-        }`}
+        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${onCls}`}
       >
         ON
       </button>
@@ -43,9 +48,7 @@ export function Toggle2({
         type="button"
         disabled={disabled}
         onClick={() => onChange(false)}
-        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-          !value ? "bg-warm text-white shadow-sm" : "text-mute"
-        }`}
+        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${offCls}`}
       >
         OFF
       </button>
@@ -121,10 +124,15 @@ export function Segment<T extends string | number>({
         const isActive = opt.value === value;
         const isPending = pendingValue !== undefined && opt.value === pendingValue;
         const isFailed = failedValue !== undefined && opt.value === failedValue;
+        // pending / failed 視覺優先；disabled 時亮色 cool 改 faint 灰，inactive 也改 faint
         const cls = isFailed
           ? "bg-warm text-white animate-pulse"
           : isPending
           ? "bg-amber-500 text-white animate-pulse"
+          : disabled && isActive
+          ? "bg-faint text-white"
+          : disabled
+          ? "text-faint"
           : isActive
           ? "bg-cool text-white shadow-sm"
           : "text-soft hover:text-foreground";
@@ -134,7 +142,7 @@ export function Segment<T extends string | number>({
             type="button"
             disabled={disabled}
             onClick={() => onSelect(opt.value)}
-            className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${cls}`}
+            className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${cls}`}
           >
             {format ? format(opt.value) : opt.label}
           </button>
