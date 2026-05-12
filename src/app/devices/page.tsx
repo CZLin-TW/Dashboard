@@ -164,7 +164,7 @@ export default function DevicesPage() {
                         <SensorIcon className="h-4 w-4" strokeWidth={1.8} />
                       </span>
                       <span className="truncate text-sm font-semibold text-foreground">
-                        {s.location || s.name}
+                        {s.name || s.location}
                       </span>
                     </div>
                     <PinButton
