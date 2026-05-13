@@ -16,6 +16,7 @@ import {
 } from "@/lib/types";
 import { type Sensor, computeSensorDomains } from "@/lib/sensor";
 import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
+import type { DehumDevice } from "@/lib/dehumidifier";
 import { WeatherCard } from "@/components/home/weather-card";
 import { IndoorSensorCard } from "@/components/home/indoor-sensor-card";
 import { DeviceQuickControl } from "@/components/home/device-quick-control";
@@ -100,6 +101,16 @@ export default function HomePage() {
     return () => clearInterval(id);
   }, [refetchDehumRules]);
 
+  // 除濕機 ON/OFF 歷史（給自動模式 chart 畫綠色背景）
+  const {
+    data: dehumHistoryMap,
+    refetch: refetchDehumHistory,
+  } = useCachedFetch<Record<string, DehumDevice>>("/api/dehumidifier/history", {});
+  useEffect(() => {
+    const id = setInterval(() => refetchDehumHistory(), 60_000);
+    return () => clearInterval(id);
+  }, [refetchDehumHistory]);
+
   // 首頁只顯示釘選的；裝置頁有完整列表
   const pinnedSensor = pin.pinnedSensor
     ? allDevices.find((d) => d.name === pin.pinnedSensor) ?? null
@@ -169,6 +180,8 @@ export default function HomePage() {
         dehumRulesMap={dehumRulesMap}
         availableSensors={Object.keys(sensorsMap)}
         onDehumRuleUpdate={refetchDehumRules}
+        sensorsMap={sensorsMap}
+        dehumHistoryMap={dehumHistoryMap}
       />
       <div className="grid gap-4 sm:grid-cols-2">
         <TodoListCard todos={visibleTodos} onCompleted={refetchDashboard} />

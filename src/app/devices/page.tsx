@@ -24,6 +24,7 @@ import { SensorChart } from "@/components/devices/sensor-chart";
 import type { ComputerPC } from "@/lib/computer";
 import { type Sensor, computeSensorDomains } from "@/lib/sensor";
 import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
+import type { DehumDevice } from "@/lib/dehumidifier";
 
 function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
   const searchParams = useSearchParams();
@@ -92,6 +93,17 @@ export default function DevicesPage() {
     const id = setInterval(() => refetchDehumRules(), 60_000);
     return () => clearInterval(id);
   }, [refetchDehumRules]);
+
+  // 除濕機 ON/OFF 歷史：給自動模式 chart 畫背景綠色 on-segments
+  const {
+    data: dehumHistoryMap,
+    refetch: refetchDehumHistory,
+  } = useCachedFetch<Record<string, DehumDevice>>("/api/dehumidifier/history", {});
+  useEffect(() => {
+    const id = setInterval(() => refetchDehumHistory(), 60_000);
+    return () => clearInterval(id);
+  }, [refetchDehumHistory]);
+
   const availableSensorNames = Object.keys(sensorsMap);
   // 跨所有感測器算共用 Y 範圍，三張卡的圖視覺對齊
   const sensorDomains = computeSensorDomains(Object.values(sensorsMap));
@@ -271,6 +283,8 @@ export default function DevicesPage() {
                       dehumRule={device.type === "除濕機" ? (dehumRulesMap[device.name] ?? null) : undefined}
                       availableSensors={device.type === "除濕機" ? availableSensorNames : undefined}
                       onDehumRuleUpdate={refetchDehumRules}
+                      sensorsMap={device.type === "除濕機" ? sensorsMap : undefined}
+                      dehumHistoryMap={device.type === "除濕機" ? dehumHistoryMap : undefined}
                     />
                   </div>
                 );

@@ -14,6 +14,8 @@ import {
   DEVICE_ICONS,
   DEVICE_ICON_FALLBACK,
 } from "@/lib/types";
+import type { Sensor } from "@/lib/sensor";
+import type { DehumDevice } from "@/lib/dehumidifier";
 
 // Tile active 狀態用單一 cool 色，跟 Segment active / link / scroll-target ring
 // 一樣的「被選中」語義；不依 device type 換色——icon 形狀本身就足夠辨識類型，
@@ -33,6 +35,10 @@ interface Props {
   availableSensors?: string[];
   /** 自動規則異動後呼叫，由父層 refetch /api/dehumidifier/auto-rule。 */
   onDehumRuleUpdate?: () => Promise<void> | void;
+  /** 感測器 map（含歷史），給自動模式 chart 撈綁定 sensor 24h 濕度用。 */
+  sensorsMap?: Record<string, Sensor>;
+  /** 除濕機 power 歷史 map，給自動模式 chart 背景畫綠色 on-segments 用。 */
+  dehumHistoryMap?: Record<string, DehumDevice>;
 }
 
 /**
@@ -53,6 +59,8 @@ export function DeviceQuickControl({
   dehumRulesMap,
   availableSensors,
   onDehumRuleUpdate,
+  sensorsMap,
+  dehumHistoryMap,
 }: Props) {
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
 
@@ -91,6 +99,8 @@ export function DeviceQuickControl({
           dehumRule={device.type === "除濕機" ? (dehumRulesMap?.[device.name] ?? null) : undefined}
           availableSensors={device.type === "除濕機" ? availableSensors : undefined}
           onDehumRuleUpdate={onDehumRuleUpdate}
+          sensorsMap={device.type === "除濕機" ? sensorsMap : undefined}
+          dehumHistoryMap={device.type === "除濕機" ? dehumHistoryMap : undefined}
         />
       </div>
     );

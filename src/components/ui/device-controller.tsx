@@ -8,7 +8,11 @@ import {
   type AcPendingState,
   acPendingFromDevice,
 } from "@/lib/types";
+import type { Sensor } from "@/lib/sensor";
+import type { DehumDevice } from "@/lib/dehumidifier";
+import { dehumHistoryToSegments } from "@/lib/dehumidifier";
 import { Toggle2, Stepper, Segment, Dropdown, Field, StatusLine } from "./device-controls";
+import { AutoModeChart } from "@/components/devices/auto-mode-chart";
 
 const DURATION_OPTIONS: { value: number; label: string }[] = [
   { value: 10, label: "10 分" },
@@ -49,6 +53,10 @@ interface Props {
   availableSensors?: string[];
   /** 規則設定後呼叫，父層 refetch /api/dehumidifier/auto-rule。 */
   onDehumRuleUpdate?: () => Promise<void> | void;
+  /** 全部 sensor 的歷史 map，給自動模式 chart 撈綁定 sensor 的 24h 濕度線用。 */
+  sensorsMap?: Record<string, Sensor>;
+  /** 全部除濕機 power 歷史 map（key=device_name），給自動模式 chart 的綠色背景區段用。 */
+  dehumHistoryMap?: Record<string, DehumDevice>;
 }
 
 export function DeviceController({
@@ -59,6 +67,8 @@ export function DeviceController({
   dehumRule,
   availableSensors,
   onDehumRuleUpdate,
+  sensorsMap,
+  dehumHistoryMap,
 }: Props) {
   const [pending, setPending] = useState<AcPendingState | null>(null);
   const [acFailed, setAcFailed] = useState(false);
@@ -464,6 +474,13 @@ export function DeviceController({
             disabled={manualDisabled}
           />
         </Field>
+        {autoOn && dehumRule && (
+          <AutoModeChart
+            sensorHistory={sensorsMap?.[dehumRule.sensor_name]?.history ?? []}
+            onSegments={dehumHistoryToSegments(dehumHistoryMap?.[device.name]?.history ?? [])}
+            threshold={dehumRule.threshold}
+          />
+        )}
       </>
     );
   }
