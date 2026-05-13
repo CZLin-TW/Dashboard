@@ -41,6 +41,18 @@ function formatHHMM(t: number): string {
   return `${hh}:${mm}`;
 }
 
+/** 從 domain 跟 step 算明確 ticks（避免 Recharts auto-tick 對奇數差範圍挑出
+ *  非整數倍 tick 造成數值斷層、看起來不規則的問題）。同 sensor-chart 的邏輯。 */
+function makeYTicks(domain: [number, number], step: number): number[] {
+  const [lo, hi] = domain;
+  const start = Math.ceil(lo / step) * step;
+  const ticks: number[] = [];
+  for (let v = start; v <= hi + 1e-9; v += step) {
+    ticks.push(v);
+  }
+  return ticks;
+}
+
 interface Props {
   sensorHistory: SensorHistoryRaw[];
   onSegments: DehumOnSegment[];
@@ -69,6 +81,7 @@ export function AutoModeChart({ sensorHistory, onSegments, threshold }: Props) {
     Math.max(0, Math.floor(minHum / 5) * 5 - 5),
     Math.min(100, Math.ceil(maxHum / 5) * 5 + 5),
   ];
+  const yTicks = makeYTicks(yDomain, 5);
 
   return (
     <div>
@@ -108,6 +121,8 @@ export function AutoModeChart({ sensorHistory, onSegments, threshold }: Props) {
           />
           <YAxis
             domain={yDomain}
+            ticks={yTicks}
+            interval={0}
             tick={{ fontSize: 10, fill: "var(--color-mute)" }}
             stroke="var(--color-line)"
             width={48}
@@ -122,28 +137,16 @@ export function AutoModeChart({ sensorHistory, onSegments, threshold }: Props) {
             labelFormatter={(t) => formatHHMM(Number(t))}
             formatter={(v) => `${v}%`}
           />
-          {/* Hysteresis 上下界虛線 */}
+          {/* Hysteresis 上下界虛線。不顯示數值 label——Y 軸 tick 已顯示，避免重複。 */}
           <ReferenceLine
             y={threshold}
             stroke="var(--color-mute)"
             strokeDasharray="4 4"
-            label={{
-              value: `${threshold}%`,
-              fill: "var(--color-mute)",
-              fontSize: 10,
-              position: "insideBottomRight",
-            }}
           />
           <ReferenceLine
             y={hOn}
             stroke="var(--color-mute)"
             strokeDasharray="4 4"
-            label={{
-              value: `${hOn}%`,
-              fill: "var(--color-mute)",
-              fontSize: 10,
-              position: "insideTopRight",
-            }}
           />
           <Line
             type="monotone"
