@@ -1,6 +1,6 @@
 # Smart Home Dashboard
 
-家庭智慧中控面板，[家庭 AI 管家系統](https://github.com/czlin-tw/home-butler)的網頁版操作介面。使用 Next.js + TypeScript + Tailwind CSS 建置。
+家庭智慧中控面板，[家庭 AI 管家系統](https://github.com/CZLin-TW/home-butler)的網頁版操作介面。使用 Next.js + TypeScript + Tailwind CSS 建置。
 
 本專案 100% 由 Claude AI 協作完成，包含架構設計、所有程式碼、文件撰寫。
 
