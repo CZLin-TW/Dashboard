@@ -58,16 +58,19 @@ interface Props {
   onSubmit: (state: ScheduleFormState) => Promise<void> | void;
   /** Edit 模式才有意義；Add 模式呼叫 = 收合表單。 */
   onCancel: () => void;
+  /** 鎖定裝置：傳入時隱藏「裝置」selector、initial.device_name 必為此值。
+   *  裝置卡內嵌使用時設這個，避免使用者在某裝置卡裡建另一台的排程。 */
+  lockedDevice?: string;
 }
 
 /** 排程新增/編輯共用表單。父層用 `key` 控制 remount 來重設 initial state（不用 useEffect）。
  *
  *  跨類型切換策略：device 改成不同類型時，所有 params state 被重設（AC↔IR 沒共通欄位，
  *  硬保留會混亂）。同類型切換也重設—簡化邏輯、與「重填表單」語意一致。 */
-export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCancel }: Props) {
+export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCancel, lockedDevice }: Props) {
   const controllable = devices.filter((d) => d.type !== "感應器");
 
-  const [selectedDevice, setSelectedDevice] = useState(initial?.device_name ?? "");
+  const [selectedDevice, setSelectedDevice] = useState(lockedDevice ?? initial?.device_name ?? "");
   const [triggerDate, setTriggerDate] = useState(initial?.trigger_date ?? "");
   const [triggerTime, setTriggerTime] = useState(initial?.trigger_time ?? "");
 
@@ -155,18 +158,20 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
 
   return (
     <div className="space-y-4">
-      <Field label="裝置">
-        <select
-          value={selectedDevice}
-          onChange={(e) => handleDeviceChange(e.target.value)}
-          className="field-select w-full rounded-[10px] border border-line bg-elevated px-3 py-2 text-sm text-foreground focus:border-cool focus:outline-none"
-        >
-          <option value="">選擇裝置...</option>
-          {controllable.map((d) => (
-            <option key={d.name} value={d.name}>{d.name}（{d.type}）</option>
-          ))}
-        </select>
-      </Field>
+      {!lockedDevice && (
+        <Field label="裝置">
+          <select
+            value={selectedDevice}
+            onChange={(e) => handleDeviceChange(e.target.value)}
+            className="field-select w-full rounded-[10px] border border-line bg-elevated px-3 py-2 text-sm text-foreground focus:border-cool focus:outline-none"
+          >
+            <option value="">選擇裝置...</option>
+            {controllable.map((d) => (
+              <option key={d.name} value={d.name}>{d.name}（{d.type}）</option>
+            ))}
+          </select>
+        </Field>
+      )}
 
       {selectedType === "空調" && options && (
         <div className="space-y-3.5 rounded-[14px] bg-elevated/50 p-3.5">

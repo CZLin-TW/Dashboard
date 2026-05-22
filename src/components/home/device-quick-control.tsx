@@ -7,6 +7,7 @@ import { LayoutGrid, ChevronUp, Pin } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { PANEL_BASE } from "@/components/ui/device-controls";
 import { DeviceController } from "@/components/ui/device-controller";
+import { ScheduleSection } from "@/components/devices/schedule-section";
 import {
   type DeviceData,
   type DeviceOptions,
@@ -16,6 +17,7 @@ import {
 } from "@/lib/types";
 import type { Sensor } from "@/lib/sensor";
 import type { DehumDevice } from "@/lib/dehumidifier";
+import type { Schedule } from "@/lib/schedule";
 
 // Tile active 狀態用單一 cool 色，跟 Segment active / link / scroll-target ring
 // 一樣的「被選中」語義；不依 device type 換色——icon 形狀本身就足夠辨識類型，
@@ -39,6 +41,12 @@ interface Props {
   sensorsMap?: Record<string, Sensor>;
   /** 除濕機 power 歷史 map，給自動模式 chart 背景畫綠色 on-segments 用。 */
   dehumHistoryMap?: Record<string, DehumDevice>;
+  /** 排程清單（未 filter），ScheduleSection 自己按 device.name 取。 */
+  schedules?: Schedule[];
+  /** 全部可控裝置（含未釘選），給排程表單 deviceMap 用。釘選列表通常是子集。 */
+  allDevices?: DeviceData[];
+  /** 排程 CRUD 後呼叫，由父層 refetch /api/schedules。 */
+  onSchedulesChange?: () => void;
 }
 
 /**
@@ -61,6 +69,9 @@ export function DeviceQuickControl({
   onDehumRuleUpdate,
   sensorsMap,
   dehumHistoryMap,
+  schedules,
+  allDevices,
+  onSchedulesChange,
 }: Props) {
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
 
@@ -102,6 +113,15 @@ export function DeviceQuickControl({
           sensorsMap={device.type === "除濕機" ? sensorsMap : undefined}
           dehumHistoryMap={device.type === "除濕機" ? dehumHistoryMap : undefined}
         />
+        {schedules && onSchedulesChange && (
+          <ScheduleSection
+            device={device}
+            options={options}
+            schedules={schedules.filter((s) => (s["設備名稱"] ?? "") === device.name)}
+            allDevices={allDevices ?? devices}
+            onSchedulesChange={onSchedulesChange}
+          />
+        )}
       </div>
     );
   }

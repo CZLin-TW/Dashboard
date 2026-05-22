@@ -17,6 +17,7 @@ import {
 import { type Sensor, computeSensorDomains } from "@/lib/sensor";
 import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
 import type { DehumDevice } from "@/lib/dehumidifier";
+import type { Schedule } from "@/lib/schedule";
 import { WeatherCard } from "@/components/home/weather-card";
 import { IndoorSensorCard } from "@/components/home/indoor-sensor-card";
 import { DeviceQuickControl } from "@/components/home/device-quick-control";
@@ -111,6 +112,12 @@ export default function HomePage() {
     return () => clearInterval(id);
   }, [refetchDehumHistory]);
 
+  // 排程（首頁釘選裝置展開時 ScheduleSection 用）
+  const {
+    data: schedules,
+    refetch: refetchSchedules,
+  } = useCachedFetch<Schedule[]>("/api/schedules", []);
+
   // 首頁只顯示釘選的；裝置頁有完整列表
   const pinnedSensor = pin.pinnedSensor
     ? allDevices.find((d) => d.name === pin.pinnedSensor) ?? null
@@ -182,6 +189,9 @@ export default function HomePage() {
         onDehumRuleUpdate={refetchDehumRules}
         sensorsMap={sensorsMap}
         dehumHistoryMap={dehumHistoryMap}
+        schedules={schedules}
+        allDevices={allDevices.filter((d) => d.type !== "感應器")}
+        onSchedulesChange={refetchSchedules}
       />
       <div className="grid gap-4 sm:grid-cols-2">
         <TodoListCard todos={visibleTodos} onCompleted={refetchDashboard} />

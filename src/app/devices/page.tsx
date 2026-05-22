@@ -21,10 +21,12 @@ import {
 import { DeviceController } from "@/components/ui/device-controller";
 import { ComputerCard } from "@/components/devices/computer-card";
 import { SensorChart } from "@/components/devices/sensor-chart";
+import { ScheduleSection } from "@/components/devices/schedule-section";
 import type { ComputerPC } from "@/lib/computer";
 import { type Sensor, computeSensorDomains } from "@/lib/sensor";
 import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
 import type { DehumDevice } from "@/lib/dehumidifier";
+import type { Schedule } from "@/lib/schedule";
 
 function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
   const searchParams = useSearchParams();
@@ -103,6 +105,22 @@ export default function DevicesPage() {
     const id = setInterval(() => refetchDehumHistory(), 60_000);
     return () => clearInterval(id);
   }, [refetchDehumHistory]);
+
+  // 排程：每張裝置卡內嵌的 ScheduleSection 需要。/api/schedules 一次拿全部、
+  // 各裝置卡自己 filter。
+  const {
+    data: schedules,
+    refetch: refetchSchedules,
+  } = useCachedFetch<Schedule[]>("/api/schedules", []);
+  const schedulesByDevice = (() => {
+    const map: Record<string, Schedule[]> = {};
+    for (const s of schedules) {
+      const name = s["設備名稱"] ?? "";
+      if (!name) continue;
+      (map[name] ??= []).push(s);
+    }
+    return map;
+  })();
 
   const availableSensorNames = Object.keys(sensorsMap);
   // 跨所有感測器算共用 Y 範圍，三張卡的圖視覺對齊
@@ -285,6 +303,14 @@ export default function DevicesPage() {
                       onDehumRuleUpdate={refetchDehumRules}
                       sensorsMap={device.type === "除濕機" ? sensorsMap : undefined}
                       dehumHistoryMap={device.type === "除濕機" ? dehumHistoryMap : undefined}
+                    />
+
+                    <ScheduleSection
+                      device={device}
+                      options={options}
+                      schedules={schedulesByDevice[device.name] ?? []}
+                      allDevices={controllable}
+                      onSchedulesChange={refetchSchedules}
                     />
                   </div>
                 );
