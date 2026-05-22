@@ -16,12 +16,15 @@ import { toSensorChartHistory } from "@/lib/sensor";
 import type { DehumOnSegment } from "@/lib/dehumidifier";
 
 // 自動模式 chart：卡片內顯示綁定 sensor 的 24h 濕度線 + 除濕機運轉中綠色區段 +
-// hysteresis 上下界虛線（target / target+5）。只在 auto_mode=ON 時 render。
-// X 軸刻度、tick formatter 跟 sensor-chart 的 SubChart 保持一致。
+// hysteresis 上下界虛線（target−2 / target+3，跟 home-butler 的不對稱
+// hysteresis 同步：H_off = threshold − 2、H_on = threshold + 3）。
+// 只在 auto_mode=ON 時 render。X 軸刻度、tick formatter 跟 sensor-chart 的
+// SubChart 保持一致。
 
 const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const RANGE_MS = 24 * 60 * 60 * 1000;
-const HYSTERESIS_OFFSET = 5;
+const HYSTERESIS_ABOVE = 3;
+const HYSTERESIS_BELOW = 2;
 
 function computeTicks(rightmost: number): number[] {
   const RANGE_START = rightmost - RANGE_MS;
@@ -69,14 +72,16 @@ export function AutoModeChart({ sensorHistory, onSegments, threshold }: Props) {
 
   const rightmost = data[data.length - 1].t;
   const ticks = computeTicks(rightmost);
-  const hOn = threshold + HYSTERESIS_OFFSET;
+  const hOn = threshold + HYSTERESIS_ABOVE;
+  const hOff = threshold - HYSTERESIS_BELOW;
 
-  // Y 軸 domain：要求兩條虛線都看得到 + sensor 線上下也留 buffer
+  // Y 軸 domain：要求兩條虛線都看得到 + sensor 線上下也留 buffer（buffer 用
+  // 5% 統一視覺感，跟 hysteresis 數值無關）
   const allHums = data
     .map((p) => p.humidity)
     .filter((h): h is number => h != null);
-  const minHum = Math.min(...allHums, threshold - HYSTERESIS_OFFSET);
-  const maxHum = Math.max(...allHums, hOn + HYSTERESIS_OFFSET);
+  const minHum = Math.min(...allHums, hOff);
+  const maxHum = Math.max(...allHums, hOn);
   const yDomain: [number, number] = [
     Math.max(0, Math.floor(minHum / 5) * 5 - 5),
     Math.min(100, Math.ceil(maxHum / 5) * 5 + 5),
@@ -137,9 +142,10 @@ export function AutoModeChart({ sensorHistory, onSegments, threshold }: Props) {
             labelFormatter={(t) => formatHHMM(Number(t))}
             formatter={(v) => `${v}%`}
           />
-          {/* Hysteresis 上下界虛線。不顯示數值 label——Y 軸 tick 已顯示，避免重複。 */}
+          {/* Hysteresis 上下界虛線（threshold−2 / threshold+3）。
+              不顯示數值 label——Y 軸 tick 已顯示，避免重複。 */}
           <ReferenceLine
-            y={threshold}
+            y={hOff}
             stroke="var(--color-mute)"
             strokeDasharray="4 4"
           />

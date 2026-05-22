@@ -101,9 +101,7 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
         </div>
       )}
 
-      {sorted.length === 0 ? (
-        !showAdd && <p className="text-xs text-mute">尚無排程</p>
-      ) : (
+      {sorted.length > 0 && (
         <div className="flex flex-col gap-1">
           {sorted.map((s, idx) => {
             const trigger = s["觸發時間"] ?? "";
