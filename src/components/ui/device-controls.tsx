@@ -153,9 +153,17 @@ export function Segment<T extends string | number>({
 }
 
 /** field 區塊：label 在上、控制元件在下。 */
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({
+  label,
+  children,
+  className = "",
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className={`flex flex-col gap-2 ${className}`}>
       <span className={FIELD_LABEL}>{label}</span>
       <div>{children}</div>
     </div>
@@ -189,7 +197,8 @@ export function Dropdown<T extends string | number>({
         if (opt) onSelect(opt.value);
       }}
       disabled={disabled}
-      className={`rounded-[19px] border border-line bg-elevated px-3.5 py-1.5 text-[13px] font-medium text-soft transition-colors hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      // py-[9px] 對齊 Toggle2 視覺高度（Toggle2 外層 p-[3px] + 內按鈕 py-1.5 = 9px 各側）
+      className={`rounded-[19px] border border-line bg-elevated px-3.5 py-[9px] text-[13px] font-medium text-soft transition-colors hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     >
       {selectedStr === "" && (
         <option value="" disabled>{placeholder}</option>

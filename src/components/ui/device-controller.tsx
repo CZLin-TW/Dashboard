@@ -452,15 +452,17 @@ export function DeviceController({
             />
           </Field>
         </div>
-        {/* Row 2: 監控感測器 + 自動模式門檻 dropdown。門檻在 auto ON 時也可即時修改
-            （感測器 / 監控時間維持 auto ON lock，因為改它們會 reset runtime state）。 */}
+        {/* Row 2: 監控感測器（撐滿剩餘寬度）+ 目標濕度（自然寬，靠右）。
+            門檻在 auto ON 時也可即時修改（感測器 / 監控時間維持 auto ON lock，
+            因為改它們會 reset runtime state）。 */}
         <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
-          <Field label="監控感測器">
+          <Field label="監控感測器" className="flex-1 min-w-0">
             <Dropdown
               options={(availableSensors ?? []).map((s) => ({ value: s, label: s }))}
               value={dehumRule?.sensor_name || undefined}
               onSelect={(v) => sendAutoRuleUpdate({ sensor_name: v })}
               disabled={autoConfigDisabled}
+              className="w-full"
             />
           </Field>
           <Field label="目標濕度">
