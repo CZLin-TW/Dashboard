@@ -58,10 +58,9 @@ function SubChart({ data, ticks, yTicks, dataKey, color, unit, domain, acSegment
     <ResponsiveContainer width="100%" height={120}>
       <LineChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
         <defs>
-          {/* 除濕機 on 區段的斜紋（45°）。低透明度，避免蓋住溫濕度折線。 */}
+          {/* 除濕機 on 區段的斜紋（45°）。底色全透明，只有線條；線條明顯但仍讓溫濕度折線可讀。 */}
           <pattern id={DEHUM_PATTERN_ID} patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
-            <rect width="6" height="6" fill="var(--color-fresh)" fillOpacity={0.05} />
-            <line x1="0" y1="0" x2="0" y2="6" stroke="var(--color-fresh)" strokeWidth="1.4" strokeOpacity={0.32} />
+            <line x1="0" y1="0" x2="0" y2="6" stroke="var(--color-fresh)" strokeWidth="1.6" strokeOpacity={0.55} />
           </pattern>
         </defs>
         <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
@@ -188,8 +187,7 @@ export function SensorChart({ history, tempDomain, humDomain, co2Domain, acSegme
               <svg width="14" height="10" style={{ display: "block" }}>
                 <defs>
                   <pattern id={`${DEHUM_PATTERN_ID}-legend`} patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)">
-                    <rect width="5" height="5" fill="var(--color-fresh)" fillOpacity={0.12} />
-                    <line x1="0" y1="0" x2="0" y2="5" stroke="var(--color-fresh)" strokeWidth="1.4" strokeOpacity={0.7} />
+                    <line x1="0" y1="0" x2="0" y2="5" stroke="var(--color-fresh)" strokeWidth="1.6" strokeOpacity={0.8} />
                   </pattern>
                 </defs>
                 <rect width="14" height="10" rx="2" fill={`url(#${DEHUM_PATTERN_ID}-legend)`} />
