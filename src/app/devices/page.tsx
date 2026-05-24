@@ -314,12 +314,12 @@ export default function DevicesPage() {
           const typeCounts: Record<string, number> = {};
           devs.forEach(d => { typeCounts[d.type] = (typeCounts[d.type] ?? 0) + 1; });
           return (
-          <div key={location} className="overflow-hidden rounded-[18px] border border-line bg-surface shadow-sm shadow-mute/10">
-            {/* 房間卡片標題：收合時就是這張卡，顯示房間名 + 各類型裝置數 + 總數 */}
+          <div key={location} className="space-y-3">
+            {/* 房間按鈕：點一下展開、再點收回。本身像一張卡片，不包住裝置卡。 */}
             <button
               type="button"
               onClick={() => toggleRoom(location)}
-              className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-elevated/30"
+              className="flex w-full items-center justify-between gap-3 rounded-[14px] border border-line bg-surface px-4 py-3 text-left shadow-sm shadow-mute/10 transition-colors hover:bg-elevated/30"
             >
               <div className="flex min-w-0 flex-col gap-1.5">
                 <span className="text-[15px] font-semibold text-foreground">{location}</span>
@@ -358,7 +358,7 @@ export default function DevicesPage() {
                   }}
                   className="overflow-hidden"
                 >
-                  <div className="grid grid-cols-1 gap-3 border-t border-line bg-surface-2 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {devs.map((device) => {
                 const TypeIcon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
                 const pinned = pin.isDevicePinned(device.name);
