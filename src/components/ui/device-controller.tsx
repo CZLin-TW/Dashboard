@@ -396,6 +396,10 @@ export function DeviceController({
   }
 
   if (device.type === "除濕機") {
+    // 依品牌取對應的模式/濕度選項（缺 byBrand 時 fallback 頂層 = Panasonic）
+    const dh = options.dehumidifier.byBrand?.[device.brand || "Panasonic"] ?? options.dehumidifier;
+    // LG 自動濕度模式尚未支援（後端 dehumidifier_auto 仍綁 Panasonic），隱藏自動相關 UI 避免誤觸鎖死手動
+    const autoSupported = (device.brand || "Panasonic") !== "LG";
     const autoOn = dehumRule?.auto_mode === true;
     // 自動模式 ON 時鎖定電源/模式/目標濕度/感測器/時間，唯一可動的是 auto toggle
     const manualDisabled = dhPending !== null || autoOn;
@@ -427,7 +431,8 @@ export function DeviceController({
             }
           />
         )}
-        {/* Row 1: 電源 toggle + 自動模式 toggle + 監控時間 dropdown */}
+        {/* Row 1: 電源 toggle + 自動模式 toggle + 監控時間 dropdown。
+            LG 尚未支援自動模式，只留電源。 */}
         <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
           <Field label="電源">
             <Toggle2
@@ -436,51 +441,57 @@ export function DeviceController({
               disabled={manualDisabled}
             />
           </Field>
-          <Field label="自動模式">
-            <Toggle2
-              value={autoOn}
-              onChange={(v) => sendAutoRuleUpdate({ auto_mode: v })}
-              disabled={autoRulePending}
-            />
-          </Field>
-          <Field label="監控時間">
-            <Dropdown
-              options={DURATION_OPTIONS}
-              value={dehumRule?.duration_min ?? 30}
-              onSelect={(v) => sendAutoRuleUpdate({ duration_min: v })}
-              disabled={autoConfigDisabled}
-            />
-          </Field>
+          {autoSupported && (
+            <Field label="自動模式">
+              <Toggle2
+                value={autoOn}
+                onChange={(v) => sendAutoRuleUpdate({ auto_mode: v })}
+                disabled={autoRulePending}
+              />
+            </Field>
+          )}
+          {autoSupported && (
+            <Field label="監控時間">
+              <Dropdown
+                options={DURATION_OPTIONS}
+                value={dehumRule?.duration_min ?? 30}
+                onSelect={(v) => sendAutoRuleUpdate({ duration_min: v })}
+                disabled={autoConfigDisabled}
+              />
+            </Field>
+          )}
         </div>
         {/* Row 2: 監控感測器（撐滿剩餘寬度）+ 目標濕度（自然寬，靠右）。
             門檻在 auto ON 時也可即時修改（感測器 / 監控時間維持 auto ON lock，
-            因為改它們會 reset runtime state）。 */}
-        <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
-          <Field label="監控感測器" className="flex-1 min-w-0">
-            <Dropdown
-              options={(availableSensors ?? []).map((s) => ({ value: s, label: s }))}
-              value={dehumRule?.sensor_name || undefined}
-              onSelect={(v) => sendAutoRuleUpdate({ sensor_name: v })}
-              disabled={autoConfigDisabled}
-              className="w-full"
-            />
-          </Field>
-          <Field label="目標濕度">
-            <Dropdown
-              options={THRESHOLD_OPTIONS}
-              value={dehumRule?.threshold ?? THRESHOLD_DEFAULT}
-              onSelect={(v) => sendAutoRuleUpdate({ threshold: v })}
-              disabled={autoRulePending}
-            />
-          </Field>
-        </div>
+            因為改它們會 reset runtime state）。LG 無自動模式時整列隱藏。 */}
+        {autoSupported && (
+          <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
+            <Field label="監控感測器" className="flex-1 min-w-0">
+              <Dropdown
+                options={(availableSensors ?? []).map((s) => ({ value: s, label: s }))}
+                value={dehumRule?.sensor_name || undefined}
+                onSelect={(v) => sendAutoRuleUpdate({ sensor_name: v })}
+                disabled={autoConfigDisabled}
+                className="w-full"
+              />
+            </Field>
+            <Field label="目標濕度">
+              <Dropdown
+                options={THRESHOLD_OPTIONS}
+                value={dehumRule?.threshold ?? THRESHOLD_DEFAULT}
+                onSelect={(v) => sendAutoRuleUpdate({ threshold: v })}
+                disabled={autoRulePending}
+              />
+            </Field>
+          </div>
+        )}
         {phaseText && (
           <StatusLine tone="waiting" text={phaseText} />
         )}
         <Field label="模式">
           <Segment
-            options={options.dehumidifier.modes}
-            value={options.dehumidifier.modes.find((m) => m.label === device.mode)?.value}
+            options={dh.modes}
+            value={dh.modes.find((m) => m.label === device.mode)?.value}
             onSelect={(v) => sendDehumidifierCommand({ mode: v })}
             pendingValue={dhPending?.type === "mode" ? (dhPending.value as string) : undefined}
             failedValue={dhFailed?.type === "mode" ? (dhFailed.value as string) : undefined}
@@ -492,7 +503,7 @@ export function DeviceController({
         {!autoOn && (
           <Field label="目標濕度">
             <Segment
-              options={options.dehumidifier.humidity.map((h) => ({ value: h, label: `${h}%` }))}
+              options={dh.humidity.map((h) => ({ value: h, label: `${h}%` }))}
               value={(() => {
                 const t = String(device.targetHumidity ?? "").replace("%", "");
                 const n = parseInt(t, 10);

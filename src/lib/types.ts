@@ -38,6 +38,8 @@ export interface WeatherData {
 export interface DeviceData {
   name: string;
   type: string;
+  /** 除濕機品牌（"Panasonic" | "LG"）。空字串視為 Panasonic。決定控制面板用哪組模式/濕度選項。 */
+  brand?: string;
   location?: string;
   // 來自 /api/devices/status 的即時讀值（感應器/除濕機才有）
   temperature?: number;
@@ -90,6 +92,8 @@ export interface DeviceOptions {
   dehumidifier: {
     modes: Array<{ value: string; label: string }>;
     humidity: number[];
+    /** 依品牌的模式/濕度選項。前端依 device.brand 取對應一組，缺值 fallback 到頂層（Panasonic）。 */
+    byBrand?: Record<string, { modes: Array<{ value: string; label: string }>; humidity: number[] }>;
   };
 }
 

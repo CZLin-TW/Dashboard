@@ -11,6 +11,7 @@ import {
 interface DeviceData {
   name: string;
   type: string;
+  brand?: string;
   buttons?: string;
 }
 
@@ -23,6 +24,7 @@ interface DeviceOptions {
   dehumidifier: {
     modes: Array<{ value: string; label: string }>;
     humidity: number[];
+    byBrand?: Record<string, { modes: Array<{ value: string; label: string }>; humidity: number[] }>;
   };
 }
 
@@ -94,6 +96,10 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
     .split(",")
     .map((b) => b.trim())
     .filter(Boolean);
+  // 除濕機排程：依選到裝置的品牌取對應模式/濕度選項（缺值 fallback 到頂層 = Panasonic）
+  const dhOptions =
+    options?.dehumidifier.byBrand?.[selectedDeviceData?.brand || "Panasonic"] ??
+    options?.dehumidifier ?? { modes: [], humidity: [] };
 
   function handleDeviceChange(name: string) {
     setSelectedDevice(name);
@@ -206,11 +212,11 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
           {dhPower && (
             <>
               <Field label="模式">
-                <Segment options={options.dehumidifier.modes} value={dhMode || undefined} onSelect={setDhMode} />
+                <Segment options={dhOptions.modes} value={dhMode || undefined} onSelect={setDhMode} />
               </Field>
               <Field label="目標濕度">
                 <Segment
-                  options={options.dehumidifier.humidity.map((h) => ({ value: h, label: `${h}%` }))}
+                  options={dhOptions.humidity.map((h) => ({ value: h, label: `${h}%` }))}
                   value={dhHumidity}
                   onSelect={setDhHumidity}
                 />
