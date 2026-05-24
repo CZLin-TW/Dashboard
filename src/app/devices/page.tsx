@@ -310,26 +310,40 @@ export default function DevicesPage() {
 
         return Object.entries(groups).map(([location, devs]) => {
           const open = expandedRooms.has(location);
+          // 各類型裝置數量，給收合卡片顯示「房間有什麼」
+          const typeCounts: Record<string, number> = {};
+          devs.forEach(d => { typeCounts[d.type] = (typeCounts[d.type] ?? 0) + 1; });
           return (
-          <div key={location} className="space-y-3">
-            {/* 房間標題列：點擊展開/收合該房間的裝置 */}
+          <div key={location} className="overflow-hidden rounded-[18px] border border-line bg-surface shadow-sm shadow-mute/10">
+            {/* 房間卡片標題：收合時就是這張卡，顯示房間名 + 各類型裝置數 + 總數 */}
             <button
               type="button"
               onClick={() => toggleRoom(location)}
-              className="flex w-full items-center justify-between gap-2 rounded-[12px] px-1 py-1.5 text-left transition-colors hover:bg-elevated/40"
+              className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-elevated/30"
             >
-              <span className="flex items-center gap-2">
-                <span className="text-[13px] font-semibold uppercase tracking-[0.06em] text-mute">
-                  {location}
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <span className="text-[15px] font-semibold text-foreground">{location}</span>
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-mute">
+                  {Object.entries(typeCounts).map(([type, n]) => {
+                    const Icon = DEVICE_ICONS[type] ?? DEVICE_ICON_FALLBACK;
+                    return (
+                      <span key={type} className="inline-flex items-center gap-1">
+                        <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
+                        <span className="num">{n}</span>
+                      </span>
+                    );
+                  })}
                 </span>
-                <span className="num rounded-full bg-elevated px-1.5 text-[11px] font-semibold text-mute">
-                  {devs.length}
+              </div>
+              <div className="flex flex-shrink-0 items-center gap-2.5">
+                <span className="num rounded-full bg-elevated px-2 py-0.5 text-[11px] font-semibold text-mute">
+                  {devs.length} 台
                 </span>
-              </span>
-              <ChevronDown
-                className={`h-4 w-4 flex-shrink-0 text-mute transition-transform ${open ? "rotate-180" : ""}`}
-                strokeWidth={2}
-              />
+                <ChevronDown
+                  className={`h-4 w-4 text-mute transition-transform ${open ? "rotate-180" : ""}`}
+                  strokeWidth={2}
+                />
+              </div>
             </button>
             <AnimatePresence initial={false}>
               {open && (
@@ -344,7 +358,7 @@ export default function DevicesPage() {
                   }}
                   className="overflow-hidden"
                 >
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 border-t border-line bg-surface-2 p-4 sm:grid-cols-2 lg:grid-cols-3">
                     {devs.map((device) => {
                 const TypeIcon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
                 const pinned = pin.isDevicePinned(device.name);
