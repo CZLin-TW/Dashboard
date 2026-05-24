@@ -431,7 +431,12 @@ export function DeviceController({
           <StatusLine
             tone={device.power ? "running" : "off"}
             text={
-              device.power
+              autoOn
+                ? // 自動模式：不顯示機器實際模式，改顯示「自動模式」；目標顯示規則設定的門檻
+                  `${device.power ? "運轉中" : "待機"} · 自動模式${
+                    dehumRule?.threshold != null ? ` · 目標 ${dehumRule.threshold}%` : ""
+                  }`
+                : device.power
                 ? `運轉中${device.mode ? ` · ${device.mode}` : ""}${device.targetHumidity ? ` · 目標 ${device.targetHumidity}` : ""}`
                 : "關閉"
             }
