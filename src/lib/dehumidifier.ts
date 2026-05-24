@@ -21,6 +21,21 @@ export interface DehumOnSegment {
   endT: number;          // ms
 }
 
+/** 給某個 location，從所有除濕機挑出符合的、合併 on 區段（給感測器卡背景斜紋用）。
+ *  多台同 location 除濕機各自的區段全收進來，重疊處由斜紋 pattern 自然疊。 */
+export function getDehumSegmentsForLocation(
+  dehumMap: Record<string, DehumDevice>,
+  location: string,
+): DehumOnSegment[] {
+  if (!location) return [];
+  const out: DehumOnSegment[] = [];
+  for (const dh of Object.values(dehumMap)) {
+    if (dh.location !== location) continue;
+    out.push(...dehumHistoryToSegments(dh.history));
+  }
+  return out;
+}
+
 /** 把單一除濕機的 history 轉成「on 區段」list。同 ac.ts deviceHistoryToSegments 邏輯。 */
 export function dehumHistoryToSegments(history: DehumHistoryRaw[]): DehumOnSegment[] {
   const segs: DehumOnSegment[] = [];

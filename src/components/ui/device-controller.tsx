@@ -35,6 +35,13 @@ const THRESHOLD_OPTIONS: { value: number; label: string }[] = [
 ];
 const THRESHOLD_DEFAULT = 60;
 
+// 各品牌自動模式用的「持續除濕」等效模式（要跟 home-butler 端一致）：
+// 機器跑滿、不看自身目標濕度，由外部 sensor + hysteresis 控制 on/off。
+const CONTINUOUS_MODE_BY_BRAND: Record<string, string> = {
+  Panasonic: "連續除濕",
+  LG: "強力除濕",
+};
+
 // ─────────────────────────────────────────────────────────────
 // 單一裝置的控制邏輯（state + send + render fields）— 裝置頁、首頁
 // device-quick-control 共用。Sensor 不走這裡（純顯示沒控制邏輯，由
@@ -239,20 +246,21 @@ export function DeviceController({
     threshold?: number;
   }) {
     const isTogglingOn = patch.auto_mode === true && !dehumRule?.auto_mode;
+    const continuousMode = CONTINUOUS_MODE_BY_BRAND[device.brand || "Panasonic"] ?? "連續除濕";
 
-    // 進入自動模式前：若除濕機現在開著，先送 mode 切換指令把模式改成「連續除濕」
+    // 進入自動模式前：若除濕機現在開著，先送 mode 切換指令把模式改成持續除濕
     // 再 POST rule（一定要 await 完成才 POST rule，否則 home-butler 已經
     // is_locked=true 會擋掉 mode 切換）。device OFF 時不切，等規則之後
-    // fire ON 時後端會一起送 turn_on + set_mode 連續除濕。
+    // fire ON 時後端會一起送 turn_on + set_mode 持續除濕。
     //
-    // 為什麼一定要切「連續除濕」：其他模式（尤其「目標濕度」）除濕機會看
+    // 為什麼一定要切持續除濕：其他模式（尤其「目標濕度」）除濕機會看
     // 機體周邊濕度自己達標停機，但外部 sensor 還沒到 → 永遠 trigger 不
-    // 到 auto-OFF。連續除濕忽略內部判定，控制權完全交給外部 sensor +
-    // hysteresis。
+    // 到 auto-OFF。持續除濕忽略內部判定，控制權完全交給外部 sensor +
+    // hysteresis。模式名稱依品牌（Panasonic 連續除濕 / LG 強力除濕）。
     if (isTogglingOn && device.power) {
       setAutoRulePending(true);
       try {
-        await sendDehumidifierCommand({ mode: "連續除濕" });
+        await sendDehumidifierCommand({ mode: continuousMode });
       } finally {
         setAutoRulePending(false);
       }
@@ -266,13 +274,13 @@ export function DeviceController({
     if (patch.duration_min !== undefined) body.duration_min = patch.duration_min;
     if (patch.threshold !== undefined) body.threshold = patch.threshold;
     // Toggle ON 時：若 rule.threshold 從未設過，帶入 dropdown 預設值，避免後端 fallback
-    // 跟 UI 顯示對不上。on_mode 永遠強制成「連續除濕」（後端會忽略 caller 傳值但保留
+    // 跟 UI 顯示對不上。on_mode 帶品牌對應的持續除濕模式（後端會忽略 caller 傳值但保留
     // 給 Sheet schema 一致）。
     if (isTogglingOn) {
       if (body.threshold === undefined) {
         body.threshold = dehumRule?.threshold ?? THRESHOLD_DEFAULT;
       }
-      body.on_mode = "連續除濕";
+      body.on_mode = continuousMode;
     }
 
     setAutoRulePending(true);
@@ -398,8 +406,6 @@ export function DeviceController({
   if (device.type === "除濕機") {
     // 依品牌取對應的模式/濕度選項（缺 byBrand 時 fallback 頂層 = Panasonic）
     const dh = options.dehumidifier.byBrand?.[device.brand || "Panasonic"] ?? options.dehumidifier;
-    // LG 自動濕度模式尚未支援（後端 dehumidifier_auto 仍綁 Panasonic），隱藏自動相關 UI 避免誤觸鎖死手動
-    const autoSupported = (device.brand || "Panasonic") !== "LG";
     const autoOn = dehumRule?.auto_mode === true;
     // 自動模式 ON 時鎖定電源/模式/目標濕度/感測器/時間，唯一可動的是 auto toggle
     const manualDisabled = dhPending !== null || autoOn;
@@ -431,8 +437,7 @@ export function DeviceController({
             }
           />
         )}
-        {/* Row 1: 電源 toggle + 自動模式 toggle + 監控時間 dropdown。
-            LG 尚未支援自動模式，只留電源。 */}
+        {/* Row 1: 電源 toggle + 自動模式 toggle + 監控時間 dropdown */}
         <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
           <Field label="電源">
             <Toggle2
@@ -441,50 +446,44 @@ export function DeviceController({
               disabled={manualDisabled}
             />
           </Field>
-          {autoSupported && (
-            <Field label="自動模式">
-              <Toggle2
-                value={autoOn}
-                onChange={(v) => sendAutoRuleUpdate({ auto_mode: v })}
-                disabled={autoRulePending}
-              />
-            </Field>
-          )}
-          {autoSupported && (
-            <Field label="監控時間">
-              <Dropdown
-                options={DURATION_OPTIONS}
-                value={dehumRule?.duration_min ?? 30}
-                onSelect={(v) => sendAutoRuleUpdate({ duration_min: v })}
-                disabled={autoConfigDisabled}
-              />
-            </Field>
-          )}
+          <Field label="自動模式">
+            <Toggle2
+              value={autoOn}
+              onChange={(v) => sendAutoRuleUpdate({ auto_mode: v })}
+              disabled={autoRulePending}
+            />
+          </Field>
+          <Field label="監控時間">
+            <Dropdown
+              options={DURATION_OPTIONS}
+              value={dehumRule?.duration_min ?? 30}
+              onSelect={(v) => sendAutoRuleUpdate({ duration_min: v })}
+              disabled={autoConfigDisabled}
+            />
+          </Field>
         </div>
         {/* Row 2: 監控感測器（撐滿剩餘寬度）+ 目標濕度（自然寬，靠右）。
             門檻在 auto ON 時也可即時修改（感測器 / 監控時間維持 auto ON lock，
-            因為改它們會 reset runtime state）。LG 無自動模式時整列隱藏。 */}
-        {autoSupported && (
-          <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
-            <Field label="監控感測器" className="flex-1 min-w-0">
-              <Dropdown
-                options={(availableSensors ?? []).map((s) => ({ value: s, label: s }))}
-                value={dehumRule?.sensor_name || undefined}
-                onSelect={(v) => sendAutoRuleUpdate({ sensor_name: v })}
-                disabled={autoConfigDisabled}
-                className="w-full"
-              />
-            </Field>
-            <Field label="目標濕度">
-              <Dropdown
-                options={THRESHOLD_OPTIONS}
-                value={dehumRule?.threshold ?? THRESHOLD_DEFAULT}
-                onSelect={(v) => sendAutoRuleUpdate({ threshold: v })}
-                disabled={autoRulePending}
-              />
-            </Field>
-          </div>
-        )}
+            因為改它們會 reset runtime state）。 */}
+        <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
+          <Field label="監控感測器" className="flex-1 min-w-0">
+            <Dropdown
+              options={(availableSensors ?? []).map((s) => ({ value: s, label: s }))}
+              value={dehumRule?.sensor_name || undefined}
+              onSelect={(v) => sendAutoRuleUpdate({ sensor_name: v })}
+              disabled={autoConfigDisabled}
+              className="w-full"
+            />
+          </Field>
+          <Field label="目標濕度">
+            <Dropdown
+              options={THRESHOLD_OPTIONS}
+              value={dehumRule?.threshold ?? THRESHOLD_DEFAULT}
+              onSelect={(v) => sendAutoRuleUpdate({ threshold: v })}
+              disabled={autoRulePending}
+            />
+          </Field>
+        </div>
         {phaseText && (
           <StatusLine tone="waiting" text={phaseText} />
         )}

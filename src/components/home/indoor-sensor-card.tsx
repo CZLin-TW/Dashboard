@@ -9,6 +9,7 @@ import { ClimateReadout } from "@/components/ui/device-controls";
 import { type DeviceData, DEVICE_ICONS, DEVICE_ICON_FALLBACK } from "@/lib/types";
 import type { Sensor } from "@/lib/sensor";
 import type { AcSegment } from "@/lib/ac";
+import type { DehumOnSegment } from "@/lib/dehumidifier";
 import { SensorChart } from "@/components/devices/sensor-chart";
 
 interface Props {
@@ -22,6 +23,8 @@ interface Props {
   co2Domain?: [number, number] | null;
   /** 該 sensor location 對應的 AC on 區段（page 層 lookup 後傳入）。 */
   acSegments?: AcSegment[];
+  /** 該 sensor location 對應的除濕機 on 區段（斜紋背景）。 */
+  dehumSegments?: DehumOnSegment[];
 }
 
 /**
@@ -30,7 +33,7 @@ interface Props {
  *
  * 不放 PinButton——pin 操作集中在裝置頁，首頁只是展示已釘選的結果。
  */
-export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain, co2Domain, acSegments }: Props) {
+export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain, co2Domain, acSegments, dehumSegments }: Props) {
   const SensorIcon = DEVICE_ICONS["感應器"] ?? DEVICE_ICON_FALLBACK;
   const [expanded, setExpanded] = useState(false);
   const canExpand =
@@ -93,6 +96,7 @@ export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain,
                   humDomain={humDomain!}
                   co2Domain={co2Domain ?? null}
                   acSegments={acSegments}
+                  dehumSegments={dehumSegments}
                 />
               </motion.div>
             )}

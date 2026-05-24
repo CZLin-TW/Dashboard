@@ -25,7 +25,7 @@ import { ScheduleSection } from "@/components/devices/schedule-section";
 import type { ComputerPC } from "@/lib/computer";
 import { type Sensor, computeSensorDomains } from "@/lib/sensor";
 import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
-import type { DehumDevice } from "@/lib/dehumidifier";
+import { type DehumDevice, getDehumSegmentsForLocation } from "@/lib/dehumidifier";
 import type { Schedule } from "@/lib/schedule";
 
 function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
@@ -216,6 +216,7 @@ export default function DevicesPage() {
                       humDomain={sensorDomains.humDomain}
                       co2Domain={sensorsMap[s.name].history.some((p) => p.co2 != null) ? sensorDomains.co2Domain : null}
                       acSegments={getAcSegmentsForLocation(acsMap, s.location || "")}
+                      dehumSegments={getDehumSegmentsForLocation(dehumHistoryMap, s.location || "")}
                     />
                   ) : (
                     <p className="px-1 text-xs text-mute">等待 24h 資料累積...</p>

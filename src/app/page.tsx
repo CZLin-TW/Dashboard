@@ -16,7 +16,7 @@ import {
 } from "@/lib/types";
 import { type Sensor, computeSensorDomains } from "@/lib/sensor";
 import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
-import type { DehumDevice } from "@/lib/dehumidifier";
+import { type DehumDevice, getDehumSegmentsForLocation } from "@/lib/dehumidifier";
 import type { Schedule } from "@/lib/schedule";
 import { WeatherCard } from "@/components/home/weather-card";
 import { IndoorSensorCard } from "@/components/home/indoor-sensor-card";
@@ -131,6 +131,10 @@ export default function HomePage() {
   const pinnedAcSegments = pinnedSensorHistory
     ? getAcSegmentsForLocation(acsMap, pinnedSensorHistory.location || "")
     : [];
+  // 同 location 的除濕機 on 區段（斜紋背景）
+  const pinnedDehumSegments = pinnedSensorHistory
+    ? getDehumSegmentsForLocation(dehumHistoryMap, pinnedSensorHistory.location || "")
+    : [];
   const controllableDevices = pin.pinnedDevices
     .map((name) => allDevices.find((d) => d.name === name))
     .filter((d): d is DeviceData => d !== undefined && d.type !== "感應器");
@@ -178,6 +182,7 @@ export default function HomePage() {
         humDomain={pinnedHumDomain}
         co2Domain={pinnedCo2Domain}
         acSegments={pinnedAcSegments}
+        dehumSegments={pinnedDehumSegments}
       />
       <DeviceQuickControl
         devices={controllableDevices}
