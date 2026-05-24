@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, Suspense } from "react";
+import { useEffect, useRef, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { LayoutGrid, Activity, Cpu } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { LayoutGrid, Activity, Cpu, ChevronDown } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import {
@@ -28,19 +29,37 @@ import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
 import { type DehumDevice, getDehumSegmentsForLocation } from "@/lib/dehumidifier";
 import type { Schedule } from "@/lib/schedule";
 
-function DeviceScrollTarget({ deviceRefs }: { deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>> }) {
+function DeviceScrollTarget({
+  deviceRefs,
+  deviceRoom,
+  onExpandRoom,
+}: {
+  deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>>;
+  deviceRoom: Record<string, string>;
+  onExpandRoom: (room: string) => void;
+}) {
   const searchParams = useSearchParams();
   const targetDevice = searchParams.get("target");
 
+  // 先把目標裝置所在房間展開（房間收合時卡片未掛載，無法捲動定位）
   useEffect(() => {
-    if (targetDevice && deviceRefs.current?.[targetDevice]) {
-      deviceRefs.current[targetDevice]?.scrollIntoView({ behavior: "smooth", block: "center" });
-      const el = deviceRefs.current[targetDevice];
+    if (!targetDevice) return;
+    const room = deviceRoom[targetDevice];
+    if (room) onExpandRoom(room);
+  }, [targetDevice, deviceRoom, onExpandRoom]);
+
+  // 展開動畫跑完後再捲動 + highlight（delay 留給房間展開渲染）
+  useEffect(() => {
+    if (!targetDevice) return;
+    const t = setTimeout(() => {
+      const el = deviceRefs.current?.[targetDevice];
       if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
         el.classList.add("ring-2", "ring-cool");
         setTimeout(() => el.classList.remove("ring-2", "ring-cool"), 2000);
       }
-    }
+    }, 400);
+    return () => clearTimeout(t);
   }, [targetDevice, deviceRefs]);
 
   return null;
@@ -63,6 +82,24 @@ export default function DevicesPage() {
 
   const sensors = devices.filter(d => d.type === "感應器");
   const controllable = devices.filter(d => d.type !== "感應器");
+
+  // 房間收合狀態（預設全收合，點房間標題展開）。key = location。
+  const [expandedRooms, setExpandedRooms] = useState<Set<string>>(new Set());
+  const toggleRoom = useCallback((room: string) => {
+    setExpandedRooms(prev => {
+      const next = new Set(prev);
+      if (next.has(room)) next.delete(room); else next.add(room);
+      return next;
+    });
+  }, []);
+  // 給 deep-link（?target=）用：把目標裝置所在房間展開。idempotent，已展開回原 Set 不觸發 re-render。
+  const expandRoom = useCallback((room: string) => {
+    setExpandedRooms(prev => (prev.has(room) ? prev : new Set(prev).add(room)));
+  }, []);
+  const deviceRoom: Record<string, string> = {};
+  controllable.forEach(d => { deviceRoom[d.name] = d.location || "其他"; });
+  const roomNames = [...new Set(controllable.map(d => d.location || "其他"))];
+  const allRoomsExpanded = roomNames.length > 0 && roomNames.every(r => expandedRooms.has(r));
 
   // PC 監控：從 home-butler in-memory ring buffer 拉，agent 每 60s push 一次。
   // 60 秒 auto-refetch 跟 agent push 節奏對齊（最差 stale 約 60-120s）。
@@ -158,7 +195,7 @@ export default function DevicesPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <Suspense>
-        <DeviceScrollTarget deviceRefs={deviceRefs} />
+        <DeviceScrollTarget deviceRefs={deviceRefs} deviceRoom={deviceRoom} onExpandRoom={expandRoom} />
       </Suspense>
 
       {/* ── 環境感測 ── */}
@@ -242,14 +279,24 @@ export default function DevicesPage() {
           <p className="text-xs text-mute">
             釘選最多 {pin.MAX_PINNED_DEVICES} 個到首頁（已選 {pin.pinnedDevices.length}）
           </p>
-          {pin.pinnedDevices.length > 0 && (
-            <button
-              onClick={pin.clearAllDevices}
-              className="text-xs text-warm hover:text-warm/80"
-            >
-              重置釘選
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {roomNames.length > 0 && (
+              <button
+                onClick={() => setExpandedRooms(allRoomsExpanded ? new Set() : new Set(roomNames))}
+                className="text-xs text-cool hover:text-cool/80"
+              >
+                {allRoomsExpanded ? "收合全部" : "展開全部"}
+              </button>
+            )}
+            {pin.pinnedDevices.length > 0 && (
+              <button
+                onClick={pin.clearAllDevices}
+                className="text-xs text-warm hover:text-warm/80"
+              >
+                重置釘選
+              </button>
+            )}
+          </div>
         </div>
 
       {/* 房間分群 + panel */}
@@ -261,13 +308,44 @@ export default function DevicesPage() {
           groups[loc].push(d);
         });
 
-        return Object.entries(groups).map(([location, devs]) => (
+        return Object.entries(groups).map(([location, devs]) => {
+          const open = expandedRooms.has(location);
+          return (
           <div key={location} className="space-y-3">
-            <h2 className="px-1 pt-1 text-[13px] font-semibold uppercase tracking-[0.06em] text-mute">
-              {location}
-            </h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {devs.map((device) => {
+            {/* 房間標題列：點擊展開/收合該房間的裝置 */}
+            <button
+              type="button"
+              onClick={() => toggleRoom(location)}
+              className="flex w-full items-center justify-between gap-2 rounded-[12px] px-1 py-1.5 text-left transition-colors hover:bg-elevated/40"
+            >
+              <span className="flex items-center gap-2">
+                <span className="text-[13px] font-semibold uppercase tracking-[0.06em] text-mute">
+                  {location}
+                </span>
+                <span className="num rounded-full bg-elevated px-1.5 text-[11px] font-semibold text-mute">
+                  {devs.length}
+                </span>
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 flex-shrink-0 text-mute transition-transform ${open ? "rotate-180" : ""}`}
+                strokeWidth={2}
+              />
+            </button>
+            <AnimatePresence initial={false}>
+              {open && (
+                <motion.div
+                  key="room-body"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{
+                    height: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
+                    opacity: { duration: 0.18, ease: "easeOut" },
+                  }}
+                  className="overflow-hidden"
+                >
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {devs.map((device) => {
                 const TypeIcon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
                 const pinned = pin.isDevicePinned(device.name);
                 const canPin = pinned || pin.canPinMore;
@@ -315,10 +393,14 @@ export default function DevicesPage() {
                     />
                   </div>
                 );
-              })}
-            </div>
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        ));
+          );
+        });
       })()}
       </section>
 
