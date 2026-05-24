@@ -39,7 +39,7 @@ const THRESHOLD_DEFAULT = 60;
 // 機器跑滿、不看自身目標濕度，由外部 sensor + hysteresis 控制 on/off。
 const CONTINUOUS_MODE_BY_BRAND: Record<string, string> = {
   Panasonic: "連續除濕",
-  LG: "強力除濕",
+  LG: "智慧除濕",
 };
 
 // ─────────────────────────────────────────────────────────────
