@@ -96,6 +96,7 @@ export function DeviceController({
   const [dhPending, setDhPending] = useState<{ type: string; value: unknown } | null>(null);
   const [dhFailed, setDhFailed] = useState<{ type: string; value: unknown } | null>(null);
   const [autoRulePending, setAutoRulePending] = useState(false);
+  const [autoModePending, setAutoModePending] = useState<boolean | null>(null);
   // IR fire-and-forget：tap 顯示 fresh 綠表示「指令送出中」，failed 顯示 warm 紅。
   // 不做 success state——HTTP 200 只代表 Hub 收到、不代表裝置真的動作了，給綠燈會誤導。
   const [irTap, setIrTap] = useState<string | null>(null);
@@ -196,7 +197,7 @@ export function DeviceController({
     }
   }
 
-  async function sendDehumidifierCommand(params: Record<string, unknown>) {
+  async function sendDehumidifierCommand(params: Record<string, unknown>): Promise<boolean> {
     // 推算這次操作期望的「最終狀態」，輪詢時用這個來判斷是否已生效
     const expected: { type: string; value: unknown } =
       params.power !== undefined ? { type: "power", value: params.power } :
@@ -217,7 +218,7 @@ export function DeviceController({
         console.error(`[sendDehumidifierCommand] ${device.name} failed: HTTP ${res.status}`);
         setDhPending(null);
         flashDhFailed(expected);
-        return;
+        return false;
       }
 
       // ?name= 只查該裝置，避免被其他雲端慢的除濕機拖累 endpoint latency
@@ -236,7 +237,7 @@ export function DeviceController({
             if (matched) {
               if (onDehumidifierCommandSuccess) await onDehumidifierCommandSuccess();
               setDhPending(null);
-              return;
+              return true;
             }
           }
         } catch { /* continue polling */ }
@@ -246,10 +247,12 @@ export function DeviceController({
       if (onDehumidifierCommandSuccess) await onDehumidifierCommandSuccess();
       setDhPending(null);
       flashDhFailed(expected);
+      return false;
     } catch (err) {
       console.error(`[sendDehumidifierCommand] ${device.name} network error:`, err);
       setDhPending(null);
       flashDhFailed(expected);
+      return false;
     } finally {
       setSending(false);
     }
@@ -261,6 +264,11 @@ export function DeviceController({
     duration_min?: number;
     threshold?: number;
   }) {
+    if (patch.auto_mode !== undefined) {
+      setAutoModePending(patch.auto_mode);
+    }
+    setAutoRulePending(true);
+
     const isTogglingOn = patch.auto_mode === true && !dehumRule?.auto_mode;
     const continuousMode = CONTINUOUS_MODE_BY_BRAND[device.brand || "Panasonic"] ?? "連續除濕";
 
@@ -273,44 +281,43 @@ export function DeviceController({
     // 機體周邊濕度自己達標停機，但外部 sensor 還沒到 → 永遠 trigger 不
     // 到 auto-OFF。持續除濕忽略內部判定，控制權完全交給外部 sensor +
     // hysteresis。模式名稱依品牌（Panasonic 連續除濕 / LG 強力除濕）。
-    if (isTogglingOn && device.power) {
-      setAutoRulePending(true);
-      try {
-        await sendDehumidifierCommand({ mode: continuousMode });
-      } finally {
-        setAutoRulePending(false);
-      }
-    }
-
-    const body: Record<string, unknown> = {
-      device_name: device.name,
-      auto_mode: patch.auto_mode ?? dehumRule?.auto_mode ?? false,
-    };
-    if (patch.sensor_name !== undefined) body.sensor_name = patch.sensor_name;
-    if (patch.duration_min !== undefined) body.duration_min = patch.duration_min;
-    if (patch.threshold !== undefined) body.threshold = patch.threshold;
-    // Toggle ON 時：若 rule.threshold 從未設過，帶入 dropdown 預設值，避免後端 fallback
-    // 跟 UI 顯示對不上。on_mode 帶品牌對應的持續除濕模式（後端會忽略 caller 傳值但保留
-    // 給 Sheet schema 一致）。
-    if (isTogglingOn) {
-      if (body.threshold === undefined) {
-        body.threshold = dehumRule?.threshold ?? THRESHOLD_DEFAULT;
-      }
-      body.on_mode = continuousMode;
-    }
-
-    setAutoRulePending(true);
     try {
-      await fetch("/api/dehumidifier/auto-rule", {
+      if (isTogglingOn && device.power) {
+        const modeReady = await sendDehumidifierCommand({ mode: continuousMode });
+        if (!modeReady) return;
+      }
+
+      const body: Record<string, unknown> = {
+        device_name: device.name,
+        auto_mode: patch.auto_mode ?? dehumRule?.auto_mode ?? false,
+      };
+      if (patch.sensor_name !== undefined) body.sensor_name = patch.sensor_name;
+      if (patch.duration_min !== undefined) body.duration_min = patch.duration_min;
+      if (patch.threshold !== undefined) body.threshold = patch.threshold;
+      // Toggle ON 時：若 rule.threshold 從未設過，帶入 dropdown 預設值，避免後端 fallback
+      // 跟 UI 顯示對不上。on_mode 帶品牌對應的持續除濕模式（後端會忽略 caller 傳值但保留
+      // 給 Sheet schema 一致）。
+      if (isTogglingOn) {
+        if (body.threshold === undefined) {
+          body.threshold = dehumRule?.threshold ?? THRESHOLD_DEFAULT;
+        }
+        body.on_mode = continuousMode;
+      }
+
+      const res = await fetch("/api/dehumidifier/auto-rule", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
       if (onDehumRuleUpdate) await onDehumRuleUpdate();
     } catch (err) {
       console.error(`[autoRule] ${device.name} error:`, err);
     } finally {
       setAutoRulePending(false);
+      setAutoModePending(null);
     }
   }
 
@@ -422,9 +429,9 @@ export function DeviceController({
   if (device.type === "除濕機") {
     // 依品牌取對應的模式/濕度選項（缺 byBrand 時 fallback 頂層 = Panasonic）
     const dh = options.dehumidifier.byBrand?.[device.brand || "Panasonic"] ?? options.dehumidifier;
-    const autoOn = dehumRule?.auto_mode === true;
+    const autoOn = autoModePending ?? (dehumRule?.auto_mode === true);
     // 自動模式 ON 時鎖定電源/模式/目標濕度/感測器/時間，唯一可動的是 auto toggle
-    const manualDisabled = dhPending !== null || autoOn;
+    const manualDisabled = dhPending !== null || autoRulePending || autoOn;
     const autoConfigDisabled = autoRulePending || autoOn;
 
     // Panasonic 機型：只有「目標濕度」mode 才能設目標濕度（其他模式機器自己判斷）。
