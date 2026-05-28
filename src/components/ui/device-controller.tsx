@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   type DeviceData,
   type DeviceOptions,
@@ -95,29 +95,11 @@ export function DeviceController({
   const [sending, setSending] = useState(false);
   const [dhPending, setDhPending] = useState<{ type: string; value: unknown } | null>(null);
   const [dhFailed, setDhFailed] = useState<{ type: string; value: unknown } | null>(null);
-  // dhSending 跟 dhPending 拆開：Panasonic 雲端 set→GetInfo readback 通常要 14-20s 才
-  // sync，但機器 6s 就動了。UI 不應該為了等 readback matched 把 panel 鎖死 20s。
-  // 8s 後自動解 disabled 讓 user 操作下個命令；displayed 樂觀值靠 dhPending 維持，
-  // 不會跳回；真實狀態 sync 後由 useEffect 對齊清 pending。
-  const [dhSending, setDhSending] = useState(false);
   const [autoRulePending, setAutoRulePending] = useState(false);
   // IR fire-and-forget：tap 顯示 fresh 綠表示「指令送出中」，failed 顯示 warm 紅。
   // 不做 success state——HTTP 200 只代表 Hub 收到、不代表裝置真的動作了，給綠燈會誤導。
   const [irTap, setIrTap] = useState<string | null>(null);
   const [irFailed, setIrFailed] = useState<{ button: string; message: string } | null>(null);
-
-  // dhPending 期間，監聽 device prop 是否已對齊 expected。對齊代表父層全域 polling
-  // 已把新狀態 sync 進 device 這個 prop——此時清 pending 後 displayed 從 expected
-  // 無縫過渡到「device 新值」，不會 flash 回「device 舊值」造成「跳回 → 又跳前」。
-  // 保底機制：sendDehumidifierCommand 內部還有 30s polling timeout fallback。
-  useEffect(() => {
-    if (!dhPending) return;
-    const aligned =
-      (dhPending.type === "power" && !!device.power === dhPending.value) ||
-      (dhPending.type === "mode" && device.mode === dhPending.value) ||
-      (dhPending.type === "humidity" && String(device.targetHumidity) === `${dhPending.value}%`);
-    if (aligned) setDhPending(null);
-  }, [dhPending, device.power, device.mode, device.targetHumidity]);
 
   function getAcPending(): AcPendingState {
     return pending ?? acPendingFromDevice(device);
@@ -218,14 +200,7 @@ export function DeviceController({
 
     setDhPending(expected);
     setDhFailed(null);
-    setDhSending(true);
     setSending(true);
-
-    // 8 秒後即使 polling 還沒 matched 也解 disabled（user 可操作下個命令）。
-    // Panasonic 雲端 set 後機器物理通常 6s 內動完，但 GetInfo readback 還要 5-15s
-    // 才 sync — 為了等 readback 把 UI 鎖死沒意義。dhPending 留著樂觀顯示，
-    // 真實 readback sync 後由 useEffect 對齊清 pending。
-    const releaseDisabledTimer = setTimeout(() => setDhSending(false), 8000);
 
     try {
       await fetch("/api/devices/control", {
@@ -235,9 +210,7 @@ export function DeviceController({
       });
 
       // ?name= 只查該裝置，避免被其他雲端慢的除濕機拖累 endpoint latency
-      // &nocache=1 跳過 home-butler status_cache，避免 invalidate 後第一次 fetch
-      // 拿到雲端 stale value 被鎖 15s，整段樂觀 polling 拿不到 fresh
-      const statusUrl = `/api/devices/status?name=${encodeURIComponent(device.name)}&nocache=1`;
+      const statusUrl = `/api/devices/status?name=${encodeURIComponent(device.name)}`;
       for (let i = 0; i < 30; i++) {
         await new Promise((r) => setTimeout(r, 1000));
         try {
@@ -250,28 +223,20 @@ export function DeviceController({
               (expected.type === "mode" && dh.mode === expected.value) ||
               (expected.type === "humidity" && String(dh.targetHumidity) === `${expected.value}%`);
             if (matched) {
-              // 不立刻清 dhPending：device prop 還沒 sync 到 expected（父層 60s polling
-              // 是 async），馬上清會讓 displayed flash 回舊值。改用 onCommandSuccess
-              // trigger 父層 refetch，等 device prop 對齊 → 上方 useEffect 清 pending。
-              // 保底 10s timeout 防止父層 refetch 萬一掛掉、pending 永遠卡住。
+              setDhPending(null);
               if (onDehumidifierCommandSuccess) onDehumidifierCommandSuccess();
-              setTimeout(() => setDhPending(null), 10000);
               return;
             }
           }
         } catch { /* continue polling */ }
       }
 
-      // 30 秒還沒匹配 → 標 failed 閃 5s 提醒可能 sync 異常慢；dhPending 不立刻清，
-      // 仍保留樂觀顯示讓 useEffect 等真實 readback 對齊（避免顯示「跳回」）。
-      // 保底 timeout 防止 useEffect 因 device prop 永不 sync 卡住。
+      // 30 秒後還沒匹配 → 標 failed 閃 5s，仍 refetch 避免顯示與實際不一致
+      setDhPending(null);
       setDhFailed(expected);
       setTimeout(() => setDhFailed(null), 5000);
-      setTimeout(() => setDhPending(null), 10000);
       if (onDehumidifierCommandSuccess) onDehumidifierCommandSuccess();
     } finally {
-      clearTimeout(releaseDisabledTimer);
-      setDhSending(false);
       setSending(false);
     }
   }
@@ -444,33 +409,15 @@ export function DeviceController({
     // 依品牌取對應的模式/濕度選項（缺 byBrand 時 fallback 頂層 = Panasonic）
     const dh = options.dehumidifier.byBrand?.[device.brand || "Panasonic"] ?? options.dehumidifier;
     const autoOn = dehumRule?.auto_mode === true;
-    // 自動模式 ON 時鎖定整個 panel；命令送出後 dhSending=true 期間（最多 8s）也鎖，
-    // 之後就算 readback 還沒 sync 也解鎖讓 user 操作下個命令（樂觀顯示靠 dhPending）
-    const manualDisabled = dhSending || autoOn;
+    // 自動模式 ON 時鎖定電源/模式/目標濕度/感測器/時間，唯一可動的是 auto toggle
+    const manualDisabled = dhPending !== null || autoOn;
     const autoConfigDisabled = autoRulePending || autoOn;
-
-    // 樂觀顯示：pending 期間 displayed value 立刻反映 expected，不再受 device prop
-    // rollback 影響（Panasonic 雲端 readback 慢時，UI 不會「跳回 → 又跳前」）。
-    // 同時 manualDisabled=true 鎖住整個 panel，使用者無法在 pending 期間下新命令。
-    const displayedPower = dhPending?.type === "power"
-      ? (dhPending.value as boolean)
-      : !!device.power;
-    const displayedMode = dhPending?.type === "mode"
-      ? (dhPending.value as string)
-      : dh.modes.find((m) => m.label === device.mode)?.value;
-    const displayedHumidity = (() => {
-      if (dhPending?.type === "humidity") return dhPending.value as number;
-      const t = String(device.targetHumidity ?? "").replace("%", "");
-      const n = parseInt(t, 10);
-      return Number.isFinite(n) ? n : undefined;
-    })();
 
     // Panasonic 機型：只有「目標濕度」mode 才能設目標濕度（其他模式機器自己判斷）。
     // LG 各 mode 都能設目標濕度（智慧除濕 + 目標數字）→ 不受此限制。
-    // 用 displayedMode 而非 device.mode：剛切到「目標濕度」mode pending 期間就要立刻
-    // 顯示濕度 Segment，不用等 readback 確認。
+    // 用 device.mode（真實 readback），命令送出後等 readback sync 才生效顯示。
     const isPanasonic = (device.brand ?? "Panasonic") === "Panasonic";
-    const canSetHumidity = !isPanasonic || displayedMode === "目標濕度";
+    const canSetHumidity = !isPanasonic || device.mode === "目標濕度";
 
     // 規則 phase 對應的人類可讀文字（只在「值得顯示」時才印一行）
     const phaseText = (() => {
@@ -511,7 +458,7 @@ export function DeviceController({
         <div className="flex flex-wrap items-start gap-x-2 gap-y-3">
           <Field label="電源">
             <Toggle2
-              value={displayedPower}
+              value={!!device.power}
               onChange={(v) => sendDehumidifierCommand({ power: v })}
               disabled={manualDisabled}
             />
@@ -561,7 +508,7 @@ export function DeviceController({
         <Field label="模式">
           <Segment
             options={dh.modes}
-            value={displayedMode}
+            value={dh.modes.find((m) => m.label === device.mode)?.value}
             onSelect={(v) => sendDehumidifierCommand({ mode: v })}
             pendingValue={dhPending?.type === "mode" ? (dhPending.value as string) : undefined}
             failedValue={dhFailed?.type === "mode" ? (dhFailed.value as string) : undefined}
@@ -576,7 +523,11 @@ export function DeviceController({
           <Field label="目標濕度">
             <Segment
               options={dh.humidity.map((h) => ({ value: h, label: `${h}%` }))}
-              value={displayedHumidity}
+              value={(() => {
+                const t = String(device.targetHumidity ?? "").replace("%", "");
+                const n = parseInt(t, 10);
+                return Number.isFinite(n) ? n : undefined;
+              })()}
               onSelect={(v) => sendDehumidifierCommand({ humidity: v })}
               pendingValue={dhPending?.type === "humidity" ? (dhPending.value as number) : undefined}
               failedValue={dhFailed?.type === "humidity" ? (dhFailed.value as number) : undefined}
