@@ -95,6 +95,11 @@ export function DeviceController({
   const [sending, setSending] = useState(false);
   const [dhPending, setDhPending] = useState<{ type: string; value: unknown } | null>(null);
   const [dhFailed, setDhFailed] = useState<{ type: string; value: unknown } | null>(null);
+  // dhSending 跟 dhPending 拆開：Panasonic 雲端 set→GetInfo readback 通常要 14-20s 才
+  // sync，但機器 6s 就動了。UI 不應該為了等 readback matched 把 panel 鎖死 20s。
+  // 8s 後自動解 disabled 讓 user 操作下個命令；displayed 樂觀值靠 dhPending 維持，
+  // 不會跳回；真實狀態 sync 後由 useEffect 對齊清 pending。
+  const [dhSending, setDhSending] = useState(false);
   const [autoRulePending, setAutoRulePending] = useState(false);
   // IR fire-and-forget：tap 顯示 fresh 綠表示「指令送出中」，failed 顯示 warm 紅。
   // 不做 success state——HTTP 200 只代表 Hub 收到、不代表裝置真的動作了，給綠燈會誤導。
@@ -213,7 +218,14 @@ export function DeviceController({
 
     setDhPending(expected);
     setDhFailed(null);
+    setDhSending(true);
     setSending(true);
+
+    // 8 秒後即使 polling 還沒 matched 也解 disabled（user 可操作下個命令）。
+    // Panasonic 雲端 set 後機器物理通常 6s 內動完，但 GetInfo readback 還要 5-15s
+    // 才 sync — 為了等 readback 把 UI 鎖死沒意義。dhPending 留著樂觀顯示，
+    // 真實 readback sync 後由 useEffect 對齊清 pending。
+    const releaseDisabledTimer = setTimeout(() => setDhSending(false), 8000);
 
     try {
       await fetch("/api/devices/control", {
@@ -250,12 +262,16 @@ export function DeviceController({
         } catch { /* continue polling */ }
       }
 
-      // 30 秒後還沒匹配 → 標 failed 閃爍 5s，仍 refetch 避免顯示與實際不一致
-      setDhPending(null);
+      // 30 秒還沒匹配 → 標 failed 閃 5s 提醒可能 sync 異常慢；dhPending 不立刻清，
+      // 仍保留樂觀顯示讓 useEffect 等真實 readback 對齊（避免顯示「跳回」）。
+      // 保底 timeout 防止 useEffect 因 device prop 永不 sync 卡住。
       setDhFailed(expected);
       setTimeout(() => setDhFailed(null), 5000);
+      setTimeout(() => setDhPending(null), 10000);
       if (onDehumidifierCommandSuccess) onDehumidifierCommandSuccess();
     } finally {
+      clearTimeout(releaseDisabledTimer);
+      setDhSending(false);
       setSending(false);
     }
   }
@@ -428,8 +444,9 @@ export function DeviceController({
     // 依品牌取對應的模式/濕度選項（缺 byBrand 時 fallback 頂層 = Panasonic）
     const dh = options.dehumidifier.byBrand?.[device.brand || "Panasonic"] ?? options.dehumidifier;
     const autoOn = dehumRule?.auto_mode === true;
-    // 自動模式 ON 時鎖定電源/模式/目標濕度/感測器/時間，唯一可動的是 auto toggle
-    const manualDisabled = dhPending !== null || autoOn;
+    // 自動模式 ON 時鎖定整個 panel；命令送出後 dhSending=true 期間（最多 8s）也鎖，
+    // 之後就算 readback 還沒 sync 也解鎖讓 user 操作下個命令（樂觀顯示靠 dhPending）
+    const manualDisabled = dhSending || autoOn;
     const autoConfigDisabled = autoRulePending || autoOn;
 
     // 樂觀顯示：pending 期間 displayed value 立刻反映 expected，不再受 device prop
