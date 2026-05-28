@@ -222,8 +222,10 @@ export function DeviceController({
         body: JSON.stringify({ deviceName: device.name, action: "dehumidifier", params }),
       });
 
-      // 帶 ?name= 只查該裝置，避免被其他雲端慢的除濕機拖累 endpoint latency
-      const statusUrl = `/api/devices/status?name=${encodeURIComponent(device.name)}`;
+      // ?name= 只查該裝置，避免被其他雲端慢的除濕機拖累 endpoint latency
+      // &nocache=1 跳過 home-butler status_cache，避免 invalidate 後第一次 fetch
+      // 拿到雲端 stale value 被鎖 15s，整段樂觀 polling 拿不到 fresh
+      const statusUrl = `/api/devices/status?name=${encodeURIComponent(device.name)}&nocache=1`;
       for (let i = 0; i < 30; i++) {
         await new Promise((r) => setTimeout(r, 1000));
         try {
