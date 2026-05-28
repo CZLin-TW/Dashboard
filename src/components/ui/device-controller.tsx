@@ -209,7 +209,7 @@ export function DeviceController({
         body: JSON.stringify({ deviceName: device.name, action: "dehumidifier", params }),
       });
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 30; i++) {
         await new Promise((r) => setTimeout(r, 1000));
         try {
           const res = await fetch("/api/devices/status");
@@ -229,10 +229,10 @@ export function DeviceController({
         } catch { /* continue polling */ }
       }
 
-      // 10 秒後還沒匹配 → 標 failed 閃爍，仍 refetch 避免顯示與實際不一致
+      // 30 秒後還沒匹配 → 標 failed 閃爍 5s，仍 refetch 避免顯示與實際不一致
       setDhPending(null);
       setDhFailed(expected);
-      setTimeout(() => setDhFailed(null), 2000);
+      setTimeout(() => setDhFailed(null), 5000);
       if (onDehumidifierCommandSuccess) onDehumidifierCommandSuccess();
     } finally {
       setSending(false);
@@ -411,6 +411,22 @@ export function DeviceController({
     const manualDisabled = dhPending !== null || autoOn;
     const autoConfigDisabled = autoRulePending || autoOn;
 
+    // 樂觀顯示：pending 期間 displayed value 立刻反映 expected，不再受 device prop
+    // rollback 影響（Panasonic 雲端 readback 慢時，UI 不會「跳回 → 又跳前」）。
+    // 同時 manualDisabled=true 鎖住整個 panel，使用者無法在 pending 期間下新命令。
+    const displayedPower = dhPending?.type === "power"
+      ? (dhPending.value as boolean)
+      : !!device.power;
+    const displayedMode = dhPending?.type === "mode"
+      ? (dhPending.value as string)
+      : dh.modes.find((m) => m.label === device.mode)?.value;
+    const displayedHumidity = (() => {
+      if (dhPending?.type === "humidity") return dhPending.value as number;
+      const t = String(device.targetHumidity ?? "").replace("%", "");
+      const n = parseInt(t, 10);
+      return Number.isFinite(n) ? n : undefined;
+    })();
+
     // 規則 phase 對應的人類可讀文字（只在「值得顯示」時才印一行）
     const phaseText = (() => {
       if (!autoOn) return null;
@@ -446,7 +462,7 @@ export function DeviceController({
         <div className="flex flex-wrap items-start gap-x-2 gap-y-3">
           <Field label="電源">
             <Toggle2
-              value={!!device.power}
+              value={displayedPower}
               onChange={(v) => sendDehumidifierCommand({ power: v })}
               disabled={manualDisabled}
             />
@@ -496,7 +512,7 @@ export function DeviceController({
         <Field label="模式">
           <Segment
             options={dh.modes}
-            value={dh.modes.find((m) => m.label === device.mode)?.value}
+            value={displayedMode}
             onSelect={(v) => sendDehumidifierCommand({ mode: v })}
             pendingValue={dhPending?.type === "mode" ? (dhPending.value as string) : undefined}
             failedValue={dhFailed?.type === "mode" ? (dhFailed.value as string) : undefined}
@@ -509,11 +525,7 @@ export function DeviceController({
           <Field label="目標濕度">
             <Segment
               options={dh.humidity.map((h) => ({ value: h, label: `${h}%` }))}
-              value={(() => {
-                const t = String(device.targetHumidity ?? "").replace("%", "");
-                const n = parseInt(t, 10);
-                return Number.isFinite(n) ? n : undefined;
-              })()}
+              value={displayedHumidity}
               onSelect={(v) => sendDehumidifierCommand({ humidity: v })}
               pendingValue={dhPending?.type === "humidity" ? (dhPending.value as number) : undefined}
               failedValue={dhFailed?.type === "humidity" ? (dhFailed.value as number) : undefined}
