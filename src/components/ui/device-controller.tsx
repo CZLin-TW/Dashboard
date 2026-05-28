@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   type DeviceData,
   type DeviceOptions,
@@ -100,6 +100,19 @@ export function DeviceController({
   // 不做 success state——HTTP 200 只代表 Hub 收到、不代表裝置真的動作了，給綠燈會誤導。
   const [irTap, setIrTap] = useState<string | null>(null);
   const [irFailed, setIrFailed] = useState<{ button: string; message: string } | null>(null);
+
+  // dhPending 期間，監聽 device prop 是否已對齊 expected。對齊代表父層全域 polling
+  // 已把新狀態 sync 進 device 這個 prop——此時清 pending 後 displayed 從 expected
+  // 無縫過渡到「device 新值」，不會 flash 回「device 舊值」造成「跳回 → 又跳前」。
+  // 保底機制：sendDehumidifierCommand 內部還有 30s polling timeout fallback。
+  useEffect(() => {
+    if (!dhPending) return;
+    const aligned =
+      (dhPending.type === "power" && !!device.power === dhPending.value) ||
+      (dhPending.type === "mode" && device.mode === dhPending.value) ||
+      (dhPending.type === "humidity" && String(device.targetHumidity) === `${dhPending.value}%`);
+    if (aligned) setDhPending(null);
+  }, [dhPending, device.power, device.mode, device.targetHumidity]);
 
   function getAcPending(): AcPendingState {
     return pending ?? acPendingFromDevice(device);
@@ -223,8 +236,12 @@ export function DeviceController({
               (expected.type === "mode" && dh.mode === expected.value) ||
               (expected.type === "humidity" && String(dh.targetHumidity) === `${expected.value}%`);
             if (matched) {
-              setDhPending(null);
+              // 不立刻清 dhPending：device prop 還沒 sync 到 expected（父層 60s polling
+              // 是 async），馬上清會讓 displayed flash 回舊值。改用 onCommandSuccess
+              // trigger 父層 refetch，等 device prop 對齊 → 上方 useEffect 清 pending。
+              // 保底 10s timeout 防止父層 refetch 萬一掛掉、pending 永遠卡住。
               if (onDehumidifierCommandSuccess) onDehumidifierCommandSuccess();
+              setTimeout(() => setDhPending(null), 10000);
               return;
             }
           }
