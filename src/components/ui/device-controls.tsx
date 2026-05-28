@@ -40,7 +40,7 @@ export function Toggle2({
         type="button"
         disabled={disabled}
         onClick={() => onChange(true)}
-        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${onCls}`}
+        className={`rounded-full px-3 py-[5px] text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${onCls}`}
       >
         ON
       </button>
@@ -48,7 +48,7 @@ export function Toggle2({
         type="button"
         disabled={disabled}
         onClick={() => onChange(false)}
-        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${offCls}`}
+        className={`rounded-full px-3 py-[5px] text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${offCls}`}
       >
         OFF
       </button>
@@ -76,7 +76,7 @@ export function Stepper({
         type="button"
         onClick={onMinus}
         disabled={disabled}
-        className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
+        className="grid h-[29px] w-[29px] place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
         aria-label="減少"
       >
         −
@@ -89,7 +89,7 @@ export function Stepper({
         type="button"
         onClick={onPlus}
         disabled={disabled}
-        className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
+        className="grid h-[29px] w-[29px] place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
         aria-label="增加"
       >
         +
@@ -142,7 +142,7 @@ export function Segment<T extends string | number>({
             type="button"
             disabled={disabled}
             onClick={() => onSelect(opt.value)}
-            className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${cls}`}
+            className={`rounded-full px-3 py-[5px] text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${cls}`}
           >
             {format ? format(opt.value) : opt.label}
           </button>
@@ -197,8 +197,8 @@ export function Dropdown<T extends string | number>({
         if (opt) onSelect(opt.value);
       }}
       disabled={disabled}
-      // py-[9px] 對齊 Toggle2 視覺高度（Toggle2 外層 p-[3px] + 內按鈕 py-1.5 = 9px 各側）
-      className={`rounded-[19px] border border-line bg-elevated px-3.5 py-[9px] text-[13px] font-medium text-soft transition-colors hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      // py-[7px] 對齊 Toggle2 視覺高度（Toggle2 外層 p-[3px] + 內按鈕 py-[5px] = ~7px 各側）
+      className={`rounded-[19px] border border-line bg-elevated px-3.5 py-[7px] text-[13px] font-medium text-soft transition-colors hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     >
       {selectedStr === "" && (
         <option value="" disabled>{placeholder}</option>
