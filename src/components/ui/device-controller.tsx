@@ -313,6 +313,7 @@ export function DeviceController({
         throw new Error(`HTTP ${res.status}`);
       }
       if (onDehumRuleUpdate) await onDehumRuleUpdate();
+      if (onDehumidifierCommandSuccess) await onDehumidifierCommandSuccess();
     } catch (err) {
       console.error(`[autoRule] ${device.name} error:`, err);
     } finally {

@@ -101,6 +101,12 @@ export default function HomePage() {
     const id = setInterval(() => refetchDehumRules(), 60_000);
     return () => clearInterval(id);
   }, [refetchDehumRules]);
+  const hasAutoDehumidifier = Object.values(dehumRulesMap).some((rule) => rule?.auto_mode);
+  useEffect(() => {
+    if (!hasAutoDehumidifier) return;
+    const id = setInterval(() => refetchStatus(), 60_000);
+    return () => clearInterval(id);
+  }, [hasAutoDehumidifier, refetchStatus]);
 
   // 除濕機 ON/OFF 歷史（給自動模式 chart 畫綠色背景）
   const {
