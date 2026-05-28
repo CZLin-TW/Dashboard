@@ -209,10 +209,12 @@ export function DeviceController({
         body: JSON.stringify({ deviceName: device.name, action: "dehumidifier", params }),
       });
 
+      // 帶 ?name= 只查該裝置，避免被其他雲端慢的除濕機拖累 endpoint latency
+      const statusUrl = `/api/devices/status?name=${encodeURIComponent(device.name)}`;
       for (let i = 0; i < 30; i++) {
         await new Promise((r) => setTimeout(r, 1000));
         try {
-          const res = await fetch("/api/devices/status");
+          const res = await fetch(statusUrl);
           const data = await res.json();
           const dh = data?.[device.name];
           if (dh) {
