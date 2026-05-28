@@ -19,7 +19,7 @@ export function FoodAlertCard({ food }: Props) {
     <Card>
       <CardHeader>
         <CardTitle>
-          <AlertTriangle className="h-5 w-5 text-warm" strokeWidth={2} />
+          <AlertTriangle className="h-4 w-4 text-warm" strokeWidth={2} />
           即期食品
         </CardTitle>
         <Link href="/food" className="text-sm text-cool hover:text-cool/80">

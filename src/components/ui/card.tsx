@@ -26,11 +26,10 @@ export function CardHeader({ className, children, ...props }: CardProps) {
   );
 }
 
-/** Card 標題：主視覺，比 section h1 還醒目，讓卡片本身一眼可辨識。
-    預設 flex+gap，配合左側 lucide icon（搭配 h-5 w-5）。 */
+/** Card 標題：sub-heading 樣態（page title 才是 h1 大字）。預設 flex+gap，配合左側 lucide icon。 */
 export function CardTitle({ className, children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h3 className={cn("flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em] text-foreground", className)} {...props}>
+    <h3 className={cn("flex items-center gap-2 text-sm font-semibold text-mute", className)} {...props}>
       {children}
     </h3>
   );

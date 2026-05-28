@@ -43,7 +43,7 @@ export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain,
     <Card>
       <CardHeader>
         <CardTitle>
-          <SensorIcon className="h-5 w-5" strokeWidth={2} />
+          <SensorIcon className="h-4 w-4" strokeWidth={2} />
           室內環境
         </CardTitle>
       </CardHeader>

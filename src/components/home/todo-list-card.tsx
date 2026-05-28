@@ -27,7 +27,7 @@ export function TodoListCard({ todos, onCompleted }: Props) {
     <Card>
       <CardHeader>
         <CardTitle>
-          <CheckSquare className="h-5 w-5" strokeWidth={2} />
+          <CheckSquare className="h-4 w-4" strokeWidth={2} />
           待辦事項
         </CardTitle>
         <Link href="/todos" className="text-sm text-cool hover:text-cool/80">

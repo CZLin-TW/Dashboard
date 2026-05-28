@@ -99,8 +99,8 @@ export default function FoodPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
-          <Apple className="h-4 w-4" strokeWidth={2} />
+        <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
+          <Apple className="h-5 w-5 text-mute" strokeWidth={2} />
           庫存
         </h1>
         <PillButton

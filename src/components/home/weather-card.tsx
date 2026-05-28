@@ -51,7 +51,7 @@ export function WeatherCard({ weather }: Props) {
     <Card>
       <CardHeader>
         <CardTitle>
-          <MapPin className="h-5 w-5" strokeWidth={2} />
+          <MapPin className="h-4 w-4" strokeWidth={2} />
           {weather?.location ?? "--"} {obs?.observed_at ?? "--:--"}
         </CardTitle>
       </CardHeader>
