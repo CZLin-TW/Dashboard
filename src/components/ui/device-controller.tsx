@@ -379,7 +379,7 @@ export function DeviceController({
           type="button"
           onClick={sendAcCommand}
           disabled={sending || acAwaiting}
-          className={`w-full rounded-full border py-2.5 text-sm font-semibold transition-colors ${
+          className={`inline-flex h-[30px] w-full items-center justify-center rounded-full border text-sm font-semibold transition-colors ${
             acFailed
               ? "border-transparent bg-warm text-white animate-pulse"
               : acAwaiting
@@ -554,7 +554,7 @@ export function DeviceController({
                 key={btn}
                 type="button"
                 onClick={() => sendIrCommand(btn)}
-                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-all duration-150 ${stateCls}`}
+                className={`inline-flex h-[30px] items-center justify-center rounded-full border px-3 text-sm font-medium transition-all duration-150 ${stateCls}`}
               >
                 {btn}
               </button>

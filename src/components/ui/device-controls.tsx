@@ -35,12 +35,12 @@ export function Toggle2({
     ? !value ? "bg-faint text-white" : "text-faint"
     : !value ? "bg-warm text-white shadow-sm" : "text-mute";
   return (
-    <div className="inline-flex gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
+    <div className="inline-flex h-[30px] items-center gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
       <button
         type="button"
         disabled={disabled}
         onClick={() => onChange(true)}
-        className={`rounded-full px-3 py-[5px] text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${onCls}`}
+        className={`inline-flex h-6 items-center rounded-full px-3 text-[13px] font-medium leading-none transition-colors disabled:cursor-not-allowed ${onCls}`}
       >
         ON
       </button>
@@ -48,7 +48,7 @@ export function Toggle2({
         type="button"
         disabled={disabled}
         onClick={() => onChange(false)}
-        className={`rounded-full px-3 py-[5px] text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${offCls}`}
+        className={`inline-flex h-6 items-center rounded-full px-3 text-[13px] font-medium leading-none transition-colors disabled:cursor-not-allowed ${offCls}`}
       >
         OFF
       </button>
@@ -76,7 +76,7 @@ export function Stepper({
         type="button"
         onClick={onMinus}
         disabled={disabled}
-        className="grid h-[29px] w-[29px] place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
+        className="grid h-[30px] w-[30px] place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
         aria-label="減少"
       >
         −
@@ -89,7 +89,7 @@ export function Stepper({
         type="button"
         onClick={onPlus}
         disabled={disabled}
-        className="grid h-[29px] w-[29px] place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
+        className="grid h-[30px] w-[30px] place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
         aria-label="增加"
       >
         +
@@ -119,7 +119,7 @@ export function Segment<T extends string | number>({
   format?: (v: T) => string;
 }) {
   return (
-    <div className="inline-flex flex-wrap gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
+    <div className="inline-flex h-[30px] flex-wrap items-center gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
       {options.map((opt) => {
         const isActive = opt.value === value;
         const isPending = pendingValue !== undefined && opt.value === pendingValue;
@@ -142,7 +142,7 @@ export function Segment<T extends string | number>({
             type="button"
             disabled={disabled}
             onClick={() => onSelect(opt.value)}
-            className={`rounded-full px-3 py-[5px] text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${cls}`}
+            className={`inline-flex h-6 items-center rounded-full px-3 text-[13px] font-medium leading-none transition-colors disabled:cursor-not-allowed ${cls}`}
           >
             {format ? format(opt.value) : opt.label}
           </button>
@@ -197,8 +197,8 @@ export function Dropdown<T extends string | number>({
         if (opt) onSelect(opt.value);
       }}
       disabled={disabled}
-      // py-[7px] 對齊 Toggle2 視覺高度（Toggle2 外層 p-[3px] + 內按鈕 py-[5px] = ~7px 各側）
-      className={`rounded-[19px] border border-line bg-elevated px-3.5 py-[7px] text-[13px] font-medium text-soft transition-colors hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      // 統一 row 高 30px（與 Toggle2 / Segment / Stepper 對齊）
+      className={`h-[30px] rounded-[19px] border border-line bg-elevated px-3.5 text-[13px] font-medium text-soft transition-colors hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     >
       {selectedStr === "" && (
         <option value="" disabled>{placeholder}</option>
