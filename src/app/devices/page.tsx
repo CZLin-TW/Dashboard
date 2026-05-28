@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, Suspense } from "react";
+import { useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "motion/react";
-import { LayoutGrid, Activity, Cpu, ChevronDown } from "lucide-react";
+import { LayoutGrid, Activity, Cpu } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import {
@@ -31,24 +30,12 @@ import type { Schedule } from "@/lib/schedule";
 
 function DeviceScrollTarget({
   deviceRefs,
-  deviceRoom,
-  onExpandRoom,
 }: {
   deviceRefs: React.RefObject<Record<string, HTMLDivElement | null>>;
-  deviceRoom: Record<string, string>;
-  onExpandRoom: (room: string) => void;
 }) {
   const searchParams = useSearchParams();
   const targetDevice = searchParams.get("target");
 
-  // 先把目標裝置所在房間展開（房間收合時卡片未掛載，無法捲動定位）
-  useEffect(() => {
-    if (!targetDevice) return;
-    const room = deviceRoom[targetDevice];
-    if (room) onExpandRoom(room);
-  }, [targetDevice, deviceRoom, onExpandRoom]);
-
-  // 展開動畫跑完後再捲動 + highlight（delay 留給房間展開渲染）
   useEffect(() => {
     if (!targetDevice) return;
     const t = setTimeout(() => {
@@ -58,7 +45,7 @@ function DeviceScrollTarget({
         el.classList.add("ring-2", "ring-cool");
         setTimeout(() => el.classList.remove("ring-2", "ring-cool"), 2000);
       }
-    }, 400);
+    }, 100);
     return () => clearTimeout(t);
   }, [targetDevice, deviceRefs]);
 
@@ -82,24 +69,6 @@ export default function DevicesPage() {
 
   const sensors = devices.filter(d => d.type === "感應器");
   const controllable = devices.filter(d => d.type !== "感應器");
-
-  // 房間收合狀態（預設全收合，點房間標題展開）。key = location。
-  const [expandedRooms, setExpandedRooms] = useState<Set<string>>(new Set());
-  const toggleRoom = useCallback((room: string) => {
-    setExpandedRooms(prev => {
-      const next = new Set(prev);
-      if (next.has(room)) next.delete(room); else next.add(room);
-      return next;
-    });
-  }, []);
-  // 給 deep-link（?target=）用：把目標裝置所在房間展開。idempotent，已展開回原 Set 不觸發 re-render。
-  const expandRoom = useCallback((room: string) => {
-    setExpandedRooms(prev => (prev.has(room) ? prev : new Set(prev).add(room)));
-  }, []);
-  const deviceRoom: Record<string, string> = {};
-  controllable.forEach(d => { deviceRoom[d.name] = d.location || "其他"; });
-  const roomNames = [...new Set(controllable.map(d => d.location || "其他"))];
-  const allRoomsExpanded = roomNames.length > 0 && roomNames.every(r => expandedRooms.has(r));
 
   // PC 監控：從 home-butler in-memory ring buffer 拉，agent 每 60s push 一次。
   // 60 秒 auto-refetch 跟 agent push 節奏對齊（最差 stale 約 60-120s）。
@@ -195,13 +164,13 @@ export default function DevicesPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <Suspense>
-        <DeviceScrollTarget deviceRefs={deviceRefs} deviceRoom={deviceRoom} onExpandRoom={expandRoom} />
+        <DeviceScrollTarget deviceRefs={deviceRefs} />
       </Suspense>
 
       {/* ── 環境感測 ── */}
       <section className="space-y-3">
-        <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
-          <Activity className="h-5 w-5 text-mute" strokeWidth={2} />
+        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
+          <Activity className="h-4 w-4" strokeWidth={2} />
           環境感測
         </h1>
         <div className="flex items-center justify-between px-1">
@@ -227,10 +196,10 @@ export default function DevicesPage() {
                 <div key={s.name} className={PANEL_BASE}>
                   <div className="flex items-center justify-between gap-2.5">
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className="grid h-4 w-4 place-items-center text-mute">
-                        <SensorIcon className="h-4 w-4" strokeWidth={1.8} />
+                      <span className="grid h-5 w-5 place-items-center text-mute">
+                        <SensorIcon className="h-5 w-5" strokeWidth={1.8} />
                       </span>
-                      <span className="truncate text-sm font-semibold text-foreground">
+                      <span className="truncate text-[22px] font-bold tracking-[-0.01em] text-foreground">
                         {s.name || s.location}
                       </span>
                     </div>
@@ -271,35 +240,25 @@ export default function DevicesPage() {
 
       {/* ── 裝置控制 ── */}
       <section className="space-y-3">
-        <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
-          <LayoutGrid className="h-5 w-5 text-mute" strokeWidth={2} />
+        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
+          <LayoutGrid className="h-4 w-4" strokeWidth={2} />
           裝置控制
         </h1>
         <div className="flex items-center justify-between px-1">
           <p className="text-xs text-mute">
             釘選最多 {pin.MAX_PINNED_DEVICES} 個到首頁（已選 {pin.pinnedDevices.length}）
           </p>
-          <div className="flex items-center gap-3">
-            {roomNames.length > 0 && (
-              <button
-                onClick={() => setExpandedRooms(allRoomsExpanded ? new Set() : new Set(roomNames))}
-                className="text-xs text-cool hover:text-cool/80"
-              >
-                {allRoomsExpanded ? "收合全部" : "展開全部"}
-              </button>
-            )}
-            {pin.pinnedDevices.length > 0 && (
-              <button
-                onClick={pin.clearAllDevices}
-                className="text-xs text-warm hover:text-warm/80"
-              >
-                重置釘選
-              </button>
-            )}
-          </div>
+          {pin.pinnedDevices.length > 0 && (
+            <button
+              onClick={pin.clearAllDevices}
+              className="text-xs text-warm hover:text-warm/80"
+            >
+              重置釘選
+            </button>
+          )}
         </div>
 
-      {/* 房間分群 + panel */}
+      {/* 房間分群：每個房間一個子標題，下方直接展開裝置 grid */}
       {(() => {
         const groups: Record<string, DeviceData[]> = {};
         controllable.forEach(d => {
@@ -308,58 +267,14 @@ export default function DevicesPage() {
           groups[loc].push(d);
         });
 
-        return Object.entries(groups).map(([location, devs]) => {
-          const open = expandedRooms.has(location);
-          // 各類型裝置數量，給收合卡片顯示「房間有什麼」
-          const typeCounts: Record<string, number> = {};
-          devs.forEach(d => { typeCounts[d.type] = (typeCounts[d.type] ?? 0) + 1; });
-          return (
+        return Object.entries(groups).map(([location, devs]) => (
           <div key={location} className="space-y-3">
-            {/* 房間按鈕：點一下展開、再點收回。本身像一張卡片，不包住裝置卡。 */}
-            <button
-              type="button"
-              onClick={() => toggleRoom(location)}
-              className="flex w-full items-center justify-between gap-3 rounded-[14px] border border-line bg-surface px-4 py-3 text-left shadow-sm shadow-mute/10 transition-colors hover:bg-elevated/30"
-            >
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <span className="text-[15px] font-semibold text-foreground">{location}</span>
-                <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-mute">
-                  {Object.entries(typeCounts).map(([type, n]) => {
-                    const Icon = DEVICE_ICONS[type] ?? DEVICE_ICON_FALLBACK;
-                    return (
-                      <span key={type} className="inline-flex items-center gap-1">
-                        <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
-                        <span className="num">{n}</span>
-                      </span>
-                    );
-                  })}
-                </span>
-              </div>
-              <div className="flex flex-shrink-0 items-center gap-2.5">
-                <span className="num rounded-full bg-elevated px-2 py-0.5 text-[11px] font-semibold text-mute">
-                  {devs.length} 台
-                </span>
-                <ChevronDown
-                  className={`h-4 w-4 text-mute transition-transform ${open ? "rotate-180" : ""}`}
-                  strokeWidth={2}
-                />
-              </div>
-            </button>
-            <AnimatePresence initial={false}>
-              {open && (
-                <motion.div
-                  key="room-body"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{
-                    height: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
-                    opacity: { duration: 0.18, ease: "easeOut" },
-                  }}
-                  className="overflow-hidden"
-                >
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {devs.map((device) => {
+            {/* 房間子標題：對比樣式（uppercase + 細底線），跟新的 section h1（小灰字）不打架 */}
+            <h2 className="border-b border-line pb-1.5 text-xs font-semibold uppercase tracking-wider text-mute">
+              {location}
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {devs.map((device) => {
                 const TypeIcon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
                 const pinned = pin.isDevicePinned(device.name);
                 const canPin = pinned || pin.canPinMore;
@@ -373,10 +288,10 @@ export default function DevicesPage() {
                     {/* panel-head */}
                     <div className="flex items-center justify-between gap-2.5">
                       <div className="flex min-w-0 items-center gap-2">
-                        <span className="grid h-4 w-4 place-items-center text-mute">
-                          <TypeIcon className="h-4 w-4" strokeWidth={1.8} />
+                        <span className="grid h-5 w-5 place-items-center text-mute">
+                          <TypeIcon className="h-5 w-5" strokeWidth={1.8} />
                         </span>
-                        <span className="truncate text-sm font-semibold text-foreground">{device.name}</span>
+                        <span className="truncate text-[22px] font-bold tracking-[-0.01em] text-foreground">{device.name}</span>
                       </div>
                       <PinButton
                         pinned={pinned}
@@ -407,21 +322,17 @@ export default function DevicesPage() {
                     />
                   </div>
                 );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+              })}
+            </div>
           </div>
-          );
-        });
+        ));
       })()}
       </section>
 
       {/* ── 電腦 ── */}
       <section className="space-y-3">
-        <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
-          <Cpu className="h-5 w-5 text-mute" strokeWidth={2} />
+        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
+          <Cpu className="h-4 w-4" strokeWidth={2} />
           電腦
         </h1>
         {computers.length === 0 ? (

@@ -77,8 +77,8 @@ export default function SchedulesPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
-          <Clock className="h-5 w-5 text-mute" strokeWidth={2} />
+        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
+          <Clock className="h-4 w-4" strokeWidth={2} />
           排程管理
         </h1>
         <PillButton

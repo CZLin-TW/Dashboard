@@ -123,10 +123,10 @@ export function ComputerCard({ pc, tempDomain }: Props) {
       {/* ── 卡頭：IP + 在線指示燈 + heartbeat ── */}
       <div className="flex items-center justify-between gap-2.5">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="grid h-4 w-4 place-items-center text-mute">
-            <Cpu className="h-4 w-4" strokeWidth={1.8} />
+          <span className="grid h-5 w-5 place-items-center text-mute">
+            <Cpu className="h-5 w-5" strokeWidth={1.8} />
           </span>
-          <span className="num truncate text-sm font-semibold text-foreground">{pc.ip}</span>
+          <span className="num truncate text-[22px] font-bold tracking-[-0.01em] text-foreground">{pc.ip}</span>
         </div>
         <span className="flex flex-shrink-0 items-center gap-1.5">
           <span

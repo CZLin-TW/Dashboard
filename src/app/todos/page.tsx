@@ -130,8 +130,8 @@ export default function TodosPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-[22px] font-bold tracking-[-0.01em]">
-          <CheckSquare className="h-5 w-5 text-mute" strokeWidth={2} />
+        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
+          <CheckSquare className="h-4 w-4" strokeWidth={2} />
           待辦清單
         </h1>
         <PillButton

@@ -132,7 +132,7 @@ export function DeviceQuickControl({
       <Card>
         <CardHeader>
           <CardTitle>
-            <LayoutGrid className="h-4 w-4" strokeWidth={2} />
+            <LayoutGrid className="h-5 w-5" strokeWidth={2} />
             裝置快捷
           </CardTitle>
           <Link href="/devices" className="text-sm text-cool hover:text-cool/80">
@@ -225,7 +225,7 @@ export function DeviceQuickControl({
     <Card>
       <CardHeader>
         <CardTitle>
-          <LayoutGrid className="h-4 w-4" strokeWidth={2} />
+          <LayoutGrid className="h-5 w-5" strokeWidth={2} />
           裝置快捷
         </CardTitle>
         <Link href="/devices" className="text-sm text-cool hover:text-cool/80">
