@@ -429,6 +429,13 @@ export function DeviceController({
       return Number.isFinite(n) ? n : undefined;
     })();
 
+    // Panasonic 機型：只有「目標濕度」mode 才能設目標濕度（其他模式機器自己判斷）。
+    // LG 各 mode 都能設目標濕度（智慧除濕 + 目標數字）→ 不受此限制。
+    // 用 displayedMode 而非 device.mode：剛切到「目標濕度」mode pending 期間就要立刻
+    // 顯示濕度 Segment，不用等 readback 確認。
+    const isPanasonic = (device.brand ?? "Panasonic") === "Panasonic";
+    const canSetHumidity = !isPanasonic || displayedMode === "目標濕度";
+
     // 規則 phase 對應的人類可讀文字（只在「值得顯示」時才印一行）
     const phaseText = (() => {
       if (!autoOn) return null;
@@ -455,7 +462,11 @@ export function DeviceController({
                     dehumRule?.threshold != null ? ` · 目標 ${dehumRule.threshold}%` : ""
                   }`
                 : device.power
-                ? `運轉中${device.mode ? ` · ${device.mode}` : ""}${device.targetHumidity ? ` · 目標 ${device.targetHumidity}` : ""}`
+                ? `運轉中${device.mode ? ` · ${device.mode}` : ""}${
+                    device.targetHumidity && (!isPanasonic || device.mode === "目標濕度")
+                      ? ` · 目標 ${device.targetHumidity}`
+                      : ""
+                  }`
                 : "關閉"
             }
           />
@@ -521,9 +532,11 @@ export function DeviceController({
             disabled={manualDisabled}
           />
         </Field>
-        {/* 機體目標濕度 segment 只在手動模式顯示。auto ON 時門檻完全由上方 dropdown
-            管，機器跑在連續除濕、不看自己的目標濕度，這個 segment 失去意義就隱藏。 */}
-        {!autoOn && (
+        {/* 機體目標濕度 segment 只在「手動模式 + 機型支援該模式設濕度」時顯示。
+            auto ON 時門檻完全由上方 dropdown 管，機器跑在連續除濕、不看自己的目標濕度；
+            Panasonic 在非「目標濕度」mode（連續除濕/防霉抑菌/空氣清淨/AI舒適）也不看
+            目標濕度設定 — 兩種情境都隱藏，避免使用者誤以為設定有效。 */}
+        {!autoOn && canSetHumidity && (
           <Field label="目標濕度">
             <Segment
               options={dh.humidity.map((h) => ({ value: h, label: `${h}%` }))}
