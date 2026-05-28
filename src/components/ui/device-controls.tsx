@@ -40,7 +40,7 @@ export function Toggle2({
         type="button"
         disabled={disabled}
         onClick={() => onChange(true)}
-        className={`inline-flex items-center rounded-full px-3 py-[4px] text-[13px] font-medium leading-[16px] transition-colors disabled:cursor-not-allowed ${onCls}`}
+        className={`inline-flex min-w-[42px] items-center justify-center rounded-full px-3 py-[4px] text-[13px] font-medium leading-[16px] transition-colors disabled:cursor-not-allowed ${onCls}`}
       >
         ON
       </button>
@@ -48,7 +48,7 @@ export function Toggle2({
         type="button"
         disabled={disabled}
         onClick={() => onChange(false)}
-        className={`inline-flex items-center rounded-full px-3 py-[4px] text-[13px] font-medium leading-[16px] transition-colors disabled:cursor-not-allowed ${offCls}`}
+        className={`inline-flex min-w-[42px] items-center justify-center rounded-full px-3 py-[4px] text-[13px] font-medium leading-[16px] transition-colors disabled:cursor-not-allowed ${offCls}`}
       >
         OFF
       </button>

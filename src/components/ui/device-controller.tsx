@@ -442,8 +442,8 @@ export function DeviceController({
             }
           />
         )}
-        {/* Row 1: 電源 toggle + 自動模式 toggle + 監控時間 dropdown */}
-        <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
+        {/* Row 1: 電源 toggle + 自動模式 toggle + 監控時間 dropdown（撐滿剩餘寬度，對齊 Row 2 目標濕度右側） */}
+        <div className="flex flex-wrap items-start gap-x-2 gap-y-3">
           <Field label="電源">
             <Toggle2
               value={!!device.power}
@@ -458,12 +458,13 @@ export function DeviceController({
               disabled={autoRulePending}
             />
           </Field>
-          <Field label="監控時間">
+          <Field label="監控時間" className="flex-1 min-w-0">
             <Dropdown
               options={DURATION_OPTIONS}
               value={dehumRule?.duration_min ?? 30}
               onSelect={(v) => sendAutoRuleUpdate({ duration_min: v })}
               disabled={autoConfigDisabled}
+              className="w-full"
             />
           </Field>
         </div>
