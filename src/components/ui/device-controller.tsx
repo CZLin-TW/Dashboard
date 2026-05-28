@@ -128,6 +128,11 @@ export function DeviceController({
     setTimeout(() => setAcFailed(false), 2000);
   }
 
+  function flashDhFailed(expected: { type: string; value: unknown }) {
+    setDhFailed(expected);
+    setTimeout(() => setDhFailed(null), 5000);
+  }
+
   async function sendAcCommand() {
     const p = getAcPending();
     setAcAwaiting(true);
@@ -203,11 +208,17 @@ export function DeviceController({
     setSending(true);
 
     try {
-      await fetch("/api/devices/control", {
+      const res = await fetch("/api/devices/control", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceName: device.name, action: "dehumidifier", params }),
       });
+      if (!res.ok) {
+        console.error(`[sendDehumidifierCommand] ${device.name} failed: HTTP ${res.status}`);
+        setDhPending(null);
+        flashDhFailed(expected);
+        return;
+      }
 
       // ?name= 只查該裝置，避免被其他雲端慢的除濕機拖累 endpoint latency
       const statusUrl = `/api/devices/status?name=${encodeURIComponent(device.name)}`;
@@ -223,8 +234,8 @@ export function DeviceController({
               (expected.type === "mode" && dh.mode === expected.value) ||
               (expected.type === "humidity" && String(dh.targetHumidity) === `${expected.value}%`);
             if (matched) {
+              if (onDehumidifierCommandSuccess) await onDehumidifierCommandSuccess();
               setDhPending(null);
-              if (onDehumidifierCommandSuccess) onDehumidifierCommandSuccess();
               return;
             }
           }
@@ -232,10 +243,13 @@ export function DeviceController({
       }
 
       // 30 秒後還沒匹配 → 標 failed 閃 5s，仍 refetch 避免顯示與實際不一致
+      if (onDehumidifierCommandSuccess) await onDehumidifierCommandSuccess();
       setDhPending(null);
-      setDhFailed(expected);
-      setTimeout(() => setDhFailed(null), 5000);
-      if (onDehumidifierCommandSuccess) onDehumidifierCommandSuccess();
+      flashDhFailed(expected);
+    } catch (err) {
+      console.error(`[sendDehumidifierCommand] ${device.name} network error:`, err);
+      setDhPending(null);
+      flashDhFailed(expected);
     } finally {
       setSending(false);
     }
