@@ -8,7 +8,7 @@ export interface SensorHistoryRaw {
   co2?: number | null;            // Meter Pro CO2 才有；一般溫濕度感測器 null
 }
 
-export interface SensorCurrentRaw extends SensorHistoryRaw {}
+export type SensorCurrentRaw = SensorHistoryRaw;
 
 export interface Sensor {
   device_name: string;

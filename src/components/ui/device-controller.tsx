@@ -280,7 +280,7 @@ export function DeviceController({
     // 為什麼一定要切持續除濕：其他模式（尤其「目標濕度」）除濕機會看
     // 機體周邊濕度自己達標停機，但外部 sensor 還沒到 → 永遠 trigger 不
     // 到 auto-OFF。持續除濕忽略內部判定，控制權完全交給外部 sensor +
-    // hysteresis。模式名稱依品牌（Panasonic 連續除濕 / LG 強力除濕）。
+    // hysteresis。模式名稱依品牌（Panasonic 連續除濕 / LG 智慧除濕）。
     try {
       if (isTogglingOn && device.power) {
         const modeReady = await sendDehumidifierCommand({ mode: continuousMode });

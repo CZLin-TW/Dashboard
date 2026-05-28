@@ -8,7 +8,6 @@ google-credentials.json
 /.pnp
 .pnp.js
 .yarn/install-state.gz
-package-lock.json
 
 # testing
 /coverage

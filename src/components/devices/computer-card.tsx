@@ -108,9 +108,9 @@ export function ComputerCard({ pc, tempDomain }: Props) {
   const C_GPU = "var(--color-warm)";
   const C_RAM = "var(--color-amber)";
 
-  const rightmost = chartHistory[chartHistory.length - 1]?.t ?? Date.now();
-  const ticks = computeTicks(rightmost);
   const hasHistory = chartHistory.length > 0;
+  const rightmost = chartHistory[chartHistory.length - 1]?.t ?? 0;
+  const ticks = hasHistory ? computeTicks(rightmost) : [];
 
   // 溫度圖明確指定 Y ticks（避免 Recharts auto-tick 對奇數差範圍挑出 5 47 53 之類斷層）
   const tempStep = tempDomain[1] - tempDomain[0] <= 30 ? 5 : 10;
