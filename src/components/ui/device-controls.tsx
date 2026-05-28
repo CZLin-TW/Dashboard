@@ -35,12 +35,12 @@ export function Toggle2({
     ? !value ? "bg-faint text-white" : "text-faint"
     : !value ? "bg-warm text-white shadow-sm" : "text-mute";
   return (
-    <div className="inline-flex h-[30px] items-center gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
+    <div className="inline-flex items-center gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
       <button
         type="button"
         disabled={disabled}
         onClick={() => onChange(true)}
-        className={`inline-flex h-6 items-center rounded-full px-3 text-[13px] font-medium leading-none transition-colors disabled:cursor-not-allowed ${onCls}`}
+        className={`inline-flex items-center rounded-full px-3 py-[4px] text-[13px] font-medium leading-[16px] transition-colors disabled:cursor-not-allowed ${onCls}`}
       >
         ON
       </button>
@@ -48,7 +48,7 @@ export function Toggle2({
         type="button"
         disabled={disabled}
         onClick={() => onChange(false)}
-        className={`inline-flex h-6 items-center rounded-full px-3 text-[13px] font-medium leading-none transition-colors disabled:cursor-not-allowed ${offCls}`}
+        className={`inline-flex items-center rounded-full px-3 py-[4px] text-[13px] font-medium leading-[16px] transition-colors disabled:cursor-not-allowed ${offCls}`}
       >
         OFF
       </button>
@@ -119,7 +119,7 @@ export function Segment<T extends string | number>({
   format?: (v: T) => string;
 }) {
   return (
-    <div className="inline-flex h-[30px] flex-wrap items-center gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
+    <div className="inline-flex flex-wrap items-center gap-y-[3px] gap-x-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
       {options.map((opt) => {
         const isActive = opt.value === value;
         const isPending = pendingValue !== undefined && opt.value === pendingValue;
@@ -142,7 +142,7 @@ export function Segment<T extends string | number>({
             type="button"
             disabled={disabled}
             onClick={() => onSelect(opt.value)}
-            className={`inline-flex h-6 items-center rounded-full px-3 text-[13px] font-medium leading-none transition-colors disabled:cursor-not-allowed ${cls}`}
+            className={`inline-flex items-center rounded-full px-3 py-[4px] text-[13px] font-medium leading-[16px] transition-colors disabled:cursor-not-allowed ${cls}`}
           >
             {format ? format(opt.value) : opt.label}
           </button>
