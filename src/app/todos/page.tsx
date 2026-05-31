@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { CheckSquare, Plus, Lock, Pencil, X, Check } from "lucide-react";
+import { CheckSquare, Plus, Lock, Pencil, X, Check, Lightbulb } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Field,
   PillButton,
   IconActionButton,
 } from "@/components/ui/device-controls";
-import { todoUrgency, urgencyRowClass, relativeDateLabel } from "@/lib/types";
+import { todoLightNotify, todoUrgency, urgencyRowClass, relativeDateLabel } from "@/lib/types";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useCompleteTodo } from "@/hooks/use-complete-todo";
@@ -22,6 +22,7 @@ interface TodoItem {
   "類型": string;
   "來源": string;
   "屬性": string;
+  "燈光提醒"?: string | boolean;
 }
 
 // 不放 w-full 在 base，避免 flex item 被同時套 flex-1 + w-full 後在
@@ -34,10 +35,10 @@ export default function TodosPage() {
   const { currentUser } = useUser();
   const { data: todos, loading, refetch: fetchTodos } = useCachedFetch<TodoItem[]>("/api/todos", []);
   const [showAdd, setShowAdd] = useState(false);
-  const [newTodo, setNewTodo] = useState({ item: "", date: "", time: "", type: "私人" });
+  const [newTodo, setNewTodo] = useState({ item: "", date: "", time: "", type: "私人", light_notify: false });
   const [hasTime, setHasTime] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
-  const [editTodo, setEditTodo] = useState({ item: "", date: "", time: "", type: "私人" });
+  const [editTodo, setEditTodo] = useState({ item: "", date: "", time: "", type: "私人", light_notify: false });
   const { completeTodo, isCompleting } = useCompleteTodo(fetchTodos);
 
   // 隱私：移除「我的 / 全部」切換，永遠只顯示「自己負責 + 公開」項目；
@@ -71,9 +72,10 @@ export default function TodosPage() {
         time: newTodo.time,
         person: currentUser.name,
         type: newTodo.type,
+        light_notify: hasTime && newTodo.light_notify,
       }),
     }).then(() => {
-      setNewTodo({ item: "", date: "", time: "", type: "私人" });
+      setNewTodo({ item: "", date: "", time: "", type: "私人", light_notify: false });
       setHasTime(false);
       setShowAdd(false);
       fetchTodos();
@@ -87,6 +89,7 @@ export default function TodosPage() {
       date: todo["日期"],
       time: todo["時間"],
       type: todo["類型"],
+      light_notify: todoLightNotify(todo),
     });
   }
 
@@ -104,6 +107,7 @@ export default function TodosPage() {
         date: editTodo.date !== original["日期"] ? editTodo.date : undefined,
         time: editTodo.time !== original["時間"] ? editTodo.time : undefined,
         type: editTodo.type !== original["類型"] ? editTodo.type : undefined,
+        light_notify: editTodo.light_notify !== todoLightNotify(original) ? editTodo.light_notify : undefined,
         requester: currentUser.name,
       }),
     }).then(() => {
@@ -166,8 +170,9 @@ export default function TodosPage() {
                   type="checkbox"
                   checked={hasTime}
                   onChange={() => {
-                    setHasTime(!hasTime);
-                    if (hasTime) setNewTodo((p) => ({ ...p, time: "" }));
+                    const next = !hasTime;
+                    setHasTime(next);
+                    if (!next) setNewTodo((p) => ({ ...p, time: "", light_notify: false }));
                   }}
                   className="h-3.5 w-3.5 rounded border-line accent-cool"
                 />
@@ -182,6 +187,21 @@ export default function TodosPage() {
                 />
               )}
             </div>
+            <label
+              className={`flex items-center gap-2 text-[12.5px] select-none ${
+                hasTime ? "cursor-pointer text-mute" : "cursor-not-allowed text-faint"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={newTodo.light_notify}
+                disabled={!hasTime}
+                onChange={(e) => setNewTodo((p) => ({ ...p, light_notify: e.target.checked }))}
+                className="h-3.5 w-3.5 rounded border-line accent-cool disabled:opacity-40"
+              />
+              <Lightbulb className="h-3.5 w-3.5" strokeWidth={2} />
+              燈光提醒
+            </label>
             <Field label="類型">
               <select
                 value={newTodo.type}
@@ -241,7 +261,11 @@ export default function TodosPage() {
                       <input
                         type="time"
                         value={editTodo.time}
-                        onChange={(e) => setEditTodo((p) => ({ ...p, time: e.target.value }))}
+                        onChange={(e) => setEditTodo((p) => ({
+                          ...p,
+                          time: e.target.value,
+                          light_notify: e.target.value ? p.light_notify : false,
+                        }))}
                         className={`w-28 ${INPUT_BASE}`}
                       />
                       <select
@@ -253,6 +277,21 @@ export default function TodosPage() {
                         <option value="公開">公開</option>
                       </select>
                     </div>
+                    <label
+                      className={`flex items-center gap-2 text-[12.5px] select-none ${
+                        editTodo.time ? "cursor-pointer text-mute" : "cursor-not-allowed text-faint"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={editTodo.light_notify}
+                        disabled={!editTodo.time}
+                        onChange={(e) => setEditTodo((p) => ({ ...p, light_notify: e.target.checked }))}
+                        className="h-3.5 w-3.5 rounded border-line accent-cool disabled:opacity-40"
+                      />
+                      <Lightbulb className="h-3.5 w-3.5" strokeWidth={2} />
+                      燈光提醒
+                    </label>
                     <div className="flex gap-2">
                       <button
                         onClick={saveEdit}
@@ -273,6 +312,7 @@ export default function TodosPage() {
 
               const completing = isCompleting(todo);
               const isPublic = todo["類型"] === "公開";
+              const lightNotify = todoLightNotify(todo);
               const urgency = todoUrgency(todo["日期"], todo["時間"]);
               const urgencyCls = urgencyRowClass(urgency);
               // 已 highlight 的 row 不再加 hover bg（會 muddy 兩層底色）
@@ -301,6 +341,7 @@ export default function TodosPage() {
                     <p className="flex items-center gap-1.5 text-sm text-foreground">
                       {todo["事項"]}
                       {isReadonly && <Lock className="h-3 w-3 text-faint" strokeWidth={2} />}
+                      {lightNotify && <Lightbulb className="h-3 w-3 text-amber" strokeWidth={2} />}
                     </p>
                     <p className="num text-xs text-mute">
                       {todo["日期"]}

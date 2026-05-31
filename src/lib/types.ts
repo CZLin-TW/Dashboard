@@ -104,6 +104,19 @@ export interface TodoData {
   "負責人": string;
   "狀態": string;
   "類型": string;
+  "來源"?: string;
+  "屬性"?: string;
+  "燈光提醒"?: string | boolean;
+}
+
+export function sheetBool(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  const text = String(value ?? "").trim().toUpperCase();
+  return ["TRUE", "1", "YES", "Y", "ON", "是", "要"].includes(text);
+}
+
+export function todoLightNotify(todo: Pick<TodoData, "燈光提醒">): boolean {
+  return sheetBool(todo["燈光提醒"]);
 }
 
 export interface FoodData {

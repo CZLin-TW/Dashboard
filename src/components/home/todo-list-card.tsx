@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { CheckSquare, Check } from "lucide-react";
+import { CheckSquare, Check, Lightbulb } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { type TodoData, todoUrgency, urgencyRowClass, relativeDateLabel } from "@/lib/types";
+import { type TodoData, todoLightNotify, todoUrgency, urgencyRowClass, relativeDateLabel } from "@/lib/types";
 import { useCompleteTodo } from "@/hooks/use-complete-todo";
 
 interface Props {
@@ -38,6 +38,7 @@ export function TodoListCard({ todos, onCompleted }: Props) {
         <ul className="flex flex-col gap-1">
           {todos.map((todo, i) => {
             const completing = isCompleting(todo);
+            const lightNotify = todoLightNotify(todo);
             const urgency = todoUrgency(todo["日期"], todo["時間"]);
             const urgencyCls = urgencyRowClass(urgency);
             const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
@@ -63,6 +64,7 @@ export function TodoListCard({ todos, onCompleted }: Props) {
                 <span className="flex-1 truncate text-sm text-foreground">
                   {todo["事項"]}
                   {todo["時間"] && <span className="num ml-1.5 text-xs text-mute">{todo["時間"]}</span>}
+                  {lightNotify && <Lightbulb className="ml-1.5 inline h-3 w-3 text-amber" strokeWidth={2} />}
                 </span>
                 <span className="num flex-shrink-0 text-xs text-mute">
                   {todo["日期"]}
