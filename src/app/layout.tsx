@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Noto_Sans_TC } from "next/font/google";
 import { DesktopNav } from "@/components/layout/desktop-nav";
 import { MobileHeader } from "@/components/layout/mobile-header";
@@ -21,7 +21,29 @@ const notoTC = Noto_Sans_TC({
 
 export const metadata: Metadata = {
   title: "Smart Home Dashboard",
+  applicationName: "Smart Home",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Smart Home",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+  },
   description: "家庭智慧中控面板",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#F2F2F4",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

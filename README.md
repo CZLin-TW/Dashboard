@@ -22,6 +22,7 @@
 | 排程管理 | 完整 CRUD（新增 / 編輯 / 刪除）；直接內嵌在每張裝置卡片下方，過期排程也保留顯示 |
 | PC 監控 | 家中 PC 跑 agent 推指標到後端，Dashboard 顯示當下值（CPU/GPU 用量+溫度）+ 24h 折線圖（CPU/GPU/RAM 用量、CPU/GPU 溫度） |
 | LINE 登入 | LINE OAuth 2.1 認證，僅限家庭成員使用 |
+| PWA 主畫面 | 提供 manifest、standalone display、iOS web app meta 與 app icons，讓手機加入主畫面後更接近獨立 app |
 
 ---
 
@@ -38,6 +39,8 @@ Google Sheets / SwitchBot / Panasonic / 氣象署
 ```
 
 Dashboard 本身不做業務邏輯，所有 API Routes 都是代理層，轉發到 home-butler 後端處理。
+
+Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskable PNG icon、iOS `apple-mobile-web-app-capable` meta。目標是讓手機主畫面啟動時維持 standalone app 體驗；LINE OAuth 外部跳轉仍可能由系統瀏覽器接手，但 PWA 設定能降低主畫面捷徑退化成普通分頁的機率。
 
 ---
 
