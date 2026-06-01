@@ -3,7 +3,7 @@
 import { Pin } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────
-// 裝置控制 UI 元件 — devices 頁、首頁裝置快捷、排程頁共用。
+// 裝置控制 UI 元件 — devices 頁、首頁裝置快捷與內嵌排程共用。
 // 目的是 visual & 行為一致：尺寸、圓角、配色都統一
 // （Toggle2 ON=fresh / OFF=warm、Segment active=cool、Pin pinned=pin 紫等）。
 // 所有元件假設外層已給好 layout（Field 包覆等）。

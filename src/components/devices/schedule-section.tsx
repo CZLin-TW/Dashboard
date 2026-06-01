@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Plus, Pencil, X, Clock } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { IconActionButton, FIELD_LABEL } from "@/components/ui/device-controls";
-import { ScheduleForm, type ScheduleFormState } from "@/app/schedules/schedule-form";
+import { ScheduleForm, type ScheduleFormState } from "@/components/devices/schedule-form";
 import {
   type Schedule,
   parseScheduleParams,
@@ -16,8 +16,7 @@ import {
 } from "@/lib/schedule";
 import type { DeviceData, DeviceOptions } from "@/lib/types";
 
-// 裝置卡內嵌的排程區段，跟 /schedules 頁完整 CRUD 並存（最終目標是 /schedules
-// 拿掉、所有排程操作都從裝置卡進去）。
+// 裝置卡內嵌的排程區段；所有排程操作都從裝置卡進入。
 // 設計：本裝置的排程一律顯示（含已過期），過期 row 用 mute tone 區別；
 // 「新增」按鈕一直在（即使沒排程），讓進入點固定。
 

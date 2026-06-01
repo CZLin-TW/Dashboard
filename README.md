@@ -20,6 +20,7 @@
 | 待辦事項 | 新增、修改、完成、查看；隱私邏輯只顯示「自己負責 + 公開」項目；過期/今日提醒 highlight；有時間的待辦可勾選 Hue 燈光提醒 |
 | 庫存 | 食品的新增、修改、刪除；過期/今日項目整 row 警示底色 |
 | 排程管理 | 完整 CRUD（新增 / 編輯 / 刪除）；直接內嵌在每張裝置卡片下方，過期排程也保留顯示 |
+| 照明 | 導覽入口與空白頁已建立，預留 Hue 控制整合 |
 | PC 監控 | 家中 PC 跑 agent 推指標到後端，Dashboard 顯示當下值（CPU/GPU 用量+溫度）+ 24h 折線圖（CPU/GPU/RAM 用量、CPU/GPU 溫度） |
 | LINE 登入 | LINE OAuth 2.1 認證，僅限家庭成員使用 |
 | PWA 主畫面 | 提供 manifest、standalone display、iOS web app meta 與 app icons，讓手機加入主畫面後更接近獨立 app |
@@ -121,16 +122,9 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 - 修改（inline 三段式 edit：品名 / 過期日+數量+單位 / 儲存取消）
 - 刪除（confirm dialog 確認）
 
-### 排程 `/schedules`
+### 照明 `/lighting`
 
-跨裝置的排程一覽頁（單一裝置的排程操作直接在 `/devices` 對應的裝置卡片內進行——下方有獨立「排程」區段支援完整 CRUD）。
-
-- 列出所有排程（含過期），按觸發時間排序
-- 過期 row 用 mute tone 區別、未過期顯示 amber「待執行」pill
-- 新增排程（選裝置 → 設定目標狀態 → 設定觸發時間）
-- 點 Pencil 按鈕 inline edit（同樣的表單，預填現值）
-- 刪除排程
-- 中長期計畫：若裝置卡內嵌的排程區段體驗夠用，本頁會被拿掉
+目前為照明整合預留的空白頁，導覽入口已就緒；後續 Hue 控制會從這裡接上。
 
 ### 登入 `/login`
 
@@ -213,7 +207,8 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | computer-card.tsx | PC 監控卡（IP + 在線指示燈 + CPU/GPU 當下值橫排 + 兩張 Recharts 折線圖；内部 useMemo transform raw history → chart shape） |
 | sensor-chart.tsx | 感測器 24h 折線圖（溫度 / 濕度 / CO2 三層獨立 panel + AC on 區段背景） |
 | auto-mode-chart.tsx | 除濕機自動模式專用：綁定 sensor 24h 濕度線 + threshold/threshold+5 hysteresis 虛線 + 除濕機運轉中綠色背景區段 |
-| schedule-section.tsx | 裝置卡內嵌的排程區段（lockedDevice 鎖在當前裝置）；inline 新增 / 編輯 / 刪除，跟 `/schedules` 頁共用 `src/lib/schedule.ts` 的 helpers |
+| schedule-section.tsx | 裝置卡內嵌的排程區段（lockedDevice 鎖在當前裝置）；inline 新增 / 編輯 / 刪除，共用 `src/lib/schedule.ts` 的 helpers |
+| schedule-form.tsx | 排程新增 / 編輯共用表單，供裝置卡內嵌排程使用 |
 
 ### Layout (`components/layout/`)
 

@@ -1,11 +1,11 @@
-// 排程資料 schema + CRUD API helpers，給 /schedules 頁跟裝置卡內嵌的
-// ScheduleSection 共用，避免兩處 parse/diff 邏輯漂移。
+// 排程資料 schema + CRUD API helpers，給裝置卡內嵌的 ScheduleSection 使用，
+// 避免 parse/diff 邏輯散在 UI 元件內。
 //
 // Sheet 欄位是中文 key（home-butler 寫入時就是這樣）；UI 端統一用 Schedule
 // 型別 [key: string]: string 接，需要哪個欄位就直接 s["設備名稱"]。
 
 import type { DeviceData } from "@/lib/types";
-import type { ScheduleFormState, ScheduleFormInitial } from "@/app/schedules/schedule-form";
+import type { ScheduleFormState, ScheduleFormInitial } from "@/components/devices/schedule-form";
 
 export interface Schedule {
   [key: string]: string;
