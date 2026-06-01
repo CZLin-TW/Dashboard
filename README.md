@@ -17,7 +17,7 @@
 | 首頁總覽 | 天氣、室內溫濕度、釘選設備快速控制、未來 5 天 / 已過期的待辦與食品 |
 | 設備控制 | 空調（電源/溫度/模式/風速 + 送出後輪詢確認）、除濕機（模式/濕度 + 條件式自動模式 toggle + 即時可調的目標濕度門檻）、IR 設備（自訂按鈕）；環境感測器（溫度/濕度即時值，含 SwitchBot Meter Pro CO2 三合一） |
 | 設備釘選 | 常用設備（最多 4 個）+ 一個感測器釘選到首頁，快速存取 |
-| 待辦事項 | 新增、修改、完成、查看；隱私邏輯只顯示「自己負責 + 公開」項目；過期/今日提醒 highlight；有時間的待辦可勾選 Hue 燈光提醒 |
+| 待辦事項 | 新增、修改、完成、查看；隱私邏輯只顯示「自己負責 + 公開」項目；過期/今日提醒 highlight；有時間的待辦可勾選 Hue 燈光提醒並指定照明區域 |
 | 庫存 | 食品的新增、修改、刪除；過期/今日項目整 row 警示底色 |
 | 排程管理 | 完整 CRUD（新增 / 編輯 / 刪除）；直接內嵌在每張裝置卡片下方，過期排程也保留顯示 |
 | 照明 | 導覽入口與空白頁已建立，預留 Hue 控制整合 |
@@ -108,8 +108,8 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 - 永遠只顯示登入者的「自己負責 + 公開」項目（隱私）
 - 列出時間排序，過期/今日 row 自動 highlight（warm-bg + 左邊 inset bar）
 - 日期顯示帶相對描述：`2026-05-04 (明天)`、`2026-05-03 (過期 1 天)`等
-- 新增（事項、日期、選用時間、私人/公開；有時間時可勾選燈光提醒）
-- 修改（inline edit form：標題 / 日期 / 時間 / 類型 / 燈光提醒）
+- 新增（事項、日期、選用時間、私人/公開；有時間時可勾選燈光提醒並用下拉選擇照明區域）
+- 修改（inline edit form：標題 / 日期 / 時間 / 類型 / 燈光提醒 / 提醒區域）
 - 有燈光提醒的待辦在首頁卡片與待辦列表顯示燈泡 icon；實際到期呼吸燈由 home-butler 的 PC agent 執行
 - 勾選完成（樂觀更新動畫，refetch 後一次消失，不閃爍）
 - 唯讀項目（來自 Notion 等外部來源）顯示鎖頭，無法修改
@@ -166,8 +166,8 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/lighting/areas/[id] | PATCH | 更新 Hue 區域顯示名稱 |
 | /api/lighting/breathe | POST | 對指定 Hue grouped_light 觸發 breathe |
 | /api/todos | GET | 列出所有待辦事項 |
-| /api/todos | POST | 新增待辦（含選用 `light_notify`，由 home-butler 寫入 `燈光提醒`） |
-| /api/todos | PATCH | 修改待辦（含選用 `light_notify`） |
+| /api/todos | POST | 新增待辦（含選用 `light_notify` / `light_area_id`，由 home-butler 寫入 `燈光提醒` 與 `燈光區域ID`） |
+| /api/todos | PATCH | 修改待辦（含選用 `light_notify` / `light_area_id`） |
 | /api/todos | DELETE | 完成（刪除）待辦 |
 | /api/food | GET | 列出食品庫存 |
 | /api/food | POST | 新增食品 |

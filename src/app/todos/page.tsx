@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CheckSquare, Plus, Lock, Pencil, X, Check, Lightbulb } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -23,6 +23,20 @@ interface TodoItem {
   "來源": string;
   "屬性": string;
   "燈光提醒"?: string | boolean;
+  "燈光區域ID"?: string;
+}
+
+interface LightingArea {
+  id: string;
+  resource_type: string;
+  hue_name: string;
+  display_name: string;
+  enabled?: boolean;
+}
+
+interface LightingPayload {
+  agent_id: string;
+  areas: LightingArea[];
 }
 
 // 不放 w-full 在 base，避免 flex item 被同時套 flex-1 + w-full 後在
@@ -34,12 +48,31 @@ const INPUT_BASE =
 export default function TodosPage() {
   const { currentUser } = useUser();
   const { data: todos, loading, refetch: fetchTodos } = useCachedFetch<TodoItem[]>("/api/todos", []);
+  const { data: lightingPayload } = useCachedFetch<LightingPayload | null>("/api/lighting/areas", null);
   const [showAdd, setShowAdd] = useState(false);
-  const [newTodo, setNewTodo] = useState({ item: "", date: "", time: "", type: "私人", light_notify: false });
+  const [newTodo, setNewTodo] = useState({ item: "", date: "", time: "", type: "私人", light_notify: false, light_area_id: "" });
   const [hasTime, setHasTime] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
-  const [editTodo, setEditTodo] = useState({ item: "", date: "", time: "", type: "私人", light_notify: false });
+  const [editTodo, setEditTodo] = useState({ item: "", date: "", time: "", type: "私人", light_notify: false, light_area_id: "" });
   const { completeTodo, isCompleting } = useCompleteTodo(fetchTodos);
+  const lightingAreas = useMemo(
+    () => (lightingPayload?.areas ?? []).filter((area) => area.enabled !== false),
+    [lightingPayload],
+  );
+  const defaultLightAreaId = useMemo(() => {
+    const livingRoom = lightingAreas.find((area) => {
+      const name = `${area.display_name || ""} ${area.hue_name || ""}`;
+      return name.includes("客廳");
+    });
+    return livingRoom?.id ?? lightingAreas[0]?.id ?? "";
+  }, [lightingAreas]);
+  const lightingAreaNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const area of lightingAreas) {
+      map[area.id] = area.display_name || area.hue_name || area.id;
+    }
+    return map;
+  }, [lightingAreas]);
 
   // 隱私：移除「我的 / 全部」切換，永遠只顯示「自己負責 + 公開」項目；
   // 沒登入則完全不顯示（避免他人 device 看到任何個人待辦）。
@@ -73,9 +106,10 @@ export default function TodosPage() {
         person: currentUser.name,
         type: newTodo.type,
         light_notify: hasTime && newTodo.light_notify,
+        light_area_id: hasTime && newTodo.light_notify ? (newTodo.light_area_id || defaultLightAreaId) : undefined,
       }),
     }).then(() => {
-      setNewTodo({ item: "", date: "", time: "", type: "私人", light_notify: false });
+      setNewTodo({ item: "", date: "", time: "", type: "私人", light_notify: false, light_area_id: "" });
       setHasTime(false);
       setShowAdd(false);
       fetchTodos();
@@ -90,12 +124,14 @@ export default function TodosPage() {
       time: todo["時間"],
       type: todo["類型"],
       light_notify: todoLightNotify(todo),
+      light_area_id: todoLightNotify(todo) ? (todo["燈光區域ID"] || defaultLightAreaId) : "",
     });
   }
 
   function saveEdit() {
     if (editIndex === null || !currentUser) return;
     const original = todos[editIndex];
+    const nextLightAreaId = editTodo.light_notify ? (editTodo.light_area_id || defaultLightAreaId) : "";
     fetch("/api/todos", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -108,6 +144,7 @@ export default function TodosPage() {
         time: editTodo.time !== original["時間"] ? editTodo.time : undefined,
         type: editTodo.type !== original["類型"] ? editTodo.type : undefined,
         light_notify: editTodo.light_notify !== todoLightNotify(original) ? editTodo.light_notify : undefined,
+        light_area_id: nextLightAreaId !== (original["燈光區域ID"] || "") ? nextLightAreaId : undefined,
         requester: currentUser.name,
       }),
     }).then(() => {
@@ -172,7 +209,7 @@ export default function TodosPage() {
                   onChange={() => {
                     const next = !hasTime;
                     setHasTime(next);
-                    if (!next) setNewTodo((p) => ({ ...p, time: "", light_notify: false }));
+                    if (!next) setNewTodo((p) => ({ ...p, time: "", light_notify: false, light_area_id: "" }));
                   }}
                   className="h-3.5 w-3.5 rounded border-line accent-cool"
                 />
@@ -196,12 +233,34 @@ export default function TodosPage() {
                 type="checkbox"
                 checked={newTodo.light_notify}
                 disabled={!hasTime}
-                onChange={(e) => setNewTodo((p) => ({ ...p, light_notify: e.target.checked }))}
+                onChange={(e) => setNewTodo((p) => ({
+                  ...p,
+                  light_notify: e.target.checked,
+                  light_area_id: e.target.checked ? (p.light_area_id || defaultLightAreaId) : "",
+                }))}
                 className="h-3.5 w-3.5 rounded border-line accent-cool disabled:opacity-40"
               />
               <Lightbulb className="h-3.5 w-3.5" strokeWidth={2} />
               燈光提醒
             </label>
+            {hasTime && newTodo.light_notify && (
+              <Field label="提醒區域">
+                <select
+                  value={newTodo.light_area_id || defaultLightAreaId}
+                  onChange={(e) => setNewTodo((p) => ({ ...p, light_area_id: e.target.value }))}
+                  disabled={lightingAreas.length === 0}
+                  className={`field-select w-full ${INPUT_BASE}`}
+                >
+                  {lightingAreas.length === 0 ? (
+                    <option value="">尚未取得照明區域</option>
+                  ) : lightingAreas.map((area) => (
+                    <option key={area.id} value={area.id}>
+                      {area.display_name || area.hue_name || area.id}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
             <Field label="類型">
               <select
                 value={newTodo.type}
@@ -265,6 +324,7 @@ export default function TodosPage() {
                           ...p,
                           time: e.target.value,
                           light_notify: e.target.value ? p.light_notify : false,
+                          light_area_id: e.target.value ? p.light_area_id : "",
                         }))}
                         className={`w-28 ${INPUT_BASE}`}
                       />
@@ -286,12 +346,34 @@ export default function TodosPage() {
                         type="checkbox"
                         checked={editTodo.light_notify}
                         disabled={!editTodo.time}
-                        onChange={(e) => setEditTodo((p) => ({ ...p, light_notify: e.target.checked }))}
+                        onChange={(e) => setEditTodo((p) => ({
+                          ...p,
+                          light_notify: e.target.checked,
+                          light_area_id: e.target.checked ? (p.light_area_id || defaultLightAreaId) : "",
+                        }))}
                         className="h-3.5 w-3.5 rounded border-line accent-cool disabled:opacity-40"
                       />
                       <Lightbulb className="h-3.5 w-3.5" strokeWidth={2} />
                       燈光提醒
                     </label>
+                    {editTodo.time && editTodo.light_notify && (
+                      <Field label="提醒區域">
+                        <select
+                          value={editTodo.light_area_id || defaultLightAreaId}
+                          onChange={(e) => setEditTodo((p) => ({ ...p, light_area_id: e.target.value }))}
+                          disabled={lightingAreas.length === 0}
+                          className={`field-select w-full ${INPUT_BASE}`}
+                        >
+                          {lightingAreas.length === 0 ? (
+                            <option value="">尚未取得照明區域</option>
+                          ) : lightingAreas.map((area) => (
+                            <option key={area.id} value={area.id}>
+                              {area.display_name || area.hue_name || area.id}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    )}
                     <div className="flex gap-2">
                       <button
                         onClick={saveEdit}
@@ -313,6 +395,7 @@ export default function TodosPage() {
               const completing = isCompleting(todo);
               const isPublic = todo["類型"] === "公開";
               const lightNotify = todoLightNotify(todo);
+              const lightAreaName = todo["燈光區域ID"] ? lightingAreaNameById[todo["燈光區域ID"]] : "";
               const urgency = todoUrgency(todo["日期"], todo["時間"]);
               const urgencyCls = urgencyRowClass(urgency);
               // 已 highlight 的 row 不再加 hover bg（會 muddy 兩層底色）
@@ -350,6 +433,7 @@ export default function TodosPage() {
                         return rel ? ` (${rel})` : "";
                       })()}
                       {todo["時間"] && ` ${todo["時間"]}`}
+                      {lightNotify && lightAreaName && ` · ${lightAreaName}`}
                       {!isMine(todo) && todo["負責人"] && ` · ${todo["負責人"]}`}
                       {todo["來源"] !== "本地" && ` · 來自 ${todo["來源"]}`}
                     </p>

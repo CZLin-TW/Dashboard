@@ -107,6 +107,7 @@ export interface TodoData {
   "來源"?: string;
   "屬性"?: string;
   "燈光提醒"?: string | boolean;
+  "燈光區域ID"?: string;
 }
 
 export function sheetBool(value: unknown): boolean {
