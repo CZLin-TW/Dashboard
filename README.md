@@ -124,7 +124,9 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 ### 照明 `/lighting`
 
-目前為照明整合預留的空白頁，導覽入口已就緒；後續 Hue 控制會從這裡接上。
+- 透過 home-butler WebSocket 通道請家中 PC agent 向 Hue Bridge 讀取 rooms / zones / grouped_light
+- 每個 Hue 區域顯示一張卡片，可編輯 Dashboard 顯示名稱
+- 「呼吸燈」按鈕會即時觸發 Hue breathe，用來確認卡片對應的實際區域
 
 ### 登入 `/login`
 
@@ -160,6 +162,9 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/sensors/status | GET | 所有感測器當下值 + 24h history（溫度 / 濕度 / CO2），proxy 到 home-butler in-memory ring buffer |
 | /api/ac/status | GET | 所有空調當下狀態 + 24h history，給感測器 chart 背景畫 AC on 區段用 |
 | /api/dehumidifier/auto-rule | GET / POST | 除濕機條件式自動規則的讀寫；POST 設定 toggle ON 時後端會立即評估 sensor 當下值決定 fire ON/OFF |
+| /api/lighting/areas | GET | 列出 Hue rooms / zones 對應的 grouped_light 區域，含 Dashboard 顯示名稱 |
+| /api/lighting/areas/[id] | PATCH | 更新 Hue 區域顯示名稱 |
+| /api/lighting/breathe | POST | 對指定 Hue grouped_light 觸發 breathe |
 | /api/todos | GET | 列出所有待辦事項 |
 | /api/todos | POST | 新增待辦（含選用 `light_notify`，由 home-butler 寫入 `燈光提醒`） |
 | /api/todos | PATCH | 修改待辦（含選用 `light_notify`） |
