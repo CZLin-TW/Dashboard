@@ -94,6 +94,7 @@ export default function LightingPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount 載入一次（loadAreas 內部 setLoading），沿用 use-cached-fetch 等既有慣例
     loadAreas();
   }, [loadAreas]);
 
