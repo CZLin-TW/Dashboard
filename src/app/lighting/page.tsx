@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  BellRing,
   Home,
   Lightbulb,
   Loader2,
@@ -12,7 +11,7 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { FIELD_LABEL, PANEL_BASE } from "@/components/ui/device-controls";
+import { Toggle2, FIELD_LABEL, PANEL_BASE } from "@/components/ui/device-controls";
 
 interface LightingArea {
   id: string;
@@ -27,6 +26,8 @@ interface LightingArea {
   display_name: string;
   custom_name?: string;
   enabled?: boolean;
+  on?: boolean | null;
+  brightness?: number | null;
 }
 
 interface LightingPayload {
@@ -48,6 +49,11 @@ function shortId(id: string) {
   return id.length > 13 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id;
 }
 
+function clampBrightness(n: number) {
+  if (Number.isNaN(n)) return 1;
+  return Math.max(1, Math.min(100, Math.round(n)));
+}
+
 async function readError(res: Response) {
   try {
     const data = await res.json();
@@ -60,10 +66,10 @@ async function readError(res: Response) {
 export default function LightingPage() {
   const [payload, setPayload] = useState<LightingPayload>(FALLBACK_PAYLOAD);
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
+  const [draftBri, setDraftBri] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState("");
-  const [breatheId, setBreatheId] = useState("");
   const [notice, setNotice] = useState("");
 
   const loadAreas = useCallback(async () => {
@@ -79,6 +85,7 @@ export default function LightingPage() {
         nextDrafts[area.id] = area.display_name || area.hue_name || area.id;
       }
       setDraftNames(nextDrafts);
+      setDraftBri({});
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -87,6 +94,7 @@ export default function LightingPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount 載入一次（loadAreas 內部 setLoading），沿用 use-cached-fetch 等既有慣例
     loadAreas();
   }, [loadAreas]);
 
@@ -126,25 +134,54 @@ export default function LightingPage() {
     }
   }
 
-  async function breathe(area: LightingArea) {
-    setBreatheId(area.id);
+  // On/Off 與亮度共用：樂觀更新後送 PATCH，失敗才重抓真實狀態對齊。
+  async function sendState(area: LightingArea, body: { on?: boolean; brightness?: number }) {
     setNotice("");
+    setPayload((prev) => ({
+      ...prev,
+      areas: prev.areas.map((item) => {
+        if (item.id !== area.id) return item;
+        const next = { ...item };
+        if (body.on !== undefined) next.on = body.on;
+        if (body.brightness !== undefined) {
+          next.brightness = body.brightness;
+          next.on = true; // 調亮度視為順便開燈
+        }
+        return next;
+      }),
+    }));
     try {
-      const res = await fetch("/api/lighting/breathe", {
-        method: "POST",
+      const res = await fetch(`/api/lighting/areas/${encodeURIComponent(area.id)}/state`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          area_id: area.id,
-          resource_type: area.resource_type || "grouped_light",
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(await readError(res));
-      setNotice(`${draftNames[area.id] || area.display_name} 已觸發呼吸燈`);
     } catch (e) {
       setNotice(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBreatheId("");
+      loadAreas();
     }
+  }
+
+  function brightnessValue(area: LightingArea) {
+    const draft = draftBri[area.id];
+    if (draft !== undefined) return draft;
+    if (typeof area.brightness === "number") return Math.round(area.brightness);
+    return 100;
+  }
+
+  function commitBrightness(area: LightingArea) {
+    const draft = draftBri[area.id];
+    if (draft === undefined) return; // 沒拖/沒打就不送
+    const value = clampBrightness(draft);
+    setDraftBri((prev) => {
+      const next = { ...prev };
+      delete next[area.id];
+      return next;
+    });
+    const current = typeof area.brightness === "number" ? Math.round(area.brightness) : null;
+    if (current !== null && value === current && area.on) return; // 沒變化、且已亮著就免送
+    sendState(area, { brightness: value });
   }
 
   return (
@@ -213,7 +250,9 @@ export default function LightingPage() {
             const Icon = areaIcon(area.kind);
             const draft = draftNames[area.id] ?? area.display_name ?? area.hue_name ?? "";
             const saving = savingId === area.id;
-            const breathing = breatheId === area.id;
+            const nameDirty = draft.trim() !== (area.display_name ?? "").trim();
+            const bri = brightnessValue(area);
+            const isOn = area.on ?? false;
             return (
               <article key={area.id} className={PANEL_BASE}>
                 <div className="flex items-start justify-between gap-3">
@@ -234,15 +273,27 @@ export default function LightingPage() {
                   </div>
                 </div>
 
-                <label className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2">
                   <span className={FIELD_LABEL}>顯示名稱</span>
-                  <input
-                    value={draft}
-                    onChange={(e) => setDraftNames((prev) => ({ ...prev, [area.id]: e.target.value }))}
-                    className="h-9 rounded-[10px] border border-line bg-elevated px-3 text-sm font-medium text-foreground outline-none transition-colors placeholder:text-mute focus:border-cool"
-                    placeholder={area.hue_name || "未命名區域"}
-                  />
-                </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={draft}
+                      onChange={(e) => setDraftNames((prev) => ({ ...prev, [area.id]: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === "Enter" && nameDirty) saveName(area); }}
+                      className="h-9 min-w-0 flex-1 rounded-[10px] border border-line bg-elevated px-3 text-sm font-medium text-foreground outline-none transition-colors placeholder:text-mute focus:border-cool"
+                      placeholder={area.hue_name || "未命名區域"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => saveName(area)}
+                      disabled={saving || !nameDirty}
+                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-cool px-3.5 text-sm font-semibold text-white transition-colors hover:bg-cool/85 disabled:cursor-not-allowed disabled:bg-elevated disabled:text-mute"
+                    >
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} /> : <Save className="h-4 w-4" strokeWidth={2} />}
+                      儲存
+                    </button>
+                  </div>
+                </div>
 
                 <div className="space-y-1.5 rounded-[10px] bg-elevated px-3 py-2 text-xs text-mute">
                   <div className="flex items-center justify-between gap-2">
@@ -255,25 +306,49 @@ export default function LightingPage() {
                   </div>
                 </div>
 
-                <div className="mt-auto flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => saveName(area)}
-                    disabled={saving}
-                    className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-full bg-cool px-3 text-sm font-semibold text-white transition-colors hover:bg-cool/85 disabled:cursor-not-allowed disabled:bg-elevated disabled:text-mute"
-                  >
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} /> : <Save className="h-4 w-4" strokeWidth={2} />}
-                    儲存
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => breathe(area)}
-                    disabled={breathing}
-                    className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-full border border-line bg-surface px-3 text-sm font-semibold text-soft transition-colors hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {breathing ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} /> : <BellRing className="h-4 w-4" strokeWidth={2} />}
-                    呼吸燈
-                  </button>
+                <div className="flex flex-col gap-2">
+                  <span className={FIELD_LABEL}>亮度</span>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={bri}
+                      onChange={(e) => setDraftBri((prev) => ({ ...prev, [area.id]: Number(e.target.value) }))}
+                      onPointerUp={() => commitBrightness(area)}
+                      onKeyUp={() => commitBrightness(area)}
+                      className="h-9 flex-1 cursor-pointer accent-fresh"
+                      aria-label="亮度"
+                    />
+                    <div className="flex shrink-0 items-center gap-1">
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={bri}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === "") {
+                            setDraftBri((prev) => ({ ...prev, [area.id]: 0 }));
+                            return;
+                          }
+                          const n = Number(raw);
+                          if (!Number.isNaN(n)) setDraftBri((prev) => ({ ...prev, [area.id]: n }));
+                        }}
+                        onBlur={() => commitBrightness(area)}
+                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                        className="num h-8 w-14 rounded-[10px] border border-line bg-elevated px-2 text-center text-sm text-foreground outline-none transition-colors focus:border-cool"
+                        aria-label="亮度數值"
+                      />
+                      <span className="text-xs text-mute">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className={FIELD_LABEL}>電源</span>
+                  <Toggle2 value={isOn} onChange={(v) => sendState(area, { on: v })} />
                 </div>
               </article>
             );
