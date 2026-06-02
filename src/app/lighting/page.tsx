@@ -31,6 +31,13 @@ interface LightingEffect {
   partial?: boolean;
 }
 
+interface LightingNotification {
+  key: string;
+  label: string;
+  kind: string;
+  action: string;
+}
+
 interface LightingArea {
   id: string;
   resource_type: string;
@@ -48,6 +55,7 @@ interface LightingArea {
   brightness?: number | null;
   light_count?: number;
   scenes?: LightingScene[];
+  notifications?: LightingNotification[];
   effects?: LightingEffect[];
 }
 
@@ -89,6 +97,7 @@ export default function LightingPage() {
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
   const [draftBri, setDraftBri] = useState<Record<string, number>>({});
   const [selectedScenes, setSelectedScenes] = useState<Record<string, string>>({});
+  const [selectedNotifications, setSelectedNotifications] = useState<Record<string, string>>({});
   const [selectedEffects, setSelectedEffects] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -122,6 +131,19 @@ export default function LightingPage() {
           }
         }
         return nextScenes;
+      });
+      setSelectedNotifications((prev) => {
+        const nextNotifications: Record<string, string> = {};
+        for (const area of data.areas ?? []) {
+          const notifications = Array.isArray(area.notifications) ? area.notifications : [];
+          const current = prev[area.id];
+          if (current && notifications.some((notification: LightingNotification) => notification.key === current)) {
+            nextNotifications[area.id] = current;
+          } else if (notifications[0]?.key) {
+            nextNotifications[area.id] = notifications[0].key;
+          }
+        }
+        return nextNotifications;
       });
       setSelectedEffects((prev) => {
         const nextEffects: Record<string, string> = {};
@@ -270,6 +292,30 @@ export default function LightingPage() {
     }
   }
 
+  async function applyNotification(area: LightingArea) {
+    const notificationKey = selectedNotifications[area.id];
+    if (!notificationKey) return;
+    setApplyingKey(`notification:${area.id}`);
+    setNotice("");
+    try {
+      const res = await fetch(`/api/lighting/areas/${encodeURIComponent(area.id)}/notification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notification: notificationKey,
+          resource_type: area.resource_type || "grouped_light",
+        }),
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      const notificationName = (area.notifications ?? []).find((item) => item.key === notificationKey)?.label || "通知";
+      setNotice(`${notificationName} 已套用`);
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : String(e));
+    } finally {
+      setApplyingKey("");
+    }
+  }
+
   function brightnessValue(area: LightingArea) {
     const draft = draftBri[area.id];
     if (draft !== undefined) return draft;
@@ -361,8 +407,10 @@ export default function LightingPage() {
             const bri = brightnessValue(area);
             const isOn = area.on ?? false;
             const scenes = area.scenes ?? [];
+            const notifications = area.notifications ?? [];
             const effects = area.effects ?? [];
             const sceneApplying = applyingKey === `scene:${area.id}`;
+            const notificationApplying = applyingKey === `notification:${area.id}`;
             const effectApplying = applyingKey === `effect:${area.id}`;
             return (
               <article key={area.id} className={PANEL_BASE}>
@@ -442,6 +490,36 @@ export default function LightingPage() {
                       className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-cool px-3.5 text-sm font-semibold text-white transition-colors hover:bg-cool/85 disabled:cursor-not-allowed disabled:bg-elevated disabled:text-mute"
                     >
                       {sceneApplying && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />}
+                      套用
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className={FIELD_LABEL}>通知</span>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedNotifications[area.id] ?? ""}
+                      onChange={(e) => setSelectedNotifications((prev) => ({ ...prev, [area.id]: e.target.value }))}
+                      disabled={notifications.length === 0 || notificationApplying}
+                      className="h-9 min-w-0 flex-1 rounded-[10px] border border-line bg-elevated px-3 text-sm font-medium text-foreground outline-none transition-colors focus:border-cool disabled:cursor-not-allowed disabled:text-mute"
+                      aria-label="通知"
+                    >
+                      {notifications.length === 0 ? (
+                        <option value="">無通知</option>
+                      ) : notifications.map((notification) => (
+                        <option key={notification.key} value={notification.key}>
+                          {notification.label || notification.action || notification.key}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => applyNotification(area)}
+                      disabled={notifications.length === 0 || notificationApplying}
+                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-cool px-3.5 text-sm font-semibold text-white transition-colors hover:bg-cool/85 disabled:cursor-not-allowed disabled:bg-elevated disabled:text-mute"
+                    >
+                      {notificationApplying && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />}
                       套用
                     </button>
                   </div>
