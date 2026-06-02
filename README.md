@@ -20,7 +20,7 @@
 | 待辦事項 | 新增、修改、完成、查看；隱私邏輯只顯示「自己負責 + 公開」項目；過期/今日提醒 highlight；有時間的待辦可勾選 Hue 燈光提醒並指定照明區域 |
 | 庫存 | 食品的新增、修改、刪除；過期/今日項目整 row 警示底色 |
 | 排程管理 | 完整 CRUD（新增 / 編輯 / 刪除）；直接內嵌在每張裝置卡片下方，過期排程也保留顯示 |
-| 照明 | 導覽入口與空白頁已建立，預留 Hue 控制整合 |
+| 照明 | 列出 Hue 房間/區域，每區一張卡：電源 On/Off、亮度（slider + 數字輸入雙向）、可改 Dashboard 顯示名稱；只顯示 room/zone（隱藏「全家」與未分區燈群） |
 | PC 監控 | 家中 PC 跑 agent 推指標到後端，Dashboard 顯示當下值（CPU/GPU 用量+溫度）+ 24h 折線圖（CPU/GPU/RAM 用量、CPU/GPU 溫度） |
 | LINE 登入 | LINE OAuth 2.1 認證，僅限家庭成員使用 |
 | PWA 主畫面 | 提供 manifest、standalone display、iOS web app meta 與 app icons，讓手機加入主畫面後更接近獨立 app |
@@ -124,9 +124,13 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 ### 照明 `/lighting`
 
-- 透過 home-butler WebSocket 通道請家中 PC agent 向 Hue Bridge 讀取 rooms / zones / grouped_light
-- 每個 Hue 區域顯示一張卡片，可編輯 Dashboard 顯示名稱
-- 「呼吸燈」按鈕會即時觸發 Hue breathe，用來確認卡片對應的實際區域
+- 透過 home-butler WebSocket 通道請家中 PC agent 向 Hue Bridge 讀取 rooms / zones / grouped_light（含各區當下 on/brightness）
+- **只列出房間 / 區域**（room / zone）；隱藏「全家」(bridge_home) 與沒掛在任何房間/區域的獨立燈群 (grouped_light)
+- 每個區域一張卡片：
+  - **顯示名稱**：輸入框 + 右側儲存鈕（只有改過才亮，Enter 也能存），寫回 Sheet「Hue 照明區域」
+  - **亮度**：slider + 數字輸入雙向綁定（1–100），拖曳放開 / 失焦或 Enter 才送；調亮度視為順便開燈
+  - **電源**：On/Off Toggle 讀寫該區 grouped_light 的真實 on 狀態
+- 控制都走樂觀更新，失敗才背景重抓對齊真實狀態
 
 ### 登入 `/login`
 
@@ -162,9 +166,10 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/sensors/status | GET | 所有感測器當下值 + 24h history（溫度 / 濕度 / CO2），proxy 到 home-butler in-memory ring buffer |
 | /api/ac/status | GET | 所有空調當下狀態 + 24h history，給感測器 chart 背景畫 AC on 區段用 |
 | /api/dehumidifier/auto-rule | GET / POST | 除濕機條件式自動規則的讀寫；POST 設定 toggle ON 時後端會立即評估 sensor 當下值決定 fire ON/OFF |
-| /api/lighting/areas | GET | 列出 Hue rooms / zones 對應的 grouped_light 區域，含 Dashboard 顯示名稱 |
+| /api/lighting/areas | GET | 列出 Hue rooms / zones 對應的 grouped_light 區域，含 Dashboard 顯示名稱與各區當下 on/brightness |
 | /api/lighting/areas/[id] | PATCH | 更新 Hue 區域顯示名稱 |
-| /api/lighting/breathe | POST | 對指定 Hue grouped_light 觸發 breathe |
+| /api/lighting/areas/[id]/state | PATCH | 控制該區 grouped_light 的電源 (on) 與亮度 (brightness)，經 home-butler → PC agent 下發 |
+| /api/lighting/breathe | POST | 對指定 Hue grouped_light 觸發 breathe（後端仍保留；目前照明頁 UI 已不使用） |
 | /api/todos | GET | 列出所有待辦事項 |
 | /api/todos | POST | 新增待辦（含選用 `light_notify` / `light_area_id`，由 home-butler 寫入 `燈光提醒` 與 `燈光區域ID`） |
 | /api/todos | PATCH | 修改待辦（含選用 `light_notify` / `light_area_id`） |
