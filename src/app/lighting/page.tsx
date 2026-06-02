@@ -16,6 +16,9 @@ import { Toggle2, FIELD_LABEL, PANEL_BASE } from "@/components/ui/device-control
 interface LightingScene {
   id: string;
   name: string;
+  resource_type?: string;
+  recall_action?: string;
+  dynamic_available?: boolean;
   group_id?: string;
   group_type?: string;
 }
@@ -102,20 +105,38 @@ export default function LightingPage() {
       const data = await res.json() as LightingPayload;
       setPayload(data);
       const nextDrafts: Record<string, string> = {};
-      const nextScenes: Record<string, string> = {};
-      const nextEffects: Record<string, string> = {};
       for (const area of data.areas ?? []) {
         nextDrafts[area.id] = area.display_name || area.hue_name || area.id;
-        const scenes = Array.isArray(area.scenes) ? area.scenes : [];
-        if (scenes[0]?.id) nextScenes[area.id] = scenes[0].id;
-        const effects = Array.isArray(area.effects) ? area.effects : [];
-        const firstEffect = effects.find((effect: LightingEffect) => effect.key !== "no_effect") ?? effects[0];
-        if (firstEffect?.key) nextEffects[area.id] = firstEffect.key;
       }
       setDraftNames(nextDrafts);
       setDraftBri({});
-      setSelectedScenes(nextScenes);
-      setSelectedEffects(nextEffects);
+      setSelectedScenes((prev) => {
+        const nextScenes: Record<string, string> = {};
+        for (const area of data.areas ?? []) {
+          const scenes = Array.isArray(area.scenes) ? area.scenes : [];
+          const current = prev[area.id];
+          if (current && scenes.some((scene) => scene.id === current)) {
+            nextScenes[area.id] = current;
+          } else if (scenes[0]?.id) {
+            nextScenes[area.id] = scenes[0].id;
+          }
+        }
+        return nextScenes;
+      });
+      setSelectedEffects((prev) => {
+        const nextEffects: Record<string, string> = {};
+        for (const area of data.areas ?? []) {
+          const effects = Array.isArray(area.effects) ? area.effects : [];
+          const current = prev[area.id];
+          if (current && effects.some((effect: LightingEffect) => effect.key === current)) {
+            nextEffects[area.id] = current;
+            continue;
+          }
+          const firstEffect = effects.find((effect: LightingEffect) => effect.key !== "no_effect") ?? effects[0];
+          if (firstEffect?.key) nextEffects[area.id] = firstEffect.key;
+        }
+        return nextEffects;
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -201,16 +222,20 @@ export default function LightingPage() {
   async function applyScene(area: LightingArea) {
     const sceneId = selectedScenes[area.id];
     if (!sceneId) return;
+    const scene = (area.scenes ?? []).find((item) => item.id === sceneId);
     setApplyingKey(`scene:${area.id}`);
     setNotice("");
     try {
       const res = await fetch(`/api/lighting/scenes/${encodeURIComponent(sceneId)}/recall`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "active" }),
+        body: JSON.stringify({
+          action: scene?.recall_action || (scene?.resource_type === "smart_scene" ? "activate" : "active"),
+          resource_type: scene?.resource_type || "scene",
+        }),
       });
       if (!res.ok) throw new Error(await readError(res));
-      const sceneName = (area.scenes ?? []).find((scene) => scene.id === sceneId)?.name || "場景";
+      const sceneName = scene?.name || "場景";
       setNotice(`${sceneName} 已套用`);
       await loadAreas();
     } catch (e) {
@@ -405,7 +430,9 @@ export default function LightingPage() {
                       {scenes.length === 0 ? (
                         <option value="">無場景</option>
                       ) : scenes.map((scene) => (
-                        <option key={scene.id} value={scene.id}>{scene.name || scene.id}</option>
+                        <option key={scene.id} value={scene.id}>
+                          {scene.name || scene.id}{scene.resource_type === "smart_scene" ? " · 全天" : ""}
+                        </option>
                       ))}
                     </select>
                     <button

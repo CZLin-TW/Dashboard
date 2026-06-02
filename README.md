@@ -124,11 +124,11 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 ### 照明 `/lighting`
 
-- 透過 home-butler WebSocket 通道請家中 PC agent 向 Hue Bridge 讀取 rooms / zones / grouped_light（含各區當下 on/brightness、該區場景、可用燈效）
+- 透過 home-butler WebSocket 通道請家中 PC agent 向 Hue Bridge 讀取 rooms / zones / grouped_light（含各區當下 on/brightness、該區一般 scene / 全天 smart_scene、可用燈效）
 - **只列出房間 / 區域**（room / zone）；隱藏「全家」(bridge_home) 與沒掛在任何房間/區域的獨立燈群 (grouped_light)
 - 每個區域一張卡片：
   - **顯示名稱**：輸入框 + 右側儲存鈕（只有改過才亮，Enter 也能存），寫回 Sheet「Hue 照明區域」
-  - **場景**：Dropdown 列該區 Hue App 內已建立的場景，選好後按「套用」
+  - **場景**：Dropdown 列該區 Hue App 內已建立的一般場景與全天場景，選好後按「套用」；全天場景以 `· 全天` 標示
   - **效果**：Dropdown 列該區內燈具支援的 effect unique 結果；`*` 代表只有部分燈具支援，套用時只下發到支援的燈
   - **亮度**：slider + 數字輸入雙向綁定（1–100），拖曳放開 / 失焦或 Enter 才送；調亮度視為順便開燈
   - **電源**：On/Off Toggle 讀寫該區 grouped_light 的真實 on 狀態
@@ -168,10 +168,10 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/sensors/status | GET | 所有感測器當下值 + 24h history（溫度 / 濕度 / CO2），proxy 到 home-butler in-memory ring buffer |
 | /api/ac/status | GET | 所有空調當下狀態 + 24h history，給感測器 chart 背景畫 AC on 區段用 |
 | /api/dehumidifier/auto-rule | GET / POST | 除濕機條件式自動規則的讀寫；POST 設定 toggle ON 時後端會立即評估 sensor 當下值決定 fire ON/OFF |
-| /api/lighting/areas | GET | 列出 Hue rooms / zones 對應的 grouped_light 區域，含 Dashboard 顯示名稱、各區當下 on/brightness、場景與可用燈效 |
+| /api/lighting/areas | GET | 列出 Hue rooms / zones 對應的 grouped_light 區域，含 Dashboard 顯示名稱、各區當下 on/brightness、一般場景 / 全天場景與可用燈效 |
 | /api/lighting/areas/[id] | PATCH | 更新 Hue 區域顯示名稱 |
 | /api/lighting/areas/[id]/state | PATCH | 控制該區 grouped_light 的電源 (on) 與亮度 (brightness)，經 home-butler → PC agent 下發 |
-| /api/lighting/scenes/[id]/recall | POST | 套用 Hue App 內已建立的場景 |
+| /api/lighting/scenes/[id]/recall | POST | 套用 Hue App 內已建立的一般場景或全天場景 |
 | /api/lighting/areas/[id]/effect | POST | 套用區域內支援的 Hue effect，部分支援時只套用支援的燈 |
 | /api/lighting/breathe | POST | 對指定 Hue grouped_light 觸發 breathe（後端仍保留；目前照明頁 UI 已不使用） |
 | /api/todos | GET | 列出所有待辦事項 |
