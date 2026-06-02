@@ -13,6 +13,21 @@ import {
 } from "lucide-react";
 import { Toggle2, FIELD_LABEL, PANEL_BASE } from "@/components/ui/device-controls";
 
+interface LightingScene {
+  id: string;
+  name: string;
+  group_id?: string;
+  group_type?: string;
+}
+
+interface LightingEffect {
+  key: string;
+  label: string;
+  supported_count: number;
+  total_count: number;
+  partial?: boolean;
+}
+
 interface LightingArea {
   id: string;
   resource_type: string;
@@ -28,6 +43,9 @@ interface LightingArea {
   enabled?: boolean;
   on?: boolean | null;
   brightness?: number | null;
+  light_count?: number;
+  scenes?: LightingScene[];
+  effects?: LightingEffect[];
 }
 
 interface LightingPayload {
@@ -67,9 +85,12 @@ export default function LightingPage() {
   const [payload, setPayload] = useState<LightingPayload>(FALLBACK_PAYLOAD);
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
   const [draftBri, setDraftBri] = useState<Record<string, number>>({});
+  const [selectedScenes, setSelectedScenes] = useState<Record<string, string>>({});
+  const [selectedEffects, setSelectedEffects] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState("");
+  const [applyingKey, setApplyingKey] = useState("");
   const [notice, setNotice] = useState("");
 
   const loadAreas = useCallback(async () => {
@@ -78,14 +99,23 @@ export default function LightingPage() {
     try {
       const res = await fetch("/api/lighting/areas", { cache: "no-store" });
       if (!res.ok) throw new Error(await readError(res));
-      const data = await res.json();
+      const data = await res.json() as LightingPayload;
       setPayload(data);
       const nextDrafts: Record<string, string> = {};
+      const nextScenes: Record<string, string> = {};
+      const nextEffects: Record<string, string> = {};
       for (const area of data.areas ?? []) {
         nextDrafts[area.id] = area.display_name || area.hue_name || area.id;
+        const scenes = Array.isArray(area.scenes) ? area.scenes : [];
+        if (scenes[0]?.id) nextScenes[area.id] = scenes[0].id;
+        const effects = Array.isArray(area.effects) ? area.effects : [];
+        const firstEffect = effects.find((effect: LightingEffect) => effect.key !== "no_effect") ?? effects[0];
+        if (firstEffect?.key) nextEffects[area.id] = firstEffect.key;
       }
       setDraftNames(nextDrafts);
       setDraftBri({});
+      setSelectedScenes(nextScenes);
+      setSelectedEffects(nextEffects);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -165,6 +195,53 @@ export default function LightingPage() {
     } catch (e) {
       setNotice(e instanceof Error ? e.message : String(e));
       loadAreas();
+    }
+  }
+
+  async function applyScene(area: LightingArea) {
+    const sceneId = selectedScenes[area.id];
+    if (!sceneId) return;
+    setApplyingKey(`scene:${area.id}`);
+    setNotice("");
+    try {
+      const res = await fetch(`/api/lighting/scenes/${encodeURIComponent(sceneId)}/recall`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "active" }),
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      const sceneName = (area.scenes ?? []).find((scene) => scene.id === sceneId)?.name || "場景";
+      setNotice(`${sceneName} 已套用`);
+      await loadAreas();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : String(e));
+    } finally {
+      setApplyingKey("");
+    }
+  }
+
+  async function applyEffect(area: LightingArea) {
+    const effectKey = selectedEffects[area.id];
+    if (!effectKey) return;
+    setApplyingKey(`effect:${area.id}`);
+    setNotice("");
+    try {
+      const res = await fetch(`/api/lighting/areas/${encodeURIComponent(area.id)}/effect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          effect: effectKey,
+          resource_type: area.resource_type || "grouped_light",
+        }),
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      const effectName = (area.effects ?? []).find((effect) => effect.key === effectKey)?.label || "效果";
+      setNotice(`${effectName} 已套用`);
+      await loadAreas();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : String(e));
+    } finally {
+      setApplyingKey("");
     }
   }
 
@@ -258,6 +335,10 @@ export default function LightingPage() {
             const nameDirty = draft.trim() !== (area.display_name ?? "").trim();
             const bri = brightnessValue(area);
             const isOn = area.on ?? false;
+            const scenes = area.scenes ?? [];
+            const effects = area.effects ?? [];
+            const sceneApplying = applyingKey === `scene:${area.id}`;
+            const effectApplying = applyingKey === `effect:${area.id}`;
             return (
               <article key={area.id} className={PANEL_BASE}>
                 <div className="flex items-start justify-between gap-3">
@@ -312,6 +393,69 @@ export default function LightingPage() {
                 </div>
 
                 <div className="flex flex-col gap-2">
+                  <span className={FIELD_LABEL}>場景</span>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedScenes[area.id] ?? ""}
+                      onChange={(e) => setSelectedScenes((prev) => ({ ...prev, [area.id]: e.target.value }))}
+                      disabled={scenes.length === 0 || sceneApplying}
+                      className="h-9 min-w-0 flex-1 rounded-[10px] border border-line bg-elevated px-3 text-sm font-medium text-foreground outline-none transition-colors focus:border-cool disabled:cursor-not-allowed disabled:text-mute"
+                      aria-label="場景"
+                    >
+                      {scenes.length === 0 ? (
+                        <option value="">無場景</option>
+                      ) : scenes.map((scene) => (
+                        <option key={scene.id} value={scene.id}>{scene.name || scene.id}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => applyScene(area)}
+                      disabled={scenes.length === 0 || sceneApplying}
+                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-cool px-3.5 text-sm font-semibold text-white transition-colors hover:bg-cool/85 disabled:cursor-not-allowed disabled:bg-elevated disabled:text-mute"
+                    >
+                      {sceneApplying && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />}
+                      套用
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={FIELD_LABEL}>效果</span>
+                    {effects.some((effect) => effect.partial) && (
+                      <span className="text-[11px] font-medium text-mute">* 部分支援</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedEffects[area.id] ?? ""}
+                      onChange={(e) => setSelectedEffects((prev) => ({ ...prev, [area.id]: e.target.value }))}
+                      disabled={effects.length === 0 || effectApplying}
+                      className="h-9 min-w-0 flex-1 rounded-[10px] border border-line bg-elevated px-3 text-sm font-medium text-foreground outline-none transition-colors focus:border-cool disabled:cursor-not-allowed disabled:text-mute"
+                      aria-label="效果"
+                    >
+                      {effects.length === 0 ? (
+                        <option value="">無效果</option>
+                      ) : effects.map((effect) => (
+                        <option key={effect.key} value={effect.key}>
+                          {effect.label}{effect.partial ? " *" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => applyEffect(area)}
+                      disabled={effects.length === 0 || effectApplying}
+                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-cool px-3.5 text-sm font-semibold text-white transition-colors hover:bg-cool/85 disabled:cursor-not-allowed disabled:bg-elevated disabled:text-mute"
+                    >
+                      {effectApplying && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />}
+                      套用
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
                   <span className={FIELD_LABEL}>亮度</span>
                   <div className="flex items-center gap-3">
                     <input
@@ -343,17 +487,18 @@ export default function LightingPage() {
                         }}
                         onBlur={() => commitBrightness(area)}
                         onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                        className="num h-8 w-14 rounded-[10px] border border-line bg-elevated px-2 text-center text-sm text-foreground outline-none transition-colors focus:border-cool"
+                        className="num h-8 w-[4.5rem] rounded-[10px] border border-line bg-elevated px-2 text-right text-sm text-foreground outline-none transition-colors focus:border-cool"
                         aria-label="亮度數值"
                       />
-                      <span className="text-xs text-mute">%</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2">
                   <span className={FIELD_LABEL}>電源</span>
-                  <Toggle2 value={isOn} onChange={(v) => sendState(area, { on: v })} />
+                  <div className="flex items-center justify-start">
+                    <Toggle2 value={isOn} onChange={(v) => sendState(area, { on: v })} />
+                  </div>
                 </div>
               </article>
             );
