@@ -99,7 +99,12 @@ export default function LightingPage() {
   }, [loadAreas]);
 
   const areas = useMemo(
-    () => [...(payload.areas ?? [])].filter((area) => area.enabled !== false),
+    () =>
+      [...(payload.areas ?? [])].filter((area) => {
+        // 只列房間 / 區域；藏掉「全家」(bridge_home) 與沒掛 room/zone 的獨立燈群 (grouped_light)
+        const source = area.hue_resource_type || area.owner_type || "";
+        return area.enabled !== false && (source === "room" || source === "zone");
+      }),
     [payload.areas],
   );
 
