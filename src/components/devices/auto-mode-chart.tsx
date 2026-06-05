@@ -16,15 +16,15 @@ import { toSensorChartHistory } from "@/lib/sensor";
 import type { DehumOnSegment } from "@/lib/dehumidifier";
 
 // 自動模式 chart：卡片內顯示綁定 sensor 的 24h 濕度線 + 除濕機運轉中綠色區段 +
-// hysteresis 上下界虛線（target−2 / target+3，跟 home-butler 的不對稱
-// hysteresis 同步：H_off = threshold − 2、H_on = threshold + 3）。
+// hysteresis 上下界虛線（target−1 / target+2，跟 home-butler 的不對稱
+// hysteresis 同步：H_off = threshold − 1、H_on = threshold + 2）。
 // 只在 auto_mode=ON 時 render。X 軸刻度、tick formatter 跟 sensor-chart 的
 // SubChart 保持一致。
 
 const TICK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const RANGE_MS = 24 * 60 * 60 * 1000;
-const HYSTERESIS_ABOVE = 3;
-const HYSTERESIS_BELOW = 2;
+const HYSTERESIS_ABOVE = 2;
+const HYSTERESIS_BELOW = 1;
 
 function computeTicks(rightmost: number): number[] {
   const RANGE_START = rightmost - RANGE_MS;
@@ -142,7 +142,7 @@ export function AutoModeChart({ sensorHistory, onSegments, threshold }: Props) {
             labelFormatter={(t) => formatHHMM(Number(t))}
             formatter={(v) => `${v}%`}
           />
-          {/* Hysteresis 上下界虛線（threshold−2 / threshold+3）。
+          {/* Hysteresis 上下界虛線（threshold−1 / threshold+2）。
               不顯示數值 label——Y 軸 tick 已顯示，避免重複。 */}
           <ReferenceLine
             y={hOff}
