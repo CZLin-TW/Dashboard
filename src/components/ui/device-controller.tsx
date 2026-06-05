@@ -561,7 +561,8 @@ export function DeviceController({
           <AutoModeChart
             sensorHistory={sensorsMap?.[dehumRule.sensor_name]?.history ?? []}
             onSegments={dehumHistoryToSegments(dehumHistoryMap?.[device.name]?.history ?? [])}
-            threshold={dehumRule.threshold}
+            humidityOnThreshold={dehumRule.humidity_on_threshold ?? dehumRule.threshold + 2}
+            humidityOffThreshold={dehumRule.humidity_off_threshold ?? dehumRule.threshold - 1}
           />
         )}
       </>

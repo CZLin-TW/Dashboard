@@ -222,7 +222,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 |------|------|
 | computer-card.tsx | PC 監控卡（IP + 在線指示燈 + CPU/GPU 當下值橫排 + 兩張 Recharts 折線圖；内部 useMemo transform raw history → chart shape） |
 | sensor-chart.tsx | 感測器 24h 折線圖（溫度 / 濕度 / CO2 三層獨立 panel + AC on 區段背景） |
-| auto-mode-chart.tsx | 除濕機自動模式專用：綁定 sensor 24h 濕度線 + threshold−1/threshold+2 hysteresis 虛線 + 除濕機運轉中綠色背景區段 |
+| auto-mode-chart.tsx | 除濕機自動模式專用：綁定 sensor 24h 濕度線 + 後端 API 提供的 hysteresis 上下界虛線 + 除濕機運轉中綠色背景區段 |
 | schedule-section.tsx | 裝置卡內嵌的排程區段（lockedDevice 鎖在當前裝置）；inline 新增 / 編輯 / 刪除，共用 `src/lib/schedule.ts` 的 helpers |
 | schedule-form.tsx | 排程新增 / 編輯共用表單，供裝置卡內嵌排程使用 |
 

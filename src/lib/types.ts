@@ -71,6 +71,8 @@ export interface DehumidifierAutoRule {
   sensor_name: string;
   duration_min: number;
   threshold: number;     // = UI 目標濕度 segment 當下值，雙重身分當門檻
+  humidity_on_threshold?: number;
+  humidity_off_threshold?: number;
   on_mode: string;       // = UI 模式 segment 當下值，自動 ON 時送這個
   auto_phase?: string;   // disabled / idle_dry / idle_humid / armed_above / armed_below / sensor_lost_warning
   countdown_min?: number | null;
