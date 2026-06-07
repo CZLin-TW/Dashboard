@@ -15,12 +15,13 @@ import { Toggle2, Stepper, Segment, Dropdown, Field, StatusLine } from "./device
 import { AutoModeChart } from "@/components/devices/auto-mode-chart";
 
 const DURATION_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: "立即" },
+  { value: 5, label: "5 分" },
   { value: 10, label: "10 分" },
   { value: 15, label: "15 分" },
+  { value: 20, label: "20 分" },
+  { value: 25, label: "25 分" },
   { value: 30, label: "30 分" },
-  { value: 60, label: "1 小時" },
-  { value: 120, label: "2 小時" },
-  { value: 240, label: "4 小時" },
 ];
 
 // 自動模式門檻 dropdown：45~65 step 5。auto rule 自己的判斷門檻，跟除濕機

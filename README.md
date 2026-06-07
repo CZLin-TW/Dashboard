@@ -168,7 +168,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/devices/control | POST | 控制裝置（空調/IR/除濕機）；除濕機自動模式啟用時拒收 |
 | /api/sensors/status | GET | 所有感測器當下值 + 24h history（溫度 / 濕度 / CO2），proxy 到 home-butler in-memory ring buffer |
 | /api/ac/status | GET | 所有空調當下狀態 + 24h history，給感測器 chart 背景畫 AC on 區段用 |
-| /api/dehumidifier/auto-rule | GET / POST | 除濕機條件式自動規則的讀寫；POST 設定 toggle ON 時後端會立即評估 sensor 當下值決定 fire ON/OFF |
+| /api/dehumidifier/auto-rule | GET / POST | 除濕機條件式自動規則的讀寫；等待選項為立即、5、10、15、20、25、30 分鐘，POST 設定 toggle ON 時後端會立即評估 sensor 當下值決定 fire ON/OFF |
 | /api/lighting/areas | GET | 列出 Hue rooms / zones 對應的 grouped_light 區域，含 Dashboard 顯示名稱、各區當下 on/brightness、一般場景 / 全天場景、通知動作與可用燈效 |
 | /api/lighting/areas/[id] | PATCH | 更新 Hue 區域顯示名稱 |
 | /api/lighting/areas/[id]/state | PATCH | 控制該區 grouped_light 的電源 (on) 與亮度 (brightness)，經 home-butler → PC agent 下發 |
