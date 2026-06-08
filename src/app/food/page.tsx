@@ -32,7 +32,8 @@ export default function FoodPage() {
   const { data: items, loading, refetch: fetchFood } = useCachedFetch<FoodItem[]>("/api/food", []);
   const [showAdd, setShowAdd] = useState(false);
   const [newFood, setNewFood] = useState({ name: "", quantity: "", unit: "個", expiry: "" });
-  const [editIndex, setEditIndex] = useState<number | null>(null);
+  // 用原始 item 快照當編輯身分，而非陣列 index（同 todos：refetch 替換陣列後 index 會錯位）。
+  const [editOriginal, setEditOriginal] = useState<FoodItem | null>(null);
   const [editFood, setEditFood] = useState({ name: "", quantity: "", unit: "個", expiry: "" });
 
   const filtered = items
@@ -63,8 +64,8 @@ export default function FoodPage() {
     fetch(`/api/food?name=${encodeURIComponent(name)}`, { method: "DELETE" }).then(() => fetchFood());
   }
 
-  function startEdit(item: FoodItem, sheetIndex: number) {
-    setEditIndex(sheetIndex);
+  function startEdit(item: FoodItem) {
+    setEditOriginal(item);
     setEditFood({
       name: item["品名"],
       quantity: item["數量"],
@@ -74,8 +75,8 @@ export default function FoodPage() {
   }
 
   function saveEdit() {
-    if (editIndex === null) return;
-    const original = items[editIndex];
+    if (!editOriginal) return;
+    const original = editOriginal;
     fetch("/api/food", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -87,7 +88,7 @@ export default function FoodPage() {
         expiry: editFood.expiry !== original["過期日"] ? editFood.expiry : undefined,
       }),
     }).then(() => {
-      setEditIndex(null);
+      setEditOriginal(null);
       fetchFood();
     });
   }
@@ -174,7 +175,10 @@ export default function FoodPage() {
             {filtered.map((item) => {
               const exp = expiryLabel(item["過期日"]);
               const sheetIndex = getSheetIndex(item);
-              const isEditing = editIndex === sheetIndex;
+              const isEditing =
+                editOriginal !== null &&
+                editOriginal["品名"] === item["品名"] &&
+                editOriginal["過期日"] === item["過期日"];
 
               if (isEditing) {
                 return (
@@ -225,7 +229,7 @@ export default function FoodPage() {
                         儲存
                       </button>
                       <button
-                        onClick={() => setEditIndex(null)}
+                        onClick={() => setEditOriginal(null)}
                         className="rounded-full border border-line bg-elevated px-4 py-1.5 text-xs font-medium text-soft hover:bg-elevated/80"
                       >
                         取消
@@ -256,7 +260,7 @@ export default function FoodPage() {
                   <span className={`num flex-shrink-0 text-xs ${exp.cls}`}>{exp.text}</span>
                   <div className="flex items-center gap-1">
                     <IconActionButton
-                      onClick={() => startEdit(item, sheetIndex)}
+                      onClick={() => startEdit(item)}
                       title="編輯"
                       icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
                     />

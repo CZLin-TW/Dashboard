@@ -1,28 +1,15 @@
 import { cookies } from "next/headers";
-import { SignJWT, jwtVerify } from "jose";
-
-// SESSION_JWT_SECRET should be a dedicated random value (e.g. `openssl rand -hex 32`),
-// kept separate from LINE_LOGIN_CHANNEL_SECRET so:
-//   - Rotating the LINE Channel Secret doesn't invalidate active sessions
-//   - A leak of one secret doesn't compromise the other
-// Falls back to LINE_LOGIN_CHANNEL_SECRET for backward compat with existing deployments,
-// then to a dev-only literal so local dev still works without env setup.
-const SECRET_SOURCE =
-  process.env.SESSION_JWT_SECRET ??
-  process.env.LINE_LOGIN_CHANNEL_SECRET ??
-  "dev-secret";
-
-const JWT_SECRET = new TextEncoder().encode(SECRET_SOURCE);
+import { SignJWT } from "jose";
+// secret 解析 + 驗證集中在 edge-safe 的 lib/jwt.ts，與 proxy.ts(middleware) 共用，
+// 保證簽發與閘門驗簽用同一把金鑰。
+import { JWT_SECRET, verifyToken, assertCanIssueSession, type SessionUser } from "./jwt";
 
 const COOKIE_NAME = "dashboard_session";
 
-export interface SessionUser {
-  lineUserId: string;
-  name: string;
-  picture?: string;
-}
+export type { SessionUser };
 
 export async function createSession(user: SessionUser): Promise<string> {
+  assertCanIssueSession(); // production 缺 secret 時拒絕簽發（fail-closed）
   const token = await new SignJWT({ ...user })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")
@@ -32,19 +19,7 @@ export async function createSession(user: SessionUser): Promise<string> {
 
 export async function getSession(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return {
-      lineUserId: payload.lineUserId as string,
-      name: payload.name as string,
-      picture: payload.picture as string | undefined,
-    };
-  } catch {
-    return null;
-  }
+  return verifyToken(cookieStore.get(COOKIE_NAME)?.value);
 }
 
 export function getSessionCookieOptions() {

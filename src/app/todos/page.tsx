@@ -82,7 +82,9 @@ export default function TodosPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [newTodo, setNewTodo] = useState({ item: "", date: "", time: "", type: "私人", light_notify: false, light_area_id: "" });
   const [hasTime, setHasTime] = useState(false);
-  const [editIndex, setEditIndex] = useState<number | null>(null);
+  // 用「原始 todo 快照」當編輯身分，而非陣列 index——否則編輯開著時別筆被完成
+  // (useCompleteTodo→fetchTodos 替換陣列)，index 會指到錯的列、把新值寫到別人那筆。
+  const [editOriginal, setEditOriginal] = useState<TodoItem | null>(null);
   const [editTodo, setEditTodo] = useState({ item: "", date: "", time: "", type: "私人", light_notify: false, light_area_id: "" });
   const { completeTodo, isCompleting } = useCompleteTodo(fetchTodos);
   // 週期任務：新增表單的「重複」開關 + 規則，以及現有模板清單（管理 Card 用）。
@@ -216,8 +218,8 @@ export default function TodosPage() {
     });
   }
 
-  function startEdit(todo: TodoItem, sheetIndex: number) {
-    setEditIndex(sheetIndex);
+  function startEdit(todo: TodoItem) {
+    setEditOriginal(todo);
     setEditTodo({
       item: todo["事項"],
       date: todo["日期"],
@@ -229,8 +231,8 @@ export default function TodosPage() {
   }
 
   function saveEdit() {
-    if (editIndex === null || !currentUser) return;
-    const original = todos[editIndex];
+    if (!editOriginal || !currentUser) return;
+    const original = editOriginal;
     const nextLightAreaId = editTodo.light_notify ? (editTodo.light_area_id || defaultLightAreaId) : "";
     fetch("/api/todos", {
       method: "PATCH",
@@ -248,7 +250,7 @@ export default function TodosPage() {
         requester: currentUser.name,
       }),
     }).then(() => {
-      setEditIndex(null);
+      setEditOriginal(null);
       fetchTodos();
     });
   }
@@ -475,7 +477,11 @@ export default function TodosPage() {
             {filteredTodos.map((todo) => {
               const isReadonly = todo["屬性"] === "唯讀";
               const sheetIndex = getSheetIndex(todo);
-              const isEditing = editIndex === sheetIndex;
+              const isEditing =
+                editOriginal !== null &&
+                editOriginal["事項"] === todo["事項"] &&
+                editOriginal["日期"] === todo["日期"] &&
+                editOriginal["時間"] === todo["時間"];
 
               if (isEditing) {
                 return (
@@ -561,7 +567,7 @@ export default function TodosPage() {
                         儲存
                       </button>
                       <button
-                        onClick={() => setEditIndex(null)}
+                        onClick={() => setEditOriginal(null)}
                         className="rounded-full border border-line bg-elevated px-4 py-1.5 text-xs font-medium text-soft hover:bg-elevated/80"
                       >
                         取消
@@ -630,7 +636,7 @@ export default function TodosPage() {
                   {!isReadonly && (
                     <div className="flex items-center gap-1">
                       <IconActionButton
-                        onClick={() => startEdit(todo, sheetIndex)}
+                        onClick={() => startEdit(todo)}
                         title="編輯"
                         icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
                       />
