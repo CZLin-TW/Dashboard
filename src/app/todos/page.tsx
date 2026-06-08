@@ -1,14 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckSquare, Plus, Lock, Pencil, X, Check, Lightbulb } from "lucide-react";
+import { CheckSquare, Plus, Lock, Pencil, X, Check, Lightbulb, Repeat } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Field,
   PillButton,
   IconActionButton,
+  Dropdown,
+  Stepper,
 } from "@/components/ui/device-controls";
-import { todoLightNotify, todoUrgency, urgencyRowClass, relativeDateLabel } from "@/lib/types";
+import {
+  todoLightNotify, todoUrgency, urgencyRowClass, relativeDateLabel,
+  isRecurringInstance, type RecurringRule,
+} from "@/lib/types";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useCompleteTodo } from "@/hooks/use-complete-todo";
@@ -24,7 +29,32 @@ interface TodoItem {
   "屬性": string;
   "燈光提醒"?: string | boolean;
   "燈光區域ID"?: string;
+  "規則ID"?: string;
 }
+
+// 週期任務的頻率選項 + 星期 + 月日。
+const RECUR_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: "每天", label: "每天" },
+  { value: "每週", label: "每週" },
+  { value: "每月", label: "每月" },
+  { value: "間隔天", label: "間隔天" },
+];
+const WEEKDAYS: { value: number; label: string }[] = [
+  { value: 1, label: "一" }, { value: 2, label: "二" }, { value: 3, label: "三" },
+  { value: 4, label: "四" }, { value: 5, label: "五" }, { value: 6, label: "六" },
+  { value: 7, label: "日" },
+];
+const MONTH_DAY_OPTIONS: { value: number; label: string }[] =
+  Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: `${i + 1} 號` }));
+
+interface RecurState {
+  type: string;
+  weekdays: number[];
+  monthDay: number;
+  interval: number;
+  endDate: string;
+}
+const RECUR_DEFAULT: RecurState = { type: "每天", weekdays: [], monthDay: 1, interval: 3, endDate: "" };
 
 interface LightingArea {
   id: string;
@@ -55,6 +85,11 @@ export default function TodosPage() {
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editTodo, setEditTodo] = useState({ item: "", date: "", time: "", type: "私人", light_notify: false, light_area_id: "" });
   const { completeTodo, isCompleting } = useCompleteTodo(fetchTodos);
+  // 週期任務：新增表單的「重複」開關 + 規則，以及現有模板清單（管理 Card 用）。
+  const [recurEnabled, setRecurEnabled] = useState(false);
+  const [recur, setRecur] = useState<RecurState>(RECUR_DEFAULT);
+  const { data: recurringRules, refetch: fetchRules } =
+    useCachedFetch<RecurringRule[]>("/api/recurring-todos", []);
   const lightingAreas = useMemo(
     () => (lightingPayload?.areas ?? []).filter((area) => area.enabled !== false),
     [lightingPayload],
@@ -94,8 +129,33 @@ export default function TodosPage() {
       return dateA.localeCompare(dateB);
     });
 
+  // 每週至少選一天才有效；其他類型一律有效。
+  const recurValid = recur.type !== "每週" || recur.weekdays.length > 0;
+
+  function toggleWeekday(d: number) {
+    setRecur((p) => ({
+      ...p,
+      weekdays: p.weekdays.includes(d)
+        ? p.weekdays.filter((x) => x !== d)
+        : [...p.weekdays, d].sort((a, b) => a - b),
+    }));
+  }
+
+  function resetAddForm() {
+    setNewTodo({ item: "", date: "", time: "", type: "私人", light_notify: false, light_area_id: "" });
+    setHasTime(false);
+    setRecurEnabled(false);
+    setRecur(RECUR_DEFAULT);
+    setShowAdd(false);
+  }
+
   function addTodo() {
-    if (!newTodo.item.trim() || !newTodo.date || !currentUser) return;
+    if (!newTodo.item.trim() || !currentUser) return;
+    if (recurEnabled) {
+      addRecurring();
+      return;
+    }
+    if (!newTodo.date) return;
     fetch("/api/todos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -109,9 +169,49 @@ export default function TodosPage() {
         light_area_id: hasTime && newTodo.light_notify ? (newTodo.light_area_id || defaultLightAreaId) : undefined,
       }),
     }).then(() => {
-      setNewTodo({ item: "", date: "", time: "", type: "私人", light_notify: false, light_area_id: "" });
-      setHasTime(false);
-      setShowAdd(false);
+      resetAddForm();
+      fetchTodos();
+    });
+  }
+
+  function addRecurring() {
+    if (!currentUser || !recurValid) return;
+    const useLight = hasTime && newTodo.light_notify;
+    const body: Record<string, unknown> = {
+      item: newTodo.item.trim(),
+      recur_type: recur.type,
+      person: currentUser.name,
+      type: newTodo.type,
+      time: hasTime ? newTodo.time : "",
+      light_notify: useLight,
+      light_area_id: useLight ? (newTodo.light_area_id || defaultLightAreaId) : undefined,
+      end_date: recur.endDate || undefined,
+    };
+    if (recur.type === "每週") body.weekdays = recur.weekdays;
+    if (recur.type === "每月") body.month_day = recur.monthDay;
+    if (recur.type === "間隔天") body.interval_days = recur.interval;
+    fetch("/api/recurring-todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(async (res) => {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err?.error ?? "新增週期提醒失敗");
+        return;
+      }
+      resetAddForm();
+      fetchTodos();
+      fetchRules();
+    });
+  }
+
+  function stopRecurring(rule: RecurringRule) {
+    const summary = rule["摘要"] ? `（${rule["摘要"]}）` : "";
+    if (!confirm(`要永久停止整個週期提醒「${rule["事項"]}」${summary} 嗎？\n已經產生在清單上的當次待辦不會被移除。`)) return;
+    const params = new URLSearchParams({ rule_id: rule["規則ID"] });
+    fetch(`/api/recurring-todos?${params}`, { method: "DELETE" }).then(() => {
+      fetchRules();
       fetchTodos();
     });
   }
@@ -193,14 +293,93 @@ export default function TodosPage() {
               placeholder="待辦事項內容"
               className={`w-full ${INPUT_BASE}`}
             />
-            <Field label="日期 *">
+            <label className="flex items-center gap-2 text-[12.5px] text-mute cursor-pointer select-none">
               <input
-                type="date"
-                value={newTodo.date}
-                onChange={(e) => setNewTodo((p) => ({ ...p, date: e.target.value }))}
-                className={`w-full ${INPUT_BASE} appearance-none`}
+                type="checkbox"
+                checked={recurEnabled}
+                onChange={() => setRecurEnabled((v) => !v)}
+                className="h-3.5 w-3.5 rounded border-line accent-cool"
               />
-            </Field>
+              <Repeat className="h-3.5 w-3.5" strokeWidth={2} />
+              重複（週期任務）
+            </label>
+
+            {!recurEnabled ? (
+              <Field label="日期 *">
+                <input
+                  type="date"
+                  value={newTodo.date}
+                  onChange={(e) => setNewTodo((p) => ({ ...p, date: e.target.value }))}
+                  className={`w-full ${INPUT_BASE} appearance-none`}
+                />
+              </Field>
+            ) : (
+              <div className="space-y-3 rounded-[12px] bg-elevated/40 p-3">
+                <Field label="頻率">
+                  <Dropdown
+                    options={RECUR_TYPE_OPTIONS}
+                    value={recur.type}
+                    onSelect={(v) => setRecur((p) => ({ ...p, type: v }))}
+                    className="w-full"
+                  />
+                </Field>
+                {recur.type === "每週" && (
+                  <Field label="星期（可多選）">
+                    <div className="flex flex-wrap gap-1.5">
+                      {WEEKDAYS.map((d) => {
+                        const active = recur.weekdays.includes(d.value);
+                        return (
+                          <button
+                            key={d.value}
+                            type="button"
+                            onClick={() => toggleWeekday(d.value)}
+                            className={`grid h-8 w-8 place-items-center rounded-full text-[13px] font-medium transition-colors ${
+                              active
+                                ? "bg-cool text-white shadow-sm"
+                                : "border border-line bg-surface text-soft hover:text-foreground"
+                            }`}
+                          >
+                            {d.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </Field>
+                )}
+                {recur.type === "每月" && (
+                  <Field label="每月幾號">
+                    <Dropdown
+                      options={MONTH_DAY_OPTIONS}
+                      value={recur.monthDay}
+                      onSelect={(v) => setRecur((p) => ({ ...p, monthDay: v }))}
+                    />
+                  </Field>
+                )}
+                {recur.type === "間隔天" && (
+                  <Field label="每隔幾天">
+                    <Stepper
+                      value={recur.interval}
+                      unit="天"
+                      onMinus={() => setRecur((p) => ({ ...p, interval: Math.max(1, p.interval - 1) }))}
+                      onPlus={() => setRecur((p) => ({ ...p, interval: p.interval + 1 }))}
+                    />
+                  </Field>
+                )}
+                <Field label="結束日期（選填）">
+                  <input
+                    type="date"
+                    value={recur.endDate}
+                    onChange={(e) => setRecur((p) => ({ ...p, endDate: e.target.value }))}
+                    className={`w-full ${INPUT_BASE} appearance-none`}
+                  />
+                </Field>
+                {recur.type === "每月" && (
+                  <p className="text-[11px] text-faint">
+                    每月 29~31 號遇到較短的月份（如 2 月）會自動落在當月最後一天。
+                  </p>
+                )}
+              </div>
+            )}
             <div>
               <label className="flex items-center gap-2 text-[12.5px] text-mute cursor-pointer select-none">
                 <input
@@ -273,10 +452,10 @@ export default function TodosPage() {
             </Field>
             <button
               onClick={addTodo}
-              disabled={!newTodo.item.trim() || !newTodo.date}
+              disabled={!newTodo.item.trim() || (recurEnabled ? !recurValid : !newTodo.date)}
               className="w-full rounded-full bg-fresh px-5 py-2.5 text-sm font-semibold text-white hover:bg-fresh/85 disabled:bg-elevated disabled:text-mute transition-colors"
             >
-              確認新增
+              {recurEnabled ? "確認新增週期提醒" : "確認新增"}
             </button>
           </div>
         </Card>
@@ -425,6 +604,9 @@ export default function TodosPage() {
                       {todo["事項"]}
                       {isReadonly && <Lock className="h-3 w-3 text-faint" strokeWidth={2} />}
                       {lightNotify && <Lightbulb className="h-3 w-3 text-amber" strokeWidth={2} />}
+                      {isRecurringInstance(todo) && (
+                        <Repeat className="h-3 w-3 text-cool" strokeWidth={2} aria-label="週期任務" />
+                      )}
                     </p>
                     <p className="num text-xs text-mute">
                       {todo["日期"]}
@@ -466,6 +648,39 @@ export default function TodosPage() {
           </ul>
         )}
       </Card>
+
+      {recurringRules.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>週期提醒</CardTitle>
+            <span className="num text-xs text-mute">{recurringRules.length} 項</span>
+          </CardHeader>
+          <ul className="flex flex-col gap-1">
+            {recurringRules.map((rule) => (
+              <li
+                key={rule["規則ID"]}
+                className="flex items-center gap-3 rounded-[12px] px-3 py-2.5 hover:bg-elevated/50"
+              >
+                <Repeat className="h-4 w-4 flex-shrink-0 text-cool" strokeWidth={2} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground">{rule["事項"]}</p>
+                  <p className="num text-xs text-mute">
+                    {rule["摘要"]}
+                    {rule["負責人"] && ` · ${rule["負責人"]}`}
+                    {todoLightNotify(rule) && " · 燈光提醒"}
+                  </p>
+                </div>
+                <IconActionButton
+                  onClick={() => stopRecurring(rule)}
+                  tone="danger"
+                  title="停止整個週期"
+                  icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
+                />
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
     </div>
   );
 }

@@ -110,6 +110,35 @@ export interface TodoData {
   "屬性"?: string;
   "燈光提醒"?: string | boolean;
   "燈光區域ID"?: string;
+  // 非空 = 這筆待辦是由週期模板 materialize 出來的當次實例（list row 顯示 🔁）。
+  // 完成它只完成當次，模板不受影響，下個週期日 tick 會再生一筆。
+  "規則ID"?: string;
+}
+
+/** 週期待辦模板（home-butler 後端定義）。GET /api/recurring-todos 回傳，
+ *  每筆附後端算好的「摘要」（如「每週一三五 20:00」），前端不重算避免漂移。
+ *  欄位 schema 見 home-butler/handlers/recurring_todo.py:TEMPLATE_HEADERS。 */
+export interface RecurringRule {
+  "規則ID": string;
+  "事項": string;
+  "重複類型": string;            // 每天 / 每週 / 每月 / 間隔天
+  "星期"?: string;              // 每週：isoweekday "1,3,5"
+  "月日"?: string | number;     // 每月：1~31
+  "間隔天數"?: string | number; // 間隔天
+  "時間"?: string;
+  "負責人"?: string;
+  "類型"?: string;
+  "燈光提醒"?: string | boolean;
+  "燈光區域ID"?: string;
+  "起始日期"?: string;
+  "結束日期"?: string;
+  "狀態"?: string;              // 啟用 / 停用
+  "摘要"?: string;              // 後端算好的人類可讀字串
+}
+
+/** 週期實例：規則ID 非空。用於 list row 條件式顯示 🔁。 */
+export function isRecurringInstance(todo: Pick<TodoData, "規則ID">): boolean {
+  return !!String(todo["規則ID"] ?? "").trim();
 }
 
 export function sheetBool(value: unknown): boolean {
