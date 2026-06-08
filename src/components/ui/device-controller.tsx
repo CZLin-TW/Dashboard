@@ -498,14 +498,16 @@ export function DeviceController({
               options={DURATION_OPTIONS}
               value={dehumRule?.duration_min ?? 30}
               onSelect={(v) => sendAutoRuleUpdate({ duration_min: v })}
-              disabled={autoConfigDisabled}
+              disabled={autoRulePending}
               className="w-full"
             />
           </Field>
         </div>
         {/* Row 2: 監控感測器（撐滿剩餘寬度）+ 目標濕度（自然寬，靠右）。
-            門檻在 auto ON 時也可即時修改（感測器 / 監控時間維持 auto ON lock，
-            因為改它們會 reset runtime state）。 */}
+            目標濕度 / 監控時間在 auto ON 時都可即時修改：後端只在 auto_mode 翻轉時
+            reset runtime state，改門檻 / 時間不會清計時器，_evaluate_steady 下個 tick
+            現撈新值即可。只有「感測器」維持 auto ON lock——換綁定 sensor 會 rebind
+            歷史 / 圖表、計時器基準也整個變，才需要鎖。 */}
         <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
           <Field label="監控感測器" className="flex-1 min-w-0">
             <Dropdown
