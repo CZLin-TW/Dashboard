@@ -17,12 +17,12 @@
 | 首頁總覽 | 天氣、室內溫濕度、釘選設備快速控制、未來 5 天 / 已過期的待辦與食品 |
 | 設備控制 | 空調（電源/溫度/模式/風速 + 送出後輪詢確認）、除濕機（模式/濕度 + 條件式自動模式 toggle + 即時可調的目標濕度門檻）、IR 設備（自訂按鈕）；環境感測器（溫度/濕度即時值，含 SwitchBot Meter Pro CO2 三合一） |
 | 設備釘選 | 常用設備（最多 4 個）+ 一個感測器釘選到首頁，快速存取 |
-| 待辦事項 | 新增、修改、完成、查看；隱私邏輯只顯示「自己負責 + 公開」項目；過期/今日提醒 highlight；有時間的待辦可勾選 Hue 燈光提醒並指定照明區域 |
+| 待辦事項 | 新增、修改、完成、查看；支援週期任務（每天/每週/每月/間隔天的重複待辦，由模板自動生成當次待辦並以 🔁 標記）；隱私邏輯只顯示「自己負責 + 公開」項目；過期/今日提醒 highlight；有時間的待辦可勾選 Hue 燈光提醒並指定照明區域 |
 | 庫存 | 食品的新增、修改、刪除；過期/今日項目整 row 警示底色 |
 | 排程管理 | 完整 CRUD（新增 / 編輯 / 刪除）；直接內嵌在每張裝置卡片下方，過期排程也保留顯示 |
 | 照明 | 列出 Hue 房間/區域，每區一張卡：套用 Hue App 場景、套用通知動作、套用支援燈效、電源 On/Off、亮度（slider + 數字輸入雙向）、可改 Dashboard 顯示名稱；只顯示 room/zone（隱藏「全家」與未分區燈群） |
 | PC 監控 | 家中 PC 跑 agent 推指標到後端，Dashboard 顯示當下值（CPU/GPU 用量+溫度）+ 24h 折線圖（CPU/GPU/RAM 用量、CPU/GPU 溫度） |
-| LINE 登入 | LINE OAuth 2.1 認證，僅限家庭成員使用 |
+| 裝置配對登入 | 登入頁顯示 6 位驗證碼，在 LINE Bot 輸入「登入 <6位數字>」核准後前端輪詢取得 session，全程不離開 PWA 容器；僅限家庭成員使用 |
 | PWA 主畫面 | 提供 manifest、standalone display、iOS web app meta 與 app icons，讓手機加入主畫面後更接近獨立 app |
 
 ---
@@ -41,7 +41,7 @@ Google Sheets / SwitchBot / Panasonic / 氣象署
 
 Dashboard 本身不做業務邏輯，所有 API Routes 都是代理層，轉發到 home-butler 後端處理。
 
-Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskable PNG icon、iOS `apple-mobile-web-app-capable` meta。目標是讓手機主畫面啟動時維持 standalone app 體驗；LINE OAuth 外部跳轉仍可能由系統瀏覽器接手，但 PWA 設定能降低主畫面捷徑退化成普通分頁的機率。
+Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskable PNG icon、iOS `apple-mobile-web-app-capable` meta。目標是讓手機主畫面啟動時維持 standalone app 體驗。登入改用「裝置配對驗證碼」流程後，全程不再離開容器（不跳 Safari），正是為了解決 iOS PWA 加入主畫面後因 OAuth 外部跳轉被踢去系統瀏覽器、得重新加入主畫面的問題。
 
 ---
 
@@ -109,6 +109,8 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 - 列出時間排序，過期/今日 row 自動 highlight（warm-bg + 左邊 inset bar）
 - 日期顯示帶相對描述：`2026-05-04 (明天)`、`2026-05-03 (過期 1 天)`等
 - 新增（事項、日期、選用時間、私人/公開；有時間時可勾選燈光提醒並用下拉選擇照明區域）
+- 週期任務（重複待辦）：新增表單可勾「重複（週期任務）」，選頻率「每天 / 每週（可多選星期）/ 每月（指定幾號）/ 間隔天（每隔 N 天）」+ 選填結束日期；模板存進「週期待辦模板」分頁，由 home-butler 依排程自動生成當次待辦（受後端 `RECURRING_TODO_ENABLED` 開關控制）
+- 週期模板生成的當次待辦在列表以 🔁 標記；底部「週期提醒」Card 列出啟用中的模板，可永久停止整個週期（已生成的當次待辦不受影響）
 - 修改（inline edit form：標題 / 日期 / 時間 / 類型 / 燈光提醒 / 提醒區域）
 - 有燈光提醒的待辦在首頁卡片與待辦列表顯示燈泡 icon；實際到期呼吸燈由 home-butler 的 PC agent 執行
 - 勾選完成（樂觀更新動畫，refetch 後一次消失，不閃爍）
@@ -137,9 +139,10 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 ### 登入 `/login`
 
-- LINE OAuth 2.1 登入
-- 自動驗證是否為家庭成員
-- 非成員顯示錯誤提示
+- 裝置配對驗證碼登入：頁面顯示一組 6 位驗證碼，使用者在 LINE Bot 輸入「登入 <6位數字>」核准
+- 前端每 3 秒輪詢 `/api/auth/device-poll`，核准後直接在此容器內發 session cookie，全程不離開 PWA（解決 iOS PWA 加主畫面後被踢去 Safari 的問題）
+- 驗證碼 5 分鐘有效，過期可一鍵重新取得
+- 自動驗證是否為家庭成員（身分取自「誰在 Bot 輸入驗證碼」），非成員顯示錯誤提示
 - 已登入自動導向首頁
 
 ---
@@ -152,10 +155,12 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 | 路徑 | 方法 | 說明 |
 |------|------|------|
-| /api/auth/login | GET | 導向 LINE OAuth 授權頁面 |
-| /api/auth/callback | GET | OAuth 回調，建立 JWT Session（7 天效期） |
+| /api/auth/device-code | POST | 裝置配對登入：proxy 到 home-butler `POST /api/auth/device/create`，回 `user_code`（6 位）+ `device_token` |
+| /api/auth/device-poll | GET | 輪詢配對狀態（query `token`）：proxy 到 home-butler `GET /api/auth/device/status`，回 `approved` 時於此容器直接簽發 JWT Session（7 天效期）並寫入 `dashboard_session` cookie |
 | /api/auth/me | GET | 取得當前登入使用者 |
 | /api/auth/logout | POST | 登出，清除 Session |
+| /api/auth/login | GET | （已淘汰、dormant）舊 LINE OAuth 授權導向，目前無前端引用 |
+| /api/auth/callback | GET | （已淘汰、dormant）舊 OAuth 回調，目前無前端引用 |
 
 ### 資料
 
@@ -180,6 +185,10 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/todos | POST | 新增待辦（含選用 `light_notify` / `light_area_id`，由 home-butler 寫入 `燈光提醒` 與 `燈光區域ID`） |
 | /api/todos | PATCH | 修改待辦（含選用 `light_notify` / `light_area_id`） |
 | /api/todos | DELETE | 完成（刪除）待辦 |
+| /api/recurring-todos | GET | 列出啟用中的週期待辦模板（home-butler「週期待辦模板」分頁，附後端算好的「摘要」） |
+| /api/recurring-todos | POST | 新增週期模板（`recur_type` 每天/每週/每月/間隔天 + `weekdays` / `month_day` / `interval_days` / `end_date` 等） |
+| /api/recurring-todos | PATCH | 修改週期模板（`rule_id` 精準定位，或 `item` + `recur_type` 消歧） |
+| /api/recurring-todos | DELETE | 停止整個週期（模板狀態 → 停用，以 `rule_id` 或 `item` 指定；已生成的當次待辦不受影響） |
 | /api/food | GET | 列出食品庫存 |
 | /api/food | POST | 新增食品 |
 | /api/food | PATCH | 修改食品 |
@@ -256,7 +265,8 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | schedule.ts | 排程共用：Schedule 型別、parseScheduleParams / toFormInitial / isPastTrigger / stableJson / createSchedule / updateSchedule / deleteSchedule（CRUD wrappers） |
 | computer.ts | PC 監控相關型別 + helper：ComputerPC / ComputerHistoryRaw / toChartHistory（unix sec → ms + 欄位重命名給 Recharts dataKey）/ relativeFromHeartbeat |
 | butler.ts | HTTP 客戶端（butlerGet / butlerPost / butlerPatch / butlerDelete），25 秒 timeout |
-| auth.ts | JWT Session 管理（建立、讀取、Cookie 設定） |
+| jwt.ts | Session JWT 的 secret 解析 + 驗證，**edge-safe**（只用 jose，不碰 next/headers）：JWT_SECRET / verifyToken / assertCanIssueSession / SessionUser。secret 解析順序 `SESSION_JWT_SECRET ?? LINE_LOGIN_CHANNEL_SECRET ?? 'dev-secret'`，production 下兩個真 secret 都沒設時 fail-closed（verifyToken 回 null、assertCanIssueSession throw）。由 auth.ts(node) 與 proxy.ts(edge middleware) 共用，保證簽發與閘門驗簽用同一把金鑰 |
+| auth.ts | node 端 Session 包裝：createSession / getSession / getSessionCookieOptions（簽發、讀 cookie、Cookie 設定）；secret 解析與驗證已移到 jwt.ts |
 | utils.ts | 通用工具（cn 等） |
 
 ---
@@ -267,11 +277,11 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 |----------|------|------|
 | HOME_BUTLER_URL | home-butler 後端網址（預設 `https://home-butler.onrender.com`） | 必要 |
 | HOME_BUTLER_API_KEY | home-butler 認證金鑰，必須與 home-butler 那邊設定的 `HOME_BUTLER_API_KEY` 相同 | 必要 |
-| LINE_LOGIN_CHANNEL_ID | LINE Login Channel ID | 必要 |
-| LINE_LOGIN_CHANNEL_SECRET | LINE Login Channel Secret | 必要 |
-| SESSION_JWT_SECRET | 簽 session JWT 用，建議 `openssl rand -hex 32` 產生。**未設定時 fallback 到 LINE_LOGIN_CHANNEL_SECRET**，但會把 OAuth secret 跟 session secret 綁在一起（其中一個輪替就會踩到另一個），不建議長期混用 | 建議 |
+| LINE_LOGIN_CHANNEL_ID | LINE Login Channel ID（OAuth 流程已淘汰，目前程式未使用） | 選用 |
+| LINE_LOGIN_CHANNEL_SECRET | LINE Login Channel Secret；登入改用驗證碼流程後，僅在未設 `SESSION_JWT_SECRET` 時作為 session JWT 的 fallback secret | 選用（建議改設 SESSION_JWT_SECRET） |
+| SESSION_JWT_SECRET | 簽 / 驗 session JWT 用，建議 `openssl rand -hex 32` 產生。未設定時 fallback 到 `LINE_LOGIN_CHANNEL_SECRET`；**production 下兩者皆無時 fail-closed**——不再以公開的 `dev-secret` 簽發或驗證 session（`createSession` 會 throw、`verifyToken` 一律回 null）。建議獨立設定，與 LINE Channel Secret 分離 | 建議 |
 
-> LINE Login 與 LINE Messaging API 是不同的 Channel，需要分別在 LINE Developers Console 建立。
+> 登入已改用「裝置配對驗證碼」流程，不再需要 LINE Login OAuth 的 Callback URL；`LINE_LOGIN_CHANNEL_SECRET` 現在僅作為 session JWT 的 fallback secret。
 
 ---
 
@@ -304,12 +314,13 @@ npm run start
 
 ---
 
-## LINE Login 設定
+## 登入設定（裝置配對驗證碼）
 
-1. 前往 [LINE Developers Console](https://developers.line.biz/)
-2. 在同一個 Provider 下建立新的 **LINE Login** Channel（不是 Messaging API）
-3. 設定 Callback URL：`https://你的網域/api/auth/callback`
-4. 記下 Channel ID 和 Channel Secret，填入環境變數
+登入已改用「裝置配對驗證碼」流程，**不再需要設定 LINE Login OAuth 的 Callback URL**。舊的 `/api/auth/login`、`/api/auth/callback` 仍保留但 dormant（已無前端引用）。
+
+- 設一組 `SESSION_JWT_SECRET`（`openssl rand -hex 32`）用來簽 / 驗 session JWT；未設時 fallback 到 `LINE_LOGIN_CHANNEL_SECRET`（見「環境變數」）
+- 配對核准在 home-butler 的 LINE Bot 端進行：使用者在家庭管家 Bot 輸入「登入 <6 位驗證碼>」，由 webhook 的 user_id 決定登入身分（須為「家庭成員」分頁中狀態啟用者）
+- 流程細節見 home-butler README 的「Dashboard 登入（裝置配對）」與 `/api/auth/device/*` 端點說明
 
 ---
 
@@ -381,5 +392,7 @@ Dashboard 是 home-butler 的**視覺化前端**，兩者共用同一套後端 A
 - **Dashboard**（本專案）：圖形化介面，適合瀏覽總覽和精確控制（滑桿調溫度、表格管庫存）
 
 兩者操作同一份 Google Sheets 資料，互不衝突。
+
+**裝置配對登入**：Dashboard 不再走 LINE OAuth 外部跳轉，改成在登入頁顯示 6 位驗證碼，由使用者在 LINE Bot 輸入「登入 <6位數字>」核准；身分（lineUserId / name / picture）取自在 Bot 輸入碼的那個 LINE 帳號。home-butler 端提供 `POST /api/auth/device/create` 與 `GET /api/auth/device/status`，Dashboard 以 `/api/auth/device-code`、`/api/auth/device-poll` BFF 代理，核准後在容器內直接發 session，全程不離開 PWA。
 
 **版本同步**：Dashboard 的 `package.json:version` 是整個系統的使用者體感版本 source of truth。Dashboard 會在 build-time 注入 `APP_VERSION`，home-butler 則在 runtime 透過 Dashboard 的 `/api/version` 公開端點抓取版本並快取 1 小時；版本 bump 只需要改 Dashboard，不需要同步修改 home-butler。
