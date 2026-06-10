@@ -21,6 +21,7 @@
 | 庫存 | 食品的新增、修改、刪除；過期/今日項目整 row 警示底色 |
 | 排程管理 | 完整 CRUD（新增 / 編輯 / 刪除）；直接內嵌在每張裝置卡片下方，過期排程也保留顯示 |
 | 照明 | 列出 Hue 房間/區域，每區一張卡：套用 Hue App 場景、套用通知動作、套用支援燈效、電源 On/Off、亮度（slider + 數字輸入雙向）、可改 Dashboard 顯示名稱；只顯示 room/zone（隱藏「全家」與未分區燈群） |
+| 自動夜燈 | 每張照明卡片下方的設定區塊：光感應器（SwitchBot Hub 2）、亮度門檻 1–20（附「偵測亮度」鈕實測當下值＋資料年齡）、觸發場景、開燈亮度、啟用時段（可跨午夜）。時段內亮度 ≤ 門檻且燈關著自動套場景、> 門檻自動關燈、時段結束關燈；規則由 home-butler 後端執行（SwitchBot webhook 秒級 + 5min 輪詢兜底），網頁關閉仍運作 |
 | PC 監控 | 家中 PC 跑 agent 推指標到後端，Dashboard 顯示當下值（CPU/GPU 用量+溫度）+ 24h 折線圖（CPU/GPU/RAM 用量、CPU/GPU 溫度） |
 | 劇院 agent 監控 | theater PC 的卡片底部多「劇院 agent」區塊：兩個自動化開關（KEF 喇叭連動、電視畫面自動關）+ agent.log / appletv_monitor.log 尾端監看。資料經 home-butler → PC agent WebSocket → 同機 [theater-agent](https://github.com/CZLin-TW/theater-agent) 轉送；開關 optimistic update、離線時顯示快取並鎖定 |
 | 裝置配對登入 | 登入頁顯示 6 位驗證碼，在 LINE Bot 輸入「登入 <6位數字>」核准後前端輪詢取得 session，全程不離開 PWA 容器；僅限家庭成員使用 |
@@ -136,6 +137,8 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
   - **效果**：Dropdown 列該區內燈具支援的 effect unique 結果；`*` 代表只有部分燈具支援，套用時只下發到支援的燈
   - **亮度**：slider + 數字輸入雙向綁定（1–100），拖曳放開 / 失焦或 Enter 才送；調亮度視為順便開燈
   - **電源**：On/Off Toggle 讀寫該區 grouped_light 的真實 on 狀態
+  - **自動夜燈**：卡片底部獨立區塊——啟用開關、光感應器（SwitchBot Hub 2）、亮度門檻 1–20、觸發場景、開燈亮度、啟用時段（可跨午夜）。所有改動是草稿，按「儲存」才生效（啟用且當下在時段內，後端會立即評估一次）；底部顯示最近觸發事件（已自動開燈/關燈、時段結束關燈）
+  - **偵測亮度鈕**（門檻列右側）：顯示系統當下可得的最新 lightLevel 與資料年齡——webhook 快取標「目前 X・N 分前」、status 雲端快取標「目前 X・雲端值」、該感應器不回報亮度則標「無亮度數值」。調門檻以這個數字為準（規則引擎看的就是同一份數據），SwitchBot APP 的直讀值官方雲端 API 拿不到，低亮度區間可能差 ±1~2 級
 - 控制都走樂觀更新，失敗才背景重抓對齊真實狀態
 
 ### 登入 `/login`
@@ -182,6 +185,10 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/lighting/areas/[id]/notification | POST | 套用區域層級通知動作，例如 `alert:breathe` 呼吸燈 |
 | /api/lighting/areas/[id]/effect | POST | 套用區域內支援的 Hue effect，部分支援時只套用支援的燈 |
 | /api/lighting/breathe | POST | 對指定 Hue grouped_light 觸發 breathe（後端仍保留；照明頁使用較泛用的 notification route） |
+| /api/lighting/auto/rules | GET | 自動夜燈：列出所有區域規則 + runtime state（時段旗標、最後亮度值與時間） |
+| /api/lighting/auto/rules/[areaId] | PATCH / DELETE | 自動夜燈：設定該區域規則（光感應器、門檻、場景、開燈亮度、時段、啟用開關）/ 刪除規則 |
+| /api/lighting/auto/sensors | GET | 自動夜燈：光感應器候選清單（home-butler「智能居家」啟用中的感應器） |
+| /api/lighting/auto/sensors/[deviceId]/light-level | GET | 自動夜燈：感應器當下亮度（webhook 快取優先附 `age_seconds`，否則 status 雲端值） |
 | /api/todos | GET | 列出所有待辦事項 |
 | /api/todos | POST | 新增待辦（含選用 `light_notify` / `light_area_id`，由 home-butler 寫入 `燈光提醒` 與 `燈光區域ID`） |
 | /api/todos | PATCH | 修改待辦（含選用 `light_notify` / `light_area_id`） |
