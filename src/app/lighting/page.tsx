@@ -97,6 +97,13 @@ interface AutoSensor {
   device_id: string;
 }
 
+// 偵測按鈕回傳：webhook 快取（有資料年齡）或 status 雲端快取（樣本時間未知）
+interface ProbeResult {
+  light_level: number | null;
+  source?: string;
+  age_seconds?: number | null;
+}
+
 const AUTO_EVENT_LABEL: Record<string, string> = {
   triggered_on: "已自動開燈",
   triggered_off: "已自動關燈",
@@ -124,6 +131,12 @@ function clampBrightness(n: number) {
 function clampInt(n: number, min: number, max: number) {
   if (Number.isNaN(n)) return min;
   return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+function formatAge(seconds: number) {
+  if (seconds < 90) return "剛剛";
+  if (seconds < 3600) return `${Math.round(seconds / 60)} 分前`;
+  return `${Math.floor(seconds / 3600)} 小時前`;
 }
 
 function defaultAutoRule(area: LightingArea, sensors: AutoSensor[]): AutoRule {
@@ -164,7 +177,10 @@ export default function LightingPage() {
   const [autoDrafts, setAutoDrafts] = useState<Record<string, AutoRule>>({});
   const [autoSavingId, setAutoSavingId] = useState("");
   const [probingId, setProbingId] = useState("");
-  const [probeLevels, setProbeLevels] = useState<Record<string, number | null>>({});
+  const [probeLevels, setProbeLevels] = useState<Record<string, ProbeResult>>({});
+  // 規則載入當下的時間戳（epoch 秒）：render 內算 runtime 亮度值的資料年齡用
+  // （render 不能直接呼叫 Date.now()，react-hooks/purity）
+  const [rulesLoadedAt, setRulesLoadedAt] = useState(0);
 
   const loadAreas = useCallback(async () => {
     setLoading(true);
@@ -237,6 +253,7 @@ export default function LightingPage() {
       if (rulesRes.ok) {
         const data = await rulesRes.json();
         setAutoRules((data?.rules && typeof data.rules === "object") ? data.rules : {});
+        setRulesLoadedAt(Date.now() / 1000);
       }
       if (sensorsRes.ok) {
         const data = await sensorsRes.json();
@@ -472,7 +489,11 @@ export default function LightingPage() {
       const data = await res.json();
       setProbeLevels((prev) => ({
         ...prev,
-        [deviceId]: typeof data?.light_level === "number" ? data.light_level : null,
+        [deviceId]: {
+          light_level: typeof data?.light_level === "number" ? data.light_level : null,
+          source: typeof data?.source === "string" ? data.source : undefined,
+          age_seconds: typeof data?.age_seconds === "number" ? data.age_seconds : null,
+        },
       }));
     } catch (e) {
       setNotice(e instanceof Error ? e.message : String(e));
@@ -583,9 +604,22 @@ export default function LightingPage() {
             const autoSaving = autoSavingId === area.id;
             const autoProbing = probingId === area.id;
             const probed = probeLevels[auto.sensor_device_id];
-            const measuredLevel = probed !== undefined
-              ? probed
-              : (savedAuto?.runtime?.last_light_level ?? null);
+            const runtimeLevel = savedAuto?.runtime?.last_light_level;
+            const runtimeAt = savedAuto?.runtime?.last_light_at ?? 0;
+            // 按過偵測 → 顯示偵測結果（webhook 來源附年齡、status 標雲端值）；
+            // 沒按過但規則 runtime 有 webhook/tick 留下的值 → 直接顯示＋年齡
+            let probeLabel = "偵測亮度";
+            if (probed) {
+              if (probed.light_level === null) {
+                probeLabel = "無亮度數值";
+              } else if (probed.source === "webhook" && typeof probed.age_seconds === "number") {
+                probeLabel = `目前 ${probed.light_level}・${formatAge(probed.age_seconds)}`;
+              } else {
+                probeLabel = `目前 ${probed.light_level}・雲端值`;
+              }
+            } else if (typeof runtimeLevel === "number" && runtimeAt > 0 && rulesLoadedAt > 0) {
+              probeLabel = `目前 ${runtimeLevel}・${formatAge(Math.max(0, rulesLoadedAt - runtimeAt))}`;
+            }
             return (
               <article key={area.id} className={PANEL_BASE}>
                 <div className="flex items-start justify-between gap-3">
@@ -824,11 +858,7 @@ export default function LightingPage() {
                         ) : (
                           <Sun className="h-3 w-3" strokeWidth={2} />
                         )}
-                        {probed === null
-                          ? "無亮度數值"
-                          : measuredLevel !== null
-                            ? `目前 ${measuredLevel}`
-                            : "偵測亮度"}
+                        {probeLabel}
                       </button>
                     </div>
                     <div className="flex items-center gap-3">
