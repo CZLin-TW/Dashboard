@@ -13,17 +13,26 @@ import {
   YAxis,
 } from "recharts";
 import { Card } from "@/components/ui/card";
+import { TheaterSection } from "@/components/devices/theater-section";
 import {
   type ComputerPC,
   relativeFromHeartbeat,
   toChartHistory,
 } from "@/lib/computer";
+import type { TheaterFlagKey, TheaterSummary } from "@/lib/theater";
 
 interface Props {
   pc: ComputerPC;
   /** 溫度圖共用的 Y 軸範圍（整數 °C），讓多張卡之間視覺可比較。
    *  caller 從 cross-PC 的 cpu/gpu 溫度算 min/max + buffer 後傳入。 */
   tempDomain: [number, number];
+  /** 劇院 agent 區塊。devices 頁只把 summary 傳給 hostname 對上 agent_id 的卡，
+   *  其他卡完全不變。 */
+  theater?: TheaterSummary;
+  theaterOffline?: boolean;
+  theaterRefreshing?: boolean;
+  onTheaterRefresh?: () => void;
+  onTheaterFlagChange?: (key: TheaterFlagKey, value: boolean) => void;
 }
 
 const CHART_HEIGHT = 140;
@@ -100,7 +109,15 @@ function MetricBlock({
   );
 }
 
-export function ComputerCard({ pc, tempDomain }: Props) {
+export function ComputerCard({
+  pc,
+  tempDomain,
+  theater,
+  theaterOffline,
+  theaterRefreshing,
+  onTheaterRefresh,
+  onTheaterFlagChange,
+}: Props) {
   const chartHistory = useMemo(() => toChartHistory(pc.history), [pc.history]);
 
   // 配色簡化：CPU = fresh（用量+溫度同色）、GPU = warm（用量+溫度同色）、RAM = amber
@@ -250,6 +267,17 @@ export function ComputerCard({ pc, tempDomain }: Props) {
             </ResponsiveContainer>
           </div>
         </>
+      )}
+
+      {/* ── 劇院 agent（只有 theater PC 的卡片會收到 summary） ── */}
+      {theater && (
+        <TheaterSection
+          summary={theater}
+          offline={!!theaterOffline}
+          refreshing={!!theaterRefreshing}
+          onRefresh={onTheaterRefresh ?? (() => {})}
+          onFlagChange={onTheaterFlagChange ?? (() => {})}
+        />
       )}
     </Card>
   );

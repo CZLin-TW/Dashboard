@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, Suspense } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { LayoutGrid, Activity, Cpu } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
@@ -23,6 +23,7 @@ import { ComputerCard } from "@/components/devices/computer-card";
 import { SensorChart } from "@/components/devices/sensor-chart";
 import { ScheduleSection } from "@/components/devices/schedule-section";
 import type { ComputerPC } from "@/lib/computer";
+import type { TheaterFlagKey, TheaterSummary } from "@/lib/theater";
 import { type Sensor, computeSensorDomains } from "@/lib/sensor";
 import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
 import { type DehumDevice, getDehumSegmentsForLocation } from "@/lib/dehumidifier";
@@ -57,6 +58,15 @@ interface DashboardPayload {
   options: DeviceOptions;
 }
 
+// 劇院 summary 的 localStorage cache key（版本前綴同 use-cached-fetch，bump 自動失效）
+const THEATER_CACHE_KEY = `cache:${process.env.APP_VERSION}:/api/theater/summary`;
+
+function saveTheaterCache(summary: TheaterSummary) {
+  try {
+    localStorage.setItem(THEATER_CACHE_KEY, JSON.stringify(summary));
+  } catch { /* storage full, ignore */ }
+}
+
 export default function DevicesPage() {
   const { data: dashboard, loading, refetch: fetchDevices } = useCachedFetch<DashboardPayload | null>("/api/dashboard", null);
   const { data: liveStatus, refetch: refetchStatus } = useCachedFetch<Record<string, Partial<DeviceData>>>("/api/devices/status", {});
@@ -81,6 +91,65 @@ export default function DevicesPage() {
     return () => clearInterval(id);
   }, [refetchComputers]);
   const computers = Object.values(computersMap).sort((a, b) => a.ip.localeCompare(b.ip));
+
+  // 劇院 agent summary：不用 useCachedFetch——失敗時要明確標 offline（區塊變灰、
+  // 開關鎖定），但要保留上次成功資料才知道區塊掛在哪張 PC 卡（agent_id = hostname）。
+  const [theater, setTheater] = useState<TheaterSummary | null>(null);
+  const [theaterOffline, setTheaterOffline] = useState(false);
+  const [theaterRefreshing, setTheaterRefreshing] = useState(false);
+
+  const refetchTheater = useCallback(async () => {
+    setTheaterRefreshing(true);
+    try {
+      const r = await fetch("/api/theater/summary");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const fresh: TheaterSummary = await r.json();
+      if (!fresh?.agent_id) throw new Error("missing agent_id");
+      setTheater(fresh);
+      setTheaterOffline(false);
+      saveTheaterCache(fresh);
+    } catch (err) {
+      console.error("[theater] summary fetch failed:", err);
+      setTheaterOffline(true);
+    } finally {
+      setTheaterRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // localStorage 還原：跟 use-cached-fetch 同一個 hydration trade-off（見該檔說明）
+    try {
+      const cached = localStorage.getItem(THEATER_CACHE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (cached) setTheater(JSON.parse(cached));
+    } catch { /* ignore */ }
+    refetchTheater();
+    const id = setInterval(() => refetchTheater(), 60_000);
+    return () => clearInterval(id);
+  }, [refetchTheater]);
+
+  const setTheaterFlag = useCallback(async (key: TheaterFlagKey, value: boolean) => {
+    // optimistic update；失敗 rollback（theater_agent 端開關生效要幾秒，樂觀顯示沒有風險）
+    setTheater((prev) => (prev ? { ...prev, flags: { ...prev.flags, [key]: value } } : prev));
+    try {
+      const r = await fetch("/api/theater/flags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: value }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      setTheater((prev) => {
+        if (!prev) return prev;
+        const next = data?.flags ? { ...prev, flags: data.flags } : prev;
+        saveTheaterCache(next);
+        return next;
+      });
+    } catch (err) {
+      console.error("[theater] flag update failed:", err);
+      setTheater((prev) => (prev ? { ...prev, flags: { ...prev.flags, [key]: !value } } : prev));
+    }
+  }, []);
 
   // 感測器歷史：home-butler 內部 polling 累積。
   const {
@@ -346,7 +415,16 @@ export default function DevicesPage() {
         ) : (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {computers.map((c) => (
-              <ComputerCard key={c.ip} pc={c} tempDomain={tempDomain} />
+              <ComputerCard
+                key={c.ip}
+                pc={c}
+                tempDomain={tempDomain}
+                theater={theater && theater.agent_id === c.hostname ? theater : undefined}
+                theaterOffline={theaterOffline}
+                theaterRefreshing={theaterRefreshing}
+                onTheaterRefresh={refetchTheater}
+                onTheaterFlagChange={setTheaterFlag}
+              />
             ))}
           </div>
         )}
