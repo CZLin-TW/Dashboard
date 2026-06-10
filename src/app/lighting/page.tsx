@@ -6,8 +6,10 @@ import {
   Lightbulb,
   Loader2,
   MapPinned,
+  Moon,
   RefreshCw,
   Save,
+  Sun,
   Wifi,
   WifiOff,
 } from "lucide-react";
@@ -65,6 +67,42 @@ interface LightingPayload {
   counts?: Record<string, number>;
 }
 
+interface AutoRuleRuntime {
+  window_active?: boolean;
+  last_light_level?: number | null;
+  last_light_at?: number;
+}
+
+interface AutoRule {
+  area_name?: string;
+  enabled: boolean;
+  sensor_device_id: string;
+  sensor_name?: string;
+  threshold: number;
+  scene_id: string;
+  scene_name?: string;
+  scene_type?: string;
+  scene_action?: string;
+  brightness: number;
+  start_time: string;
+  end_time: string;
+  last_event?: string;
+  last_event_at?: string;
+  runtime?: AutoRuleRuntime;
+}
+
+interface AutoSensor {
+  name: string;
+  location?: string;
+  device_id: string;
+}
+
+const AUTO_EVENT_LABEL: Record<string, string> = {
+  triggered_on: "已自動開燈",
+  triggered_off: "已自動關燈",
+  window_end_off: "時段結束關燈",
+};
+
 const FALLBACK_PAYLOAD: LightingPayload = { agent_id: "", areas: [] };
 
 function areaIcon(kind: string) {
@@ -81,6 +119,23 @@ function shortId(id: string) {
 function clampBrightness(n: number) {
   if (Number.isNaN(n)) return 1;
   return Math.max(1, Math.min(100, Math.round(n)));
+}
+
+function clampInt(n: number, min: number, max: number) {
+  if (Number.isNaN(n)) return min;
+  return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+function defaultAutoRule(area: LightingArea, sensors: AutoSensor[]): AutoRule {
+  return {
+    enabled: false,
+    sensor_device_id: sensors[0]?.device_id ?? "",
+    threshold: 5,
+    scene_id: area.scenes?.[0]?.id ?? "",
+    brightness: 30,
+    start_time: "18:00",
+    end_time: "06:00",
+  };
 }
 
 async function readError(res: Response) {
@@ -104,6 +159,12 @@ export default function LightingPage() {
   const [savingId, setSavingId] = useState("");
   const [applyingKey, setApplyingKey] = useState("");
   const [notice, setNotice] = useState("");
+  const [autoRules, setAutoRules] = useState<Record<string, AutoRule>>({});
+  const [autoSensors, setAutoSensors] = useState<AutoSensor[]>([]);
+  const [autoDrafts, setAutoDrafts] = useState<Record<string, AutoRule>>({});
+  const [autoSavingId, setAutoSavingId] = useState("");
+  const [probingId, setProbingId] = useState("");
+  const [probeLevels, setProbeLevels] = useState<Record<string, number | null>>({});
 
   const loadAreas = useCallback(async () => {
     setLoading(true);
@@ -166,10 +227,31 @@ export default function LightingPage() {
     }
   }, []);
 
+  // 自動夜燈設定（規則 + 感應器清單）。失敗不擋整頁，只是區塊顯示空清單。
+  const loadAutoConfig = useCallback(async () => {
+    try {
+      const [rulesRes, sensorsRes] = await Promise.all([
+        fetch("/api/lighting/auto/rules", { cache: "no-store" }),
+        fetch("/api/lighting/auto/sensors", { cache: "no-store" }),
+      ]);
+      if (rulesRes.ok) {
+        const data = await rulesRes.json();
+        setAutoRules((data?.rules && typeof data.rules === "object") ? data.rules : {});
+      }
+      if (sensorsRes.ok) {
+        const data = await sensorsRes.json();
+        setAutoSensors(Array.isArray(data?.sensors) ? data.sensors : []);
+      }
+    } catch {
+      // 靜默：自動夜燈設定載入失敗不影響照明手動控制
+    }
+  }, []);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount 載入一次（loadAreas 內部 setLoading），沿用 use-cached-fetch 等既有慣例
     loadAreas();
-  }, [loadAreas]);
+    loadAutoConfig();
+  }, [loadAreas, loadAutoConfig]);
 
   const areas = useMemo(
     () =>
@@ -316,6 +398,89 @@ export default function LightingPage() {
     }
   }
 
+  // ── 自動夜燈 ──
+
+  function autoRuleOf(area: LightingArea): AutoRule {
+    return autoDrafts[area.id] ?? autoRules[area.id] ?? defaultAutoRule(area, autoSensors);
+  }
+
+  function updateAutoDraft(area: LightingArea, patch: Partial<AutoRule>) {
+    setAutoDrafts((prev) => ({
+      ...prev,
+      [area.id]: { ...(prev[area.id] ?? autoRules[area.id] ?? defaultAutoRule(area, autoSensors)), ...patch },
+    }));
+  }
+
+  async function saveAutoRule(area: LightingArea) {
+    const draft = autoRuleOf(area);
+    if (draft.enabled && (!draft.sensor_device_id || !draft.scene_id)) {
+      setNotice("啟用自動夜燈需選擇光感應器與場景");
+      return;
+    }
+    const scene = (area.scenes ?? []).find((s) => s.id === draft.scene_id);
+    const sensor = autoSensors.find((s) => s.device_id === draft.sensor_device_id);
+    setAutoSavingId(area.id);
+    setNotice("");
+    try {
+      const res = await fetch(`/api/lighting/auto/rules/${encodeURIComponent(area.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: draft.enabled,
+          sensor_device_id: draft.sensor_device_id,
+          sensor_name: sensor?.name ?? draft.sensor_name ?? "",
+          threshold: clampInt(draft.threshold, 1, 20),
+          scene_id: draft.scene_id,
+          scene_name: scene?.name ?? draft.scene_name ?? "",
+          scene_type: scene?.resource_type ?? draft.scene_type ?? "scene",
+          scene_action: scene?.recall_action
+            ?? (scene?.resource_type === "smart_scene" ? "activate" : "active"),
+          brightness: clampBrightness(draft.brightness),
+          start_time: draft.start_time,
+          end_time: draft.end_time,
+          area_name: area.display_name || area.hue_name || area.id,
+        }),
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json();
+      if (data?.rule) setAutoRules((prev) => ({ ...prev, [area.id]: data.rule }));
+      setAutoDrafts((prev) => {
+        const next = { ...prev };
+        delete next[area.id];
+        return next;
+      });
+      setNotice("自動夜燈設定已儲存");
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAutoSavingId("");
+    }
+  }
+
+  // 實測選定感應器當下的 lightLevel（1~20），給調門檻時參考
+  async function probeLightLevel(area: LightingArea) {
+    const deviceId = autoRuleOf(area).sensor_device_id;
+    if (!deviceId || probingId) return;
+    setProbingId(area.id);
+    setNotice("");
+    try {
+      const res = await fetch(
+        `/api/lighting/auto/sensors/${encodeURIComponent(deviceId)}/light-level`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      const data = await res.json();
+      setProbeLevels((prev) => ({
+        ...prev,
+        [deviceId]: typeof data?.light_level === "number" ? data.light_level : null,
+      }));
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : String(e));
+    } finally {
+      setProbingId("");
+    }
+  }
+
   function brightnessValue(area: LightingArea) {
     const draft = draftBri[area.id];
     if (draft !== undefined) return draft;
@@ -412,6 +577,15 @@ export default function LightingPage() {
             const sceneApplying = applyingKey === `scene:${area.id}`;
             const notificationApplying = applyingKey === `notification:${area.id}`;
             const effectApplying = applyingKey === `effect:${area.id}`;
+            const auto = autoRuleOf(area);
+            const savedAuto = autoRules[area.id];
+            const autoDirty = autoDrafts[area.id] !== undefined;
+            const autoSaving = autoSavingId === area.id;
+            const autoProbing = probingId === area.id;
+            const probed = probeLevels[auto.sensor_device_id];
+            const measuredLevel = probed !== undefined
+              ? probed
+              : (savedAuto?.runtime?.last_light_level ?? null);
             return (
               <article key={area.id} className={PANEL_BASE}>
                 <div className="flex items-start justify-between gap-3">
@@ -603,6 +777,173 @@ export default function LightingPage() {
                   <span className={FIELD_LABEL}>電源</span>
                   <div className="flex items-center justify-start">
                     <Toggle2 value={isOn} onChange={(v) => sendState(area, { on: v })} />
+                  </div>
+                </div>
+
+                {/* 自動夜燈：時段內亮度 ≤ 門檻且燈關著 → 開場景；亮度 > 門檻 → 關燈；時段結束關燈 */}
+                <div className="flex flex-col gap-3 border-t border-line pt-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                      <Moon className="h-4 w-4 text-mute" strokeWidth={2} />
+                      自動夜燈
+                    </span>
+                    <Toggle2 value={auto.enabled} onChange={(v) => updateAutoDraft(area, { enabled: v })} />
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <span className={FIELD_LABEL}>光感應器</span>
+                    <select
+                      value={auto.sensor_device_id}
+                      onChange={(e) => updateAutoDraft(area, { sensor_device_id: e.target.value })}
+                      disabled={autoSensors.length === 0}
+                      className="h-9 min-w-0 rounded-[10px] border border-line bg-elevated px-3 text-sm font-medium text-foreground outline-none transition-colors focus:border-cool disabled:cursor-not-allowed disabled:text-mute"
+                      aria-label="光感應器"
+                    >
+                      {autoSensors.length === 0 ? (
+                        <option value="">無感應器</option>
+                      ) : autoSensors.map((sensor) => (
+                        <option key={sensor.device_id} value={sensor.device_id}>
+                          {sensor.location ? `${sensor.location}・${sensor.name}` : sensor.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={FIELD_LABEL}>亮度門檻（≤ 門檻開燈）</span>
+                      <button
+                        type="button"
+                        onClick={() => probeLightLevel(area)}
+                        disabled={!auto.sensor_device_id || autoProbing}
+                        title="實測感應器當下亮度（1–20）"
+                        className="inline-flex h-7 items-center gap-1 rounded-full border border-line bg-surface px-2.5 text-[11px] font-semibold text-soft transition-colors hover:bg-elevated disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {autoProbing ? (
+                          <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} />
+                        ) : (
+                          <Sun className="h-3 w-3" strokeWidth={2} />
+                        )}
+                        {probed === null
+                          ? "無亮度數值"
+                          : measuredLevel !== null
+                            ? `目前 ${measuredLevel}`
+                            : "偵測亮度"}
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min={1}
+                        max={20}
+                        step={1}
+                        value={clampInt(auto.threshold, 1, 20)}
+                        onChange={(e) => updateAutoDraft(area, { threshold: Number(e.target.value) })}
+                        className="h-9 flex-1 cursor-pointer accent-cool"
+                        aria-label="亮度門檻"
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={auto.threshold}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (!Number.isNaN(n)) updateAutoDraft(area, { threshold: n });
+                        }}
+                        onBlur={() => updateAutoDraft(area, { threshold: clampInt(auto.threshold, 1, 20) })}
+                        className="num h-8 w-[4.5rem] rounded-[10px] border border-line bg-elevated px-2 text-right text-sm text-foreground outline-none transition-colors focus:border-cool"
+                        aria-label="亮度門檻數值"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <span className={FIELD_LABEL}>觸發場景</span>
+                    <select
+                      value={auto.scene_id}
+                      onChange={(e) => updateAutoDraft(area, { scene_id: e.target.value })}
+                      disabled={scenes.length === 0}
+                      className="h-9 min-w-0 rounded-[10px] border border-line bg-elevated px-3 text-sm font-medium text-foreground outline-none transition-colors focus:border-cool disabled:cursor-not-allowed disabled:text-mute"
+                      aria-label="觸發場景"
+                    >
+                      {scenes.length === 0 ? (
+                        <option value="">無場景</option>
+                      ) : scenes.map((scene) => (
+                        <option key={scene.id} value={scene.id}>
+                          {scene.name || scene.id}{scene.resource_type === "smart_scene" ? " · 全天" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <span className={FIELD_LABEL}>開燈亮度</span>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min={1}
+                        max={100}
+                        step={1}
+                        value={clampBrightness(auto.brightness)}
+                        onChange={(e) => updateAutoDraft(area, { brightness: Number(e.target.value) })}
+                        className="h-9 flex-1 cursor-pointer accent-fresh"
+                        aria-label="開燈亮度"
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={auto.brightness}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (!Number.isNaN(n)) updateAutoDraft(area, { brightness: n });
+                        }}
+                        onBlur={() => updateAutoDraft(area, { brightness: clampBrightness(auto.brightness) })}
+                        className="num h-8 w-[4.5rem] rounded-[10px] border border-line bg-elevated px-2 text-right text-sm text-foreground outline-none transition-colors focus:border-cool"
+                        aria-label="開燈亮度數值"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <span className={FIELD_LABEL}>啟用時段（可跨午夜）</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={auto.start_time}
+                        onChange={(e) => updateAutoDraft(area, { start_time: e.target.value })}
+                        className="num h-9 min-w-0 flex-1 rounded-[10px] border border-line bg-elevated px-3 text-sm text-foreground outline-none transition-colors focus:border-cool"
+                        aria-label="開始時間"
+                      />
+                      <span className="shrink-0 text-xs text-mute">至</span>
+                      <input
+                        type="time"
+                        value={auto.end_time}
+                        onChange={(e) => updateAutoDraft(area, { end_time: e.target.value })}
+                        className="num h-9 min-w-0 flex-1 rounded-[10px] border border-line bg-elevated px-3 text-sm text-foreground outline-none transition-colors focus:border-cool"
+                        aria-label="結束時間"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-[11px] text-mute">
+                      {savedAuto?.last_event
+                        ? `${AUTO_EVENT_LABEL[savedAuto.last_event] ?? savedAuto.last_event}・${savedAuto.last_event_at ?? ""}`
+                        : savedAuto?.enabled
+                          ? "等待觸發"
+                          : "未啟用"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => saveAutoRule(area)}
+                      disabled={!autoDirty || autoSaving}
+                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-cool px-3.5 text-sm font-semibold text-white transition-colors hover:bg-cool/85 disabled:cursor-not-allowed disabled:bg-elevated disabled:text-mute"
+                    >
+                      {autoSaving ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} /> : <Save className="h-4 w-4" strokeWidth={2} />}
+                      儲存
+                    </button>
                   </div>
                 </div>
               </article>
