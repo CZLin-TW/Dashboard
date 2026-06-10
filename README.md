@@ -22,6 +22,7 @@
 | 排程管理 | 完整 CRUD（新增 / 編輯 / 刪除）；直接內嵌在每張裝置卡片下方，過期排程也保留顯示 |
 | 照明 | 列出 Hue 房間/區域，每區一張卡：套用 Hue App 場景、套用通知動作、套用支援燈效、電源 On/Off、亮度（slider + 數字輸入雙向）、可改 Dashboard 顯示名稱；只顯示 room/zone（隱藏「全家」與未分區燈群） |
 | PC 監控 | 家中 PC 跑 agent 推指標到後端，Dashboard 顯示當下值（CPU/GPU 用量+溫度）+ 24h 折線圖（CPU/GPU/RAM 用量、CPU/GPU 溫度） |
+| 劇院 agent 監控 | theater PC 的卡片底部多「劇院 agent」區塊：兩個自動化開關（KEF 喇叭連動、電視畫面自動關）+ agent.log / appletv_monitor.log 尾端監看。資料經 home-butler → PC agent WebSocket → 同機 [theater-agent](https://github.com/CZLin-TW/theater-agent) 轉送；開關 optimistic update、離線時顯示快取並鎖定 |
 | 裝置配對登入 | 登入頁顯示 6 位驗證碼，在 LINE Bot 輸入「登入 <6位數字>」核准後前端輪詢取得 session，全程不離開 PWA 容器；僅限家庭成員使用 |
 | PWA 主畫面 | 提供 manifest、standalone display、iOS web app meta 與 app icons，讓手機加入主畫面後更接近獨立 app |
 
