@@ -172,7 +172,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 |------|------|------|
 | /api/dashboard | GET | 首頁彙整（天氣、裝置、待辦、庫存，減少往返次數） |
 | /api/devices | GET | 列出所有裝置基本資料（名稱、類型、位置、IR 按鈕、AC 上次指令快照），不含即時讀值 |
-| /api/devices/status | GET | 裝置即時讀值（感應器溫濕度、除濕機目前狀態），key 為裝置名稱 |
+| /api/devices/status | GET | 統一裝置狀態快取（空調 last-command、感應器、除濕機），key 為裝置名稱 |
 | /api/devices/options | GET | 裝置控制選項（空調模式/風速、除濕機模式/濕度） |
 | /api/devices/control | POST | 控制裝置（空調/IR/除濕機）；除濕機自動模式啟用時拒收 |
 | /api/sensors/status | GET | 所有感測器當下值 + 24h history（溫度 / 濕度 / CO2），proxy 到 home-butler in-memory ring buffer |
@@ -383,8 +383,9 @@ inset shadow 不破 row 的 `rounded-[12px]`。
 - **icon 全 lucide**：所有 emoji 換成 SVG（含天氣、設備、狀態指示燈），strokeWidth 統一
 - **樂觀更新**：操作後立即顯示視覺回饋，refetch 完成後同一輪 React batch 一起 render（避免動畫結束→項目消失之間的閃爍）
 - **快取優先**：localStorage 快取 API 回應，先顯示舊資料再背景靜默更新；cache key 含 APP_VERSION 避免 schema drift
-- **空調命令確認**：IR 沒法回讀，POST 後輪詢 `/api/dashboard` 10 秒等 home-butler 寫回 last 狀態，匹配才清 pending、解鎖 UI（避免 B→A→B 閃爍 + 期間 disable 防連發 race）
-- **除濕機狀態輪詢**：手動操作後每秒輪詢單一設備、最多 30 秒，匹配雲端真實狀態後才解鎖 UI；自動模式 ON/OFF 後會立即刷新設備狀態，且自動模式啟用期間每 60 秒同步一次 `/api/devices/status`
+- **統一裝置狀態同步**：首頁與裝置頁每 60 秒刷新 `/api/devices/status`，PWA 或分頁回到前景時立即刷新並在 5 秒後補抓背景更新結果；後端先回 in-memory cache，再以 single-flight 背景更新雲端裝置
+- **空調命令確認**：IR 沒法回讀，POST 後輪詢 `/api/devices/status?name=...` 10 秒等 home-butler 的 last-command cache 到位，匹配才清 pending、解鎖 UI（避免 B→A→B 閃爍 + 期間 disable 防連發 race）
+- **除濕機狀態輪詢**：手動操作後每秒輪詢單一設備、最多 30 秒，匹配雲端真實狀態後才解鎖 UI；自動模式 ON/OFF 後立即刷新統一裝置狀態
 
 ### Pending / dirty 邏輯（空調）
 

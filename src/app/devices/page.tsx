@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { LayoutGrid, Activity, Cpu } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
+import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import {
   DeviceData,
@@ -68,8 +69,9 @@ function saveTheaterCache(summary: TheaterSummary) {
 }
 
 export default function DevicesPage() {
-  const { data: dashboard, loading, refetch: fetchDevices } = useCachedFetch<DashboardPayload | null>("/api/dashboard", null);
+  const { data: dashboard, loading } = useCachedFetch<DashboardPayload | null>("/api/dashboard", null);
   const { data: liveStatus, refetch: refetchStatus } = useCachedFetch<Record<string, Partial<DeviceData>>>("/api/devices/status", {});
+  useAutoRefresh(refetchStatus);
   const rawDevices = dashboard?.devices ?? [];
   const options = dashboard?.options ?? DEFAULT_OPTIONS;
   const devices = rawDevices.map(d => ({ ...d, ...(liveStatus[d.name] ?? {}) }));
@@ -170,13 +172,6 @@ export default function DevicesPage() {
     const id = setInterval(() => refetchDehumRules(), 60_000);
     return () => clearInterval(id);
   }, [refetchDehumRules]);
-  const hasAutoDehumidifier = Object.values(dehumRulesMap).some((rule) => rule?.auto_mode);
-  useEffect(() => {
-    if (!hasAutoDehumidifier) return;
-    const id = setInterval(() => refetchStatus(), 60_000);
-    return () => clearInterval(id);
-  }, [hasAutoDehumidifier, refetchStatus]);
-
   // 除濕機 ON/OFF 歷史：給自動模式 chart 畫背景綠色 on-segments
   const {
     data: dehumHistoryMap,
@@ -379,7 +374,7 @@ export default function DevicesPage() {
                     <DeviceController
                       device={device}
                       options={options}
-                      onAcCommandSuccess={fetchDevices}
+                      onAcCommandSuccess={refetchStatus}
                       onDehumidifierCommandSuccess={refetchStatus}
                       dehumRule={device.type === "除濕機" ? (dehumRulesMap[device.name] ?? null) : undefined}
                       availableSensors={device.type === "除濕機" ? availableSensorNames : undefined}

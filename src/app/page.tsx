@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
+import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import {
   type WeatherData,
@@ -37,8 +38,8 @@ interface DashboardData {
  * 首頁 = 五張卡的 orchestrator。
  *
  * 資料流：
- *   /api/dashboard          → 一次拉天氣、裝置 last 狀態、待辦、食品、選項（減少往返）
- *   /api/devices/status     → 補感應器/除濕機即時讀值（home-butler 後端要重新打雲端 API）
+ *   /api/dashboard          → 一次拉天氣、裝置清單、待辦、食品、選項（減少往返）
+ *   /api/devices/status     → 統一裝置狀態快取；背景更新雲端裝置，空調命令後立即更新
  *   useCachedFetch          → localStorage 先回放 → 背景靜默更新（先看到舊值再更新）
  *
  * 每張卡只接收它需要的資料 + refetch callback；互動狀態（展開、樂觀更新等）住在卡內。
@@ -53,6 +54,7 @@ export default function HomePage() {
   const { data: liveStatus, refetch: refetchStatus } = useCachedFetch<
     Record<string, Partial<DeviceData>>
   >("/api/devices/status", {});
+  useAutoRefresh(refetchStatus);
 
   // 今天天氣若拿不到（比如剛跨日預報還沒生）就退回明天的，比顯示「載入中」實用
   const todayHasData =
@@ -61,7 +63,7 @@ export default function HomePage() {
     dashboard.weatherToday.max_t !== null;
   const weather = todayHasData ? dashboard!.weatherToday : dashboard?.weatherTomorrow ?? null;
 
-  // 把 /api/devices/status 的即時讀值合進 /api/dashboard 拿到的 last 狀態
+  // 統一狀態覆蓋 /api/dashboard 的初始裝置資料。
   const allDevices: DeviceData[] = (Array.isArray(dashboard?.devices) ? dashboard.devices : []).map(
     (d) => ({ ...d, ...(liveStatus[d.name] ?? {}) }),
   );
@@ -101,13 +103,6 @@ export default function HomePage() {
     const id = setInterval(() => refetchDehumRules(), 60_000);
     return () => clearInterval(id);
   }, [refetchDehumRules]);
-  const hasAutoDehumidifier = Object.values(dehumRulesMap).some((rule) => rule?.auto_mode);
-  useEffect(() => {
-    if (!hasAutoDehumidifier) return;
-    const id = setInterval(() => refetchStatus(), 60_000);
-    return () => clearInterval(id);
-  }, [hasAutoDehumidifier, refetchStatus]);
-
   // 除濕機 ON/OFF 歷史（給自動模式 chart 畫綠色背景）
   const {
     data: dehumHistoryMap,
@@ -193,7 +188,7 @@ export default function HomePage() {
       <DeviceQuickControl
         devices={controllableDevices}
         options={options}
-        onAcCommandSent={refetchDashboard}
+        onAcCommandSent={refetchStatus}
         onDehumidifierCommandSent={refetchStatus}
         dehumRulesMap={dehumRulesMap}
         availableSensors={Object.keys(sensorsMap)}

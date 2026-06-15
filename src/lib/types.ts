@@ -41,7 +41,7 @@ export interface DeviceData {
   /** 除濕機品牌（"Panasonic" | "LG"）。空字串視為 Panasonic。決定控制面板用哪組模式/濕度選項。 */
   brand?: string;
   location?: string;
-  // 來自 /api/devices/status 的即時讀值（感應器/除濕機才有）
+  // 來自 /api/devices/status 的統一狀態（感應器、除濕機與空調 last-command）
   temperature?: number;
   humidity?: number;
   power?: boolean;
@@ -49,7 +49,7 @@ export interface DeviceData {
   targetHumidity?: string;
   // 來自 Sheet 的設備設定值
   buttons?: string;
-  // AC 最後一次成功送出指令的快照（home-butler 寫回 Sheet 的，IR AC 沒辦法回讀真實狀態）
+  // AC 最後一次成功送出指令的快照（寫回 Sheet 並同步狀態快取；IR AC 無法 readback）
   lastPower?: string;
   lastTemperature?: number | string;
   lastMode?: string;

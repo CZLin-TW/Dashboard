@@ -61,7 +61,7 @@ const CONTINUOUS_MODE_BY_BRAND: Record<string, string> = {
 interface Props {
   device: DeviceData;
   options: DeviceOptions;
-  /** AC 指令送出且輪詢確認 last 狀態到位後呼叫，由父層 refetch dashboard。
+  /** AC 指令送出且輪詢確認 last 狀態到位後呼叫，由父層 refetch /api/devices/status。
    *  失敗（10 秒沒匹配）也會呼叫，讓 UI 顯示最新真實狀態。 */
   onAcCommandSuccess?: () => Promise<void> | void;
   /** 除濕機指令送出且輪詢確認後呼叫，由父層 refetch /api/devices/status。
@@ -152,18 +152,17 @@ export function DeviceController({
         return;
       }
 
-      // AC 是 IR 單向、沒法回讀真實狀態。home-butler 寫回 Sheet 的 last_*
-      // 當「已生效」訊號。10 秒內每秒輪詢 /api/dashboard，pending 跟
-      // device.last* 匹配才清 pending、解鎖。OFF 時只比 power、ON 時四個
+      // AC 是 IR 單向、沒法回讀真實狀態。home-butler 寫回 Sheet 並同步更新
+      // /api/devices/status 的 last-* cache，當作「已生效」訊號。10 秒內每秒輪詢，
+      // pending 跟 device.last* 匹配才清 pending、解鎖。OFF 時只比 power、ON 時四個
       // 欄位都要對齊。
+      const statusUrl = `/api/devices/status?name=${encodeURIComponent(device.name)}`;
       for (let i = 0; i < 10; i++) {
         await new Promise((r) => setTimeout(r, 1000));
         try {
-          const r2 = await fetch("/api/dashboard");
+          const r2 = await fetch(statusUrl);
           const data = await r2.json();
-          const d: DeviceData | undefined = (data?.devices ?? []).find(
-            (x: DeviceData) => x.name === device.name,
-          );
+          const d: DeviceData | undefined = data?.[device.name];
           if (d) {
             const rawTemp = d.lastTemperature;
             const tempNum =
