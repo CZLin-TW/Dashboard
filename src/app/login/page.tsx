@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { Zap, RefreshCw } from "lucide-react";
+import { Zap, RefreshCw, Copy, Check } from "lucide-react";
 
 const ERROR_MESSAGES: Record<string, string> = {
   not_member: "你不是家庭成員，無法登入",
@@ -11,6 +11,28 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 type Phase = "checking" | "code" | "expired" | "error";
 
+async function writeTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Fall through to the textarea fallback below.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textarea);
+  if (!copied) throw new Error("copy failed");
+}
+
 function LoginContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -18,7 +40,10 @@ function LoginContent() {
 
   const [phase, setPhase] = useState<Phase>("checking");
   const [code, setCode] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tokenRef = useRef<string>("");
 
   const stopPoll = useCallback(() => {
@@ -37,6 +62,8 @@ function LoginContent() {
       const data = await res.json();
       if (!data.user_code || !data.device_token) throw new Error("bad payload");
       setCode(String(data.user_code));
+      setCopied(false);
+      setCopyFailed(false);
       tokenRef.current = String(data.device_token);
       setPhase("code");
 
@@ -76,11 +103,31 @@ function LoginContent() {
       });
     return () => {
       cancelled = true;
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
       stopPoll();
     };
   }, [router, requestCode, stopPoll]);
 
   const codeDisplay = code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
+  const loginCommand = code ? `登入 ${codeDisplay}` : "";
+
+  const copyLoginCommand = useCallback(async () => {
+    if (!loginCommand) return;
+    try {
+      await writeTextToClipboard(loginCommand);
+      setCopied(true);
+      setCopyFailed(false);
+    } catch (err) {
+      console.error("[login] copy failed:", err);
+      setCopied(false);
+      setCopyFailed(true);
+    }
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => {
+      setCopied(false);
+      setCopyFailed(false);
+    }, 1800);
+  }, [loginCommand]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -106,9 +153,26 @@ function LoginContent() {
               <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-mute mb-2">
                 在 LINE 輸入
               </p>
-              <p className="num text-3xl font-bold tracking-[0.12em] text-foreground">
-                登入 {codeDisplay}
-              </p>
+              <div className="flex items-center justify-center gap-2">
+                <p className="num min-w-0 text-3xl font-bold tracking-[0.12em] text-foreground">
+                  {loginCommand}
+                </p>
+                <button
+                  type="button"
+                  onClick={copyLoginCommand}
+                  title="複製登入訊息"
+                  aria-label="複製登入訊息"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-line bg-surface text-mute transition-colors hover:border-cool hover:text-cool active:scale-95"
+                >
+                  {copied ? (
+                    <Check className="h-4.5 w-4.5 text-fresh" strokeWidth={2.2} />
+                  ) : (
+                    <Copy className="h-4.5 w-4.5" strokeWidth={2} />
+                  )}
+                </button>
+              </div>
+              {copied && <p className="mt-2 text-[11px] text-fresh">已複製</p>}
+              {copyFailed && <p className="mt-2 text-[11px] text-warm">無法複製</p>}
             </div>
 
             <div className="flex items-center justify-center gap-2 text-xs text-mute">
