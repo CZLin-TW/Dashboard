@@ -4,7 +4,7 @@ import { createSession, getSessionCookieOptions } from "@/lib/auth";
 
 interface DeviceStatus {
   status: string;
-  user?: { lineUserId: string; name: string; picture?: string };
+  user?: { lineUserId: string; name: string; picture?: string; role?: "member" | "kid" };
 }
 
 // PWA 輪詢配對狀態。一旦 home-butler 回 approved，就在「這個容器」直接發 session
@@ -17,13 +17,16 @@ export async function GET(request: Request) {
     )) as DeviceStatus;
 
     if (data?.status === "approved" && data.user) {
+      const role = data.user.role === "kid" ? "kid" : "member";
       const sessionToken = await createSession({
         lineUserId: data.user.lineUserId,
-        name: data.user.name,
+        // 兒童 session 顯示「小朋友」而非核准它的家長名字（核准者身分只用來確認是家庭成員）。
+        name: role === "kid" ? "小朋友" : data.user.name,
         picture: data.user.picture || undefined,
+        role,
       });
-      const res = NextResponse.json({ status: "approved" });
-      const opts = getSessionCookieOptions();
+      const res = NextResponse.json({ status: "approved", role });
+      const opts = getSessionCookieOptions(role);
       res.cookies.set(opts.name, sessionToken, opts);
       return res;
     }

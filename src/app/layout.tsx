@@ -3,6 +3,7 @@ import { Inter, Noto_Sans_TC } from "next/font/google";
 import { DesktopNav } from "@/components/layout/desktop-nav";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { getSession } from "@/lib/auth";
 import "./globals.css";
 
 // Inter 給數字（用 .num class 觸發），Noto Sans TC 給內文。
@@ -46,20 +47,25 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // 兒童遙控器：藏掉所有導覽（去其他頁的入口）。純化妝——真正的閘門在 proxy.ts，
+  // 即使這裡誤渲染，middleware 仍會把兒童擋在裝置頁外。
+  const session = await getSession();
+  const isKid = session?.role === "kid";
+
   return (
     <html lang="zh-TW" className={`h-full antialiased ${inter.variable} ${notoTC.variable}`}>
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <DesktopNav />
-        <MobileHeader />
+        {!isKid && <DesktopNav />}
+        {!isKid && <MobileHeader />}
         <main className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8 pb-24 md:pb-8">
           {children}
         </main>
-        <MobileNav />
+        {!isKid && <MobileNav />}
       </body>
     </html>
   );

@@ -4,10 +4,15 @@
 
 import { jwtVerify } from "jose";
 
+// role 決定權限分級：member = 完整 Dashboard；kid = 兒童遙控器，proxy.ts 只放行裝置頁。
+// 選填 + 缺省當 member，讓加這欄之前簽出的舊 session 仍視為完整權限（向下相容）。
+export type SessionRole = "member" | "kid";
+
 export interface SessionUser {
   lineUserId: string;
   name: string;
   picture?: string;
+  role?: SessionRole;
 }
 
 // SESSION_JWT_SECRET 為專用隨機值（openssl rand -hex 32），與 LINE_LOGIN_CHANNEL_SECRET
@@ -49,6 +54,7 @@ export async function verifyToken(
       lineUserId: payload.lineUserId as string,
       name: payload.name as string,
       picture: payload.picture as string | undefined,
+      role: payload.role === "kid" ? "kid" : "member",
     };
   } catch {
     return null;

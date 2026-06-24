@@ -37,6 +37,9 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const error = searchParams.get("error");
+  // 兒童遙控器入口：?kid=1 → 螢幕顯示「配對兒童 XXX」、要碼時標記 kid、核准後落在裝置頁。
+  // 角色綁在這個入口上，家長照螢幕指令打即可（且後端「最嚴格者勝」，誤打「登入」也鎖不開）。
+  const isKid = searchParams.get("kid") === "1";
 
   const [phase, setPhase] = useState<Phase>("checking");
   const [code, setCode] = useState("");
@@ -57,7 +60,11 @@ function LoginContent() {
     stopPoll();
     setPhase("checking");
     try {
-      const res = await fetch("/api/auth/device-code", { method: "POST" });
+      const res = await fetch("/api/auth/device-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kid: isKid }),
+      });
       if (!res.ok) throw new Error("device-code failed");
       const data = await res.json();
       if (!data.user_code || !data.device_token) throw new Error("bad payload");
@@ -75,7 +82,7 @@ function LoginContent() {
           const d = await r.json();
           if (d.status === "approved") {
             stopPoll();
-            router.replace("/");
+            router.replace(isKid ? "/devices" : "/");
           } else if (d.status === "expired" || d.status === "not_found" || d.status === "consumed") {
             stopPoll();
             setPhase("expired");
@@ -87,7 +94,7 @@ function LoginContent() {
     } catch {
       setPhase("error");
     }
-  }, [router, stopPoll]);
+  }, [router, stopPoll, isKid]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,7 +116,7 @@ function LoginContent() {
   }, [router, requestCode, stopPoll]);
 
   const codeDisplay = code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
-  const loginCommand = code ? `登入 ${codeDisplay}` : "";
+  const loginCommand = code ? `${isKid ? "配對兒童" : "登入"} ${codeDisplay}` : "";
 
   const copyLoginCommand = useCallback(async () => {
     if (!loginCommand) return;
@@ -209,7 +216,9 @@ function LoginContent() {
           </>
         )}
 
-        <p className="mt-6 text-xs text-mute/70">僅限家庭成員登入</p>
+        <p className="mt-6 text-xs text-mute/70">
+          {isKid ? "兒童遙控器配對（限家長核准）" : "僅限家庭成員登入"}
+        </p>
       </div>
     </div>
   );
