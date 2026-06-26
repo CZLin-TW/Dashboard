@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   type DeviceData,
   type DeviceOptions,
@@ -102,6 +102,14 @@ export function DeviceController({
   // 不做 success state——HTTP 200 只代表 Hub 收到、不代表裝置真的動作了，給綠燈會誤導。
   const [irTap, setIrTap] = useState<string | null>(null);
   const [irFailed, setIrFailed] = useState<{ button: string; message: string } | null>(null);
+  // 空調背景機制提示（例如「防黴送風中，稍後自動關閉」）。內容是命令回傳的說明訊息，
+  // 顯示在卡片上、12 秒後自動消失。讓使用者看得出關機後切送風是刻意的、且會自動關。
+  const [acNotice, setAcNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!acNotice) return;
+    const id = setTimeout(() => setAcNotice(null), 12000);
+    return () => clearTimeout(id);
+  }, [acNotice]);
 
   function getAcPending(): AcPendingState {
     return pending ?? acPendingFromDevice(device);
@@ -137,6 +145,7 @@ export function DeviceController({
 
   async function sendAcCommand() {
     const p = getAcPending();
+    setAcNotice(null);
     setAcAwaiting(true);
     setSending(true);
     try {
@@ -145,6 +154,7 @@ export function DeviceController({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceName: device.name, action: "setAll", params: p }),
       });
+      const respData = await res.json().catch(() => ({}));
       if (!res.ok) {
         console.error(`[sendAcCommand] ${device.name} failed: HTTP ${res.status}`);
         setAcAwaiting(false);
@@ -152,10 +162,16 @@ export function DeviceController({
         return;
       }
 
+      // 關機指令被「防黴」攔截時，home-butler 改送送風並回一段說明訊息（先送風 N 分防黴、
+      // 之後自動關閉）。立刻顯示給使用者，不必等輪詢。
+      const message = typeof respData?.message === "string" ? respData.message : "";
+      let noticeShown = !p.power && /防黴|送風/.test(message);
+      if (noticeShown) setAcNotice(message);
+
       // AC 是 IR 單向、沒法回讀真實狀態。home-butler 寫回 Sheet 並同步更新
       // /api/devices/status 的 last-* cache，當作「已生效」訊號。10 秒內每秒輪詢，
-      // pending 跟 device.last* 匹配才清 pending、解鎖。OFF 時只比 power、ON 時四個
-      // 欄位都要對齊。
+      // pending 跟 device.last* 匹配才清 pending、解鎖。ON 時四欄都要對齊；OFF 時 power=off
+      // 算生效，但「防黴攔截 → 變成送風 on」也算生效（不是失敗），別誤閃紅。
       const statusUrl = `/api/devices/status?name=${encodeURIComponent(device.name)}`;
       for (let i = 0; i < 10; i++) {
         await new Promise((r) => setTimeout(r, 1000));
@@ -168,12 +184,21 @@ export function DeviceController({
             const tempNum =
               typeof rawTemp === "number" ? rawTemp :
               typeof rawTemp === "string" && rawTemp.trim() !== "" ? parseInt(rawTemp, 10) : NaN;
-            const matched = p.power
-              ? d.lastPower === "on" &&
+            let matched: boolean;
+            if (p.power) {
+              matched =
+                d.lastPower === "on" &&
                 tempNum === p.temperature &&
                 (d.lastMode || "") === p.mode &&
-                (d.lastFanSpeed || "") === p.fanSpeed
-              : d.lastPower === "off";
+                (d.lastFanSpeed || "") === p.fanSpeed;
+            } else {
+              const isAntimoldFan = d.lastPower === "on" && (d.lastMode || "") === "送風";
+              matched = d.lastPower === "off" || isAntimoldFan;
+              if (isAntimoldFan && !noticeShown) {
+                setAcNotice(message || "已運轉一陣子，先送風防黴，稍後自動關閉 🌬️");
+                noticeShown = true;
+              }
+            }
             if (matched) {
               if (onAcCommandSuccess) await onAcCommandSuccess();
               setPending(null);
@@ -373,6 +398,12 @@ export function DeviceController({
           />
         ) : (
           <p className="text-xs text-mute">尚無使用記錄</p>
+        )}
+
+        {acNotice && (
+          <div className="rounded-[10px] bg-elevated px-2.5 py-2 text-[11.5px] leading-snug text-cool">
+            {acNotice}
+          </div>
         )}
 
         <Field label="電源">

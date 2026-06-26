@@ -374,7 +374,7 @@ export default function DevicesPage() {
                     <DeviceController
                       device={device}
                       options={options}
-                      onAcCommandSuccess={refetchStatus}
+                      onAcCommandSuccess={async () => { await Promise.all([refetchStatus(), refetchSchedules()]); }}
                       onDehumidifierCommandSuccess={refetchStatus}
                       dehumRule={device.type === "除濕機" ? (dehumRulesMap[device.name] ?? null) : undefined}
                       availableSensors={device.type === "除濕機" ? availableSensorNames : undefined}
