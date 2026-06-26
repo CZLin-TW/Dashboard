@@ -188,7 +188,7 @@ export default function HomePage() {
       <DeviceQuickControl
         devices={controllableDevices}
         options={options}
-        onAcCommandSent={refetchStatus}
+        onAcCommandSent={async () => { await Promise.all([refetchStatus(), refetchSchedules()]); }}
         onDehumidifierCommandSent={refetchStatus}
         dehumRulesMap={dehumRulesMap}
         availableSensors={Object.keys(sensorsMap)}
