@@ -17,7 +17,9 @@ import {
 import type { DeviceData, DeviceOptions } from "@/lib/types";
 
 // 裝置卡內嵌的排程區段；所有排程操作都從裝置卡進入。
-// 設計：本裝置的排程一律顯示（含已過期），過期 row 用 mute tone 區別；
+// 設計：/api/schedules 只回「待執行」排程，所以這裡顯示的一律是待執行——觸發時間已過的
+// 標「即將執行」（在等下一個 5 分 polling tick 來執行），未到的標「待執行」。這裡不會出現
+// 「已過期」：後端要超時 2h 才真的標已過期並封存，封存後就不會回到這份清單。
 // 「新增」按鈕一直在（即使沒排程），讓進入點固定。
 
 interface Props {
@@ -134,7 +136,7 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
                 className="flex items-center gap-2 rounded-[10px] px-2.5 py-2 hover:bg-elevated/40 transition-colors"
               >
                 <div className="flex-1 min-w-0">
-                  <p className={`text-[13px] ${past ? "text-mute" : "text-foreground"}`}>
+                  <p className="text-[13px] text-foreground">
                     {parsed.display}
                   </p>
                   <p className="num text-[11px] text-mute">
@@ -142,14 +144,8 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
                     {creator && <span className="ml-2">· {creator}</span>}
                   </p>
                 </div>
-                <span
-                  className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${
-                    past
-                      ? "bg-mute/15 text-mute"
-                      : "bg-amber-bg text-amber"
-                  }`}
-                >
-                  {past ? "已過期" : "待執行"}
+                <span className="flex-shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold bg-amber-bg text-amber">
+                  {past ? "即將執行" : "待執行"}
                 </span>
                 <IconActionButton
                   onClick={() => openEdit(rowKey)}
