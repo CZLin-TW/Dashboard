@@ -56,19 +56,27 @@ export function Toggle2({
   );
 }
 
-/** 圓形 +/− stepper，中央顯示大字數值。 */
+/** 圓形 +/− stepper，中央顯示大字數值。
+ *  給了 onChange 時，中央數值變成可直接打字的輸入框（+/− 按鈕仍在）；
+ *  沒給就維持唯讀顯示（冷氣溫度等既有用途不受影響）。 */
 export function Stepper({
   value,
   onMinus,
   onPlus,
+  onChange,
   unit = "°C",
   disabled,
+  min,
+  max,
 }: {
   value: number;
   onMinus: () => void;
   onPlus: () => void;
+  onChange?: (value: number) => void;
   unit?: string;
   disabled?: boolean;
+  min?: number;
+  max?: number;
 }) {
   return (
     <div className="inline-flex items-center gap-3">
@@ -81,10 +89,30 @@ export function Stepper({
       >
         −
       </button>
-      <span className="num min-w-[64px] text-center text-[22px] font-bold tracking-[-0.02em]">
-        {value}
-        <span className="ml-[2px] text-[13px] font-semibold text-mute">{unit}</span>
-      </span>
+      {onChange ? (
+        <span className="num inline-flex min-w-[64px] items-baseline justify-center text-[22px] font-bold tracking-[-0.02em]">
+          <input
+            type="number"
+            inputMode="numeric"
+            value={value}
+            min={min}
+            max={max}
+            disabled={disabled}
+            onChange={(e) => {
+              const n = parseInt(e.target.value, 10);
+              if (!Number.isNaN(n)) onChange(n);
+            }}
+            className="w-[48px] bg-transparent text-center text-[22px] font-bold tracking-[-0.02em] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            aria-label="數值"
+          />
+          <span className="text-[13px] font-semibold text-mute">{unit}</span>
+        </span>
+      ) : (
+        <span className="num min-w-[64px] text-center text-[22px] font-bold tracking-[-0.02em]">
+          {value}
+          <span className="ml-[2px] text-[13px] font-semibold text-mute">{unit}</span>
+        </span>
+      )}
       <button
         type="button"
         onClick={onPlus}

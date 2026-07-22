@@ -37,8 +37,14 @@ const RECUR_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: "每天", label: "每天" },
   { value: "每週", label: "每週" },
   { value: "每月", label: "每月" },
+  { value: "每季", label: "每季" },
+  { value: "半年", label: "每半年" },
+  { value: "每年", label: "每年" },
   { value: "間隔天", label: "間隔天" },
 ];
+// 每季/半年/每年：以起始日期當錨、每 3/6/12 個月重複同一天。
+const MONTHLY_MULTIPLE_TYPES = ["每季", "半年", "每年"];
+const MONTHLY_MULTIPLE_PERIOD: Record<string, string> = { 每季: "3", 半年: "6", 每年: "12" };
 const WEEKDAYS: { value: number; label: string }[] = [
   { value: 1, label: "一" }, { value: 2, label: "二" }, { value: 3, label: "三" },
   { value: 4, label: "四" }, { value: 5, label: "五" }, { value: 6, label: "六" },
@@ -52,9 +58,10 @@ interface RecurState {
   weekdays: number[];
   monthDay: number;
   interval: number;
+  startDate: string;
   endDate: string;
 }
-const RECUR_DEFAULT: RecurState = { type: "每天", weekdays: [], monthDay: 1, interval: 3, endDate: "" };
+const RECUR_DEFAULT: RecurState = { type: "每天", weekdays: [], monthDay: 1, interval: 3, startDate: "", endDate: "" };
 
 interface LightingArea {
   id: string;
@@ -192,6 +199,8 @@ export default function TodosPage() {
     if (recur.type === "每週") body.weekdays = recur.weekdays;
     if (recur.type === "每月") body.month_day = recur.monthDay;
     if (recur.type === "間隔天") body.interval_days = recur.interval;
+    // 每季/半年/每年：起始日當錨點；留空則後端用今天
+    if (MONTHLY_MULTIPLE_TYPES.includes(recur.type) && recur.startDate) body.start_date = recur.startDate;
     fetch("/api/recurring-todos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -362,10 +371,27 @@ export default function TodosPage() {
                     <Stepper
                       value={recur.interval}
                       unit="天"
+                      min={1}
                       onMinus={() => setRecur((p) => ({ ...p, interval: Math.max(1, p.interval - 1) }))}
                       onPlus={() => setRecur((p) => ({ ...p, interval: p.interval + 1 }))}
+                      onChange={(v) => setRecur((p) => ({ ...p, interval: Math.max(1, v) }))}
                     />
                   </Field>
+                )}
+                {MONTHLY_MULTIPLE_TYPES.includes(recur.type) && (
+                  <>
+                    <Field label="起始日（首次；留空＝今天）">
+                      <input
+                        type="date"
+                        value={recur.startDate}
+                        onChange={(e) => setRecur((p) => ({ ...p, startDate: e.target.value }))}
+                        className={`w-full ${INPUT_BASE} appearance-none`}
+                      />
+                    </Field>
+                    <p className="text-[11px] text-faint">
+                      之後每 {MONTHLY_MULTIPLE_PERIOD[recur.type]} 個月重複同一天（月底自動落當月最後一天）。
+                    </p>
+                  </>
                 )}
                 <Field label="結束日期（選填）">
                   <input
