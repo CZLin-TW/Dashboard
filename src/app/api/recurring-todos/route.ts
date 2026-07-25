@@ -3,8 +3,9 @@ import { butlerGet, butlerPost, butlerPatch, butlerDelete } from "@/lib/butler";
 
 // 週期性待辦模板 — 純 proxy 到 home-butler /api/recurring-todos。
 // 詳細 schema + 行為見 home-butler/handlers/recurring_todo.py。
-// 注意：實際「生成」由 home-butler 的 /notify_realtime tick 跑，且受後端
-// RECURRING_TODO_ENABLED 總開關控制——前端建好的模板在開關關閉時只會靜置不生成。
+// 注意：實際「生成」由 home-butler in-process polling thread 的 realtime tick 跑
+//（每 5 分鐘；/notify_realtime 端點現在只是手動 debug 觸發，不是正常驅動來源），
+// 且受後端 RECURRING_TODO_ENABLED 總開關控制——前端建好的模板在開關關閉時只會靜置不生成。
 
 export async function GET() {
   try {

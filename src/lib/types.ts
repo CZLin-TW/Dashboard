@@ -111,7 +111,9 @@ export interface TodoData {
   "燈光提醒"?: string | boolean;
   "燈光區域ID"?: string;
   // 非空 = 這筆待辦是由週期模板 materialize 出來的當次實例（list row 顯示 🔁）。
-  // 完成它只完成當次，模板不受影響，下個週期日 tick 會再生一筆。
+  // 完成它只完成當次，模板不受影響；後端會在完成當下（或下個 ≤5 分的 tick）立刻補上
+  // 「下一次」那筆——每條規則永遠維持恰好一筆待辦中的實例，補出來的日期可能在未來
+  //（每天/週/月/季/半年/年＝固定日曆的下一格）或在過去（漏掉沒清的格子逐筆補）。
   "規則ID"?: string;
 }
 
@@ -121,16 +123,16 @@ export interface TodoData {
 export interface RecurringRule {
   "規則ID": string;
   "事項": string;
-  "重複類型": string;            // 每天 / 每週 / 每月 / 間隔天
+  "重複類型": string;            // 每天 / 每週 / 每月 / 每季 / 半年 / 每年 / 間隔天
   "星期"?: string;              // 每週：isoweekday "1,3,5"
   "月日"?: string | number;     // 每月：1~31
-  "間隔天數"?: string | number; // 間隔天
+  "間隔天數"?: string | number; // 間隔天：完成當下 + N 天
   "時間"?: string;
   "負責人"?: string;
   "類型"?: string;
   "燈光提醒"?: string | boolean;
   "燈光區域ID"?: string;
-  "起始日期"?: string;
+  "起始日期"?: string;          // 每季/半年/每年的錨點（月＋日，每 3/6/12 個月同一天）；其餘類型僅為生效起日
   "結束日期"?: string;
   "狀態"?: string;              // 啟用 / 停用
   "摘要"?: string;              // 後端算好的人類可讀字串
