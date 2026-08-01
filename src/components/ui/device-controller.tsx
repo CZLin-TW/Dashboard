@@ -27,12 +27,16 @@ const DURATION_OPTIONS: { value: number; label: string }[] = [
 // 自動模式門檻 dropdown：45~65 step 5。auto rule 自己的判斷門檻，跟除濕機
 // 機體目標濕度（40~70）獨立。連續除濕模式下機器不看自己的目標濕度，所以
 // auto rule 的 threshold 純粹是「比 sensor 讀值 vs 門檻」的數值，跟機器無關。
-const THRESHOLD_OPTIONS: { value: number; label: string }[] = [
-  { value: 45, label: "45%" },
-  { value: 50, label: "50%" },
-  { value: 55, label: "55%" },
-  { value: 60, label: "60%" },
-  { value: 65, label: "65%" },
+// 選項值一律用字串，才能跟「自訂」共存在同一個 Dropdown（送出時再轉回數字）。
+const THRESHOLD_CUSTOM = "自訂";
+const THRESHOLD_OPTIONS: { value: string; label: string }[] = [
+  { value: "45", label: "45%" },
+  { value: "50", label: "50%" },
+  { value: "55", label: "55%" },
+  { value: "60", label: "60%" },
+  { value: "65", label: "65%" },
+  // 自訂＝依感應器的分時曲線（智能居家分頁「濕度控制規則」欄，格式 7=55, 23=60）
+  { value: THRESHOLD_CUSTOM, label: "自訂（分時）" },
 ];
 const THRESHOLD_DEFAULT = 60;
 
@@ -283,11 +287,16 @@ export function DeviceController({
     }
   }
 
+  // 目標濕度是否走「自訂（分時）」——決定 dropdown 選中值，也用來擋掉 toggle ON 時
+  // 自動補 threshold（補了會被後端解讀成「改用固定值」）。
+  const thresholdIsCustom = dehumRule?.threshold_source === THRESHOLD_CUSTOM;
+
   async function sendAutoRuleUpdate(patch: {
     auto_mode?: boolean;
     sensor_name?: string;
     duration_min?: number;
     threshold?: number;
+    threshold_source?: string;
   }) {
     if (patch.auto_mode !== undefined) {
       setAutoModePending(patch.auto_mode);
@@ -319,11 +328,15 @@ export function DeviceController({
       if (patch.sensor_name !== undefined) body.sensor_name = patch.sensor_name;
       if (patch.duration_min !== undefined) body.duration_min = patch.duration_min;
       if (patch.threshold !== undefined) body.threshold = patch.threshold;
+      if (patch.threshold_source !== undefined) body.threshold_source = patch.threshold_source;
       // Toggle ON 時：若 rule.threshold 從未設過，帶入 dropdown 預設值，避免後端 fallback
       // 跟 UI 顯示對不上。on_mode 帶品牌對應的持續除濕模式（後端會忽略 caller 傳值但保留
       // 給 Sheet schema 一致）。
+      //
+      // 但目標濕度是「自訂（分時）」時絕不補 threshold：後端收到具體數字會認定使用者
+      // 要固定值、把來源打回「固定」，那會讓開個自動模式就默默取消了分時曲線。
       if (isTogglingOn) {
-        if (body.threshold === undefined) {
+        if (body.threshold === undefined && body.threshold_source === undefined && !thresholdIsCustom) {
           body.threshold = dehumRule?.threshold ?? THRESHOLD_DEFAULT;
         }
         body.on_mode = continuousMode;
@@ -493,9 +506,14 @@ export function DeviceController({
             tone={device.power ? "running" : "off"}
             text={
               autoOn
-                ? // 自動模式：不顯示機器實際模式，改顯示「自動模式」；目標顯示規則設定的門檻
+                ? // 自動模式：不顯示機器實際模式，改顯示「自動模式」。目標顯示「此刻實際
+                  // 生效」的門檻（自訂分時下會隨時段變），並標出來源是分時曲線。
                   `${device.power ? "運轉中" : "待機"} · 自動模式${
-                    dehumRule?.threshold != null ? ` · 目標 ${dehumRule.threshold}%` : ""
+                    (dehumRule?.effective_threshold ?? dehumRule?.threshold) != null
+                      ? ` · 目標 ${dehumRule?.effective_threshold ?? dehumRule?.threshold}%${
+                          thresholdIsCustom ? "（分時）" : ""
+                        }`
+                      : ""
                   }`
                 : device.power
                 ? `運轉中${device.mode ? ` · ${device.mode}` : ""}${
@@ -551,11 +569,28 @@ export function DeviceController({
           <Field label="目標濕度">
             <Dropdown
               options={THRESHOLD_OPTIONS}
-              value={dehumRule?.threshold ?? THRESHOLD_DEFAULT}
-              onSelect={(v) => sendAutoRuleUpdate({ threshold: v })}
+              value={
+                thresholdIsCustom
+                  ? THRESHOLD_CUSTOM
+                  : String(dehumRule?.threshold ?? THRESHOLD_DEFAULT)
+              }
+              onSelect={(v) =>
+                v === THRESHOLD_CUSTOM
+                  ? sendAutoRuleUpdate({ threshold_source: THRESHOLD_CUSTOM })
+                  // 明確送空來源，把曲線關掉切回固定值（只送 threshold 後端也會這樣解讀，
+                  // 但寫明比較不會在之後改動時被誤刪）
+                  : sendAutoRuleUpdate({ threshold: Number(v), threshold_source: "" })
+              }
               disabled={autoRulePending}
             />
           </Field>
+          {thresholdIsCustom && (
+            <p className="w-full text-[11px] text-faint">
+              分時目標濕度寫在「智能居家」分頁該感應器的「濕度控制規則」欄，格式
+              <span className="num"> 7=55, 23=60</span>（小時=濕度，最後一段跨午夜延伸）。
+              格式錯誤會自動退回固定 {dehumRule?.threshold ?? THRESHOLD_DEFAULT}%。
+            </p>
+          )}
         </div>
         {phaseText && (
           <StatusLine tone="waiting" text={phaseText} />

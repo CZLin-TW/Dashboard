@@ -71,6 +71,13 @@ export interface DehumidifierAutoRule {
   sensor_name: string;
   duration_min: number;
   threshold: number;     // = UI 目標濕度 segment 當下值，雙重身分當門檻
+  // "自訂" = 目標濕度改吃感應器的分時曲線（「智能居家」分頁該感應器的「濕度控制規則」
+  // 欄，格式 7=55, 23=60），此時上面的 threshold 只是曲線讀不到時的 fallback。
+  // 空字串/未定義 = 固定值。
+  threshold_source?: string;
+  // 後端算好的「此刻實際生效」門檻（自訂曲線下會隨時段變）。下面的遲滯上下限也是
+  // 用它算的，前端一律顯示這個，不要自己用 threshold 重算。
+  effective_threshold?: number;
   humidity_on_threshold?: number;
   humidity_off_threshold?: number;
   on_mode: string;       // = UI 模式 segment 當下值，自動 ON 時送這個
