@@ -66,6 +66,12 @@ export interface AcPendingState {
 
 /** 除濕機條件式自動規則（home-butler 後端定義，UI 顯示用）。
  *  auto_phase 文字定義在 home-butler/dehumidifier_auto.py。 */
+/** 分時目標濕度的一個設定點：從 hour 起套用 threshold，直到下一個設定點。 */
+export interface HumidityCurvePoint {
+  hour: number;
+  threshold: number;
+}
+
 export interface DehumidifierAutoRule {
   auto_mode: boolean;
   sensor_name: string;
@@ -78,6 +84,10 @@ export interface DehumidifierAutoRule {
   // 後端算好的「此刻實際生效」門檻（自訂曲線下會隨時段變）。下面的遲滯上下限也是
   // 用它算的，前端一律顯示這個，不要自己用 threshold 重算。
   effective_threshold?: number;
+  // 後端解析好的分時曲線（依小時排序）與解析錯誤。前端只負責畫，不重算解析規則。
+  // 只有 GET /api/dehumidifier/auto-rule 會附上（後端帶 ctx 時才讀感應器那列）。
+  humidity_curve?: HumidityCurvePoint[];
+  humidity_curve_error?: string;
   humidity_on_threshold?: number;
   humidity_off_threshold?: number;
   on_mode: string;       // = UI 模式 segment 當下值，自動 ON 時送這個

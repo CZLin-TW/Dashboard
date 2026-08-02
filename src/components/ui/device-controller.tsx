@@ -13,6 +13,7 @@ import type { DehumDevice } from "@/lib/dehumidifier";
 import { dehumHistoryToSegments } from "@/lib/dehumidifier";
 import { Toggle2, Stepper, Segment, Dropdown, Field, StatusLine } from "./device-controls";
 import { AutoModeChart } from "@/components/devices/auto-mode-chart";
+import { HumidityCurveChart } from "@/components/devices/humidity-curve-chart";
 
 const DURATION_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: "立即" },
@@ -585,11 +586,11 @@ export function DeviceController({
             />
           </Field>
           {thresholdIsCustom && (
-            <p className="w-full text-[11px] text-faint">
-              分時目標濕度寫在「智能居家」分頁該感應器的「濕度控制規則」欄，格式
-              <span className="num"> 7=55, 23=60</span>（小時=濕度，最後一段跨午夜延伸）。
-              格式錯誤會自動退回固定 {dehumRule?.threshold ?? THRESHOLD_DEFAULT}%。
-            </p>
+            <HumidityCurveChart
+              curve={dehumRule?.humidity_curve ?? []}
+              error={dehumRule?.humidity_curve_error}
+              fallbackThreshold={dehumRule?.threshold ?? THRESHOLD_DEFAULT}
+            />
           )}
         </div>
         {phaseText && (
