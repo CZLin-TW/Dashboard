@@ -54,11 +54,6 @@ function DeviceScrollTarget({
   return null;
 }
 
-interface DashboardPayload {
-  devices: DeviceData[];
-  options: DeviceOptions;
-}
-
 // 劇院 summary 的 localStorage cache key（版本前綴同 use-cached-fetch，bump 自動失效）
 const THEATER_CACHE_KEY = `cache:${process.env.APP_VERSION}:/api/theater/summary`;
 
@@ -69,11 +64,16 @@ function saveTheaterCache(summary: TheaterSummary) {
 }
 
 export default function DevicesPage() {
-  const { data: dashboard, loading } = useCachedFetch<DashboardPayload | null>("/api/dashboard", null);
+  // 刻意不用 /api/dashboard：那支是首頁的彙整端點，會等中央氣象署天氣 API（兩次、
+  // timeout 15s）才回應，但這頁根本不顯示天氣——裝置卡片會被白等，氣象署慢的時候
+  // 更明顯（實測：電腦區塊先出現、裝置隔幾秒才出來）。改抓兩支輕量端點：
+  //   /api/devices          只讀 Sheet
+  //   /api/devices/options  純常數運算、完全不碰 Sheet
+  const { data: rawDevices, loading } = useCachedFetch<DeviceData[]>("/api/devices", []);
+  const { data: fetchedOptions } = useCachedFetch<DeviceOptions | null>("/api/devices/options", null);
   const { data: liveStatus, refetch: refetchStatus } = useCachedFetch<Record<string, Partial<DeviceData>>>("/api/devices/status", {});
   useAutoRefresh(refetchStatus);
-  const rawDevices = dashboard?.devices ?? [];
-  const options = dashboard?.options ?? DEFAULT_OPTIONS;
+  const options = fetchedOptions ?? DEFAULT_OPTIONS;
   const devices = rawDevices.map(d => ({ ...d, ...(liveStatus[d.name] ?? {}) }));
   const pin = usePinnedDevices();
 

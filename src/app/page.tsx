@@ -28,10 +28,8 @@ import { FoodAlertCard } from "@/components/home/food-alert-card";
 interface DashboardData {
   weatherToday: WeatherData | null;
   weatherTomorrow: WeatherData | null;
-  devices: DeviceData[];
   todos: TodoData[];
   food: FoodData[];
-  options: DeviceOptions;
 }
 
 /**
@@ -51,6 +49,11 @@ export default function HomePage() {
     "/api/dashboard",
     null,
   );
+  // 裝置清單/選項刻意跟 /api/dashboard 分開抓：那支要等中央氣象署天氣 API（兩次、
+  // timeout 15s）才回應，天氣卡等它是合理的，但快速控制不該被天氣卡住。這兩支
+  // 只讀 Sheet / 純常數，先回來就能先操作裝置。
+  const { data: rawDevices } = useCachedFetch<DeviceData[]>("/api/devices", []);
+  const { data: fetchedOptions } = useCachedFetch<DeviceOptions | null>("/api/devices/options", null);
   const { data: liveStatus, refetch: refetchStatus } = useCachedFetch<
     Record<string, Partial<DeviceData>>
   >("/api/devices/status", {});
@@ -64,12 +67,12 @@ export default function HomePage() {
   const weather = todayHasData ? dashboard!.weatherToday : dashboard?.weatherTomorrow ?? null;
 
   // 統一狀態覆蓋 /api/dashboard 的初始裝置資料。
-  const allDevices: DeviceData[] = (Array.isArray(dashboard?.devices) ? dashboard.devices : []).map(
+  const allDevices: DeviceData[] = (Array.isArray(rawDevices) ? rawDevices : []).map(
     (d) => ({ ...d, ...(liveStatus[d.name] ?? {}) }),
   );
   const todos = Array.isArray(dashboard?.todos) ? dashboard.todos : [];
   const food = Array.isArray(dashboard?.food) ? dashboard.food : [];
-  const options = dashboard?.options ?? DEFAULT_OPTIONS;
+  const options = fetchedOptions ?? DEFAULT_OPTIONS;
 
   const pin = usePinnedDevices();
 
