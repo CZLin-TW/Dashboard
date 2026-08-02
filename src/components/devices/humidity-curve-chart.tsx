@@ -45,6 +45,16 @@ function formatHour(h: number): string {
   return `${String(h % 24).padStart(2, "0")}:00`;
 }
 
+/** 從 domain 算出固定 5% 間隔的 Y 軸刻度。不交給 Recharts 自動挑——它會依範圍
+ *  挑出 47.5 之類的非整數倍刻度，濕度看起來會很怪（同 sensor-chart / auto-mode-chart）。 */
+function makeYTicks([lo, hi]: [number, number], step = 5): number[] {
+  const ticks: number[] = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) {
+    ticks.push(v);
+  }
+  return ticks;
+}
+
 export function HumidityCurveChart({ curve, error, fallbackThreshold }: Props) {
   if (error || curve.length === 0) {
     return (
@@ -93,6 +103,8 @@ export function HumidityCurveChart({ curve, error, fallbackThreshold }: Props) {
           />
           <YAxis
             domain={yDomain}
+            ticks={makeYTicks(yDomain)}
+            interval={0}
             tick={{ fontSize: 10, fill: "var(--color-mute)" }}
             stroke="var(--color-line)"
             width={40}
