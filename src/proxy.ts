@@ -10,7 +10,8 @@ const PUBLIC_PATHS = ["/login", "/api/auth", "/api/debug", "/api/version", "/man
 // 控制端點時，要同步加進來，否則兒童頁那個區塊會壞掉（API 被 403）。
 const KID_ALLOWED_PAGES = ["/devices"];
 const KID_ALLOWED_APIS = [
-  "/api/dashboard",            // 裝置清單 + options
+  "/api/devices",              // 裝置清單
+  "/api/devices/options",      // 溫度/模式/風速等選項
   "/api/devices/status",       // 即時狀態輪詢
   "/api/devices/control",      // 控制指令（開關 / 冷氣 / 除濕機）
   "/api/ac/status",            // 冷氣歷史（sensor chart 背景色塊）
@@ -24,8 +25,11 @@ const KID_ALLOWED_APIS = [
 ];
 
 function kidPathAllowed(pathname: string): boolean {
-  const ok = (p: string) => pathname === p || pathname.startsWith(p + "/");
-  return KID_ALLOWED_PAGES.some(ok) || KID_ALLOWED_APIS.some(ok);
+  // 頁面用前綴比對（/devices 底下的子路由都算）；API 一律「精確」比對——用前綴的話，
+  // 光是放行 /api/devices 就會把整個 /api/devices/* 子樹（含日後新增的端點）一起打開，
+  // 違背這份清單「預設拒絕、新功能不會無意間對兒童開放」的用意。
+  const pageOk = (p: string) => pathname === p || pathname.startsWith(p + "/");
+  return KID_ALLOWED_PAGES.some(pageOk) || KID_ALLOWED_APIS.includes(pathname);
 }
 
 export async function proxy(request: NextRequest) {
