@@ -288,7 +288,11 @@ export function urgencyRowClass(urgency: Urgency): string {
   return "";
 }
 
+const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"] as const;
+
 /** 把日期跟今天比較，回傳人類可讀的相對描述（待辦 sub-line 用）。
+ *  格式「星期·相對」，例如「四·3 天後」——只有相對描述的話，看到「3 天後」還要自己
+ *  換算是禮拜幾才能對上行事曆，星期幾是排程時真正在用的座標。
  *  範圍 ±7 天內才顯示，超過回 null（caller 只顯示原始日期）。
  *  Overdue 一律「過期 N 天」（不單獨用「昨天」），語氣較急、語義跟 urgency overdue 對齊。 */
 export function relativeDateLabel(date: string): string | null {
@@ -298,10 +302,13 @@ export function relativeDateLabel(date: string): string | null {
   const target = new Date(date);
   target.setHours(0, 0, 0, 0);
   const days = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  // 日期字串壞掉時 days 是 NaN，下面的比較全部會是 false 而漏到最後一行印出「NaN 天後」。
+  if (!Number.isFinite(days)) return null;
   if (days < -7 || days > 7) return null;
-  if (days < 0) return `過期 ${-days} 天`;
-  if (days === 0) return "今天";
-  if (days === 1) return "明天";
-  if (days === 2) return "後天";
-  return `${days} 天後`;
+  const weekday = WEEKDAY_LABELS[target.getDay()];
+  if (days < 0) return `${weekday}·過期 ${-days} 天`;
+  if (days === 0) return `${weekday}·今天`;
+  if (days === 1) return `${weekday}·明天`;
+  if (days === 2) return `${weekday}·後天`;
+  return `${weekday}·${days} 天後`;
 }
