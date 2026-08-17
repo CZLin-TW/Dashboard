@@ -5,6 +5,7 @@
 export interface TheaterFlags {
   kef_link: boolean;        // AVR ↔ KEF 喇叭自動連動
   tv_screen_auto: boolean;  // Apple TV 播音樂 → Bravia 螢幕自動關閉
+  tv_avr_sync: boolean;     // 電視從待機開啟 → 搶先開啟 AVR
 }
 
 export type TheaterFlagKey = keyof TheaterFlags;
@@ -21,6 +22,7 @@ export interface TheaterSummary {
   flags: TheaterFlags;
   monitor?: {
     last_avr_state?: string;
+    last_tv_state?: string;
     agent_sha?: string;
     auto_update?: boolean;
   };
@@ -43,5 +45,9 @@ export const THEATER_FLAG_LABELS: Record<TheaterFlagKey, { title: string; descri
   tv_screen_auto: {
     title: "電視畫面自動關閉",
     description: "Apple TV 播音樂時關閉 Bravia 螢幕",
+  },
+  tv_avr_sync: {
+    title: "AVR 自動隨電視開啟",
+    description: "電視從待機開啟時搶先開啟 Marantz",
   },
 };

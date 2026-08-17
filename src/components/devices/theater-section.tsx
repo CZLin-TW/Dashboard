@@ -73,7 +73,7 @@ function LogBlock({ label, lines }: { label: string; lines: string[] }) {
   );
 }
 
-const FLAG_KEYS: TheaterFlagKey[] = ["kef_link", "tv_screen_auto"];
+const FLAG_KEYS: TheaterFlagKey[] = ["kef_link", "tv_screen_auto", "tv_avr_sync"];
 
 export function TheaterSection({ summary, offline, refreshing, onRefresh, onFlagChange }: Props) {
   return (
