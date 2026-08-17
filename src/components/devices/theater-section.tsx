@@ -60,7 +60,9 @@ function LogBlock({ label, lines }: { label: string; lines: string[] }) {
       <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-mute">
         {label}
       </p>
-      <div className="rounded-[10px] bg-elevated/40 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-mute">
+      {/* 固定高度 + 可捲動：agent 端把尾端行數從 8 拉到 15（8 行會被 [MONITOR] 洗掉），
+          不限高的話卡片會被兩塊 log 撐得很長 */}
+      <div className="max-h-32 overflow-y-auto rounded-[10px] bg-elevated/40 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-mute">
         {lines.length === 0 ? (
           <p>（尚無 log）</p>
         ) : (
