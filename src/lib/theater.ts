@@ -37,6 +37,17 @@ export interface TheaterSummary {
   };
 }
 
+/** monitor.last_tv_state / last_avr_state 的顯示文字。agent 端沒觀測到時是 "unknown"。 */
+export const THEATER_TV_STATE_LABELS: Record<string, string> = {
+  active: "開機",
+  standby: "待機",
+};
+
+export const THEATER_AVR_STATE_LABELS: Record<string, string> = {
+  on: "開機",
+  off: "待機",
+};
+
 export const THEATER_FLAG_LABELS: Record<TheaterFlagKey, { title: string; description: string }> = {
   kef_link: {
     title: "KEF 喇叭自動連動",

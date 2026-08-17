@@ -4,7 +4,9 @@ import { Clapperboard, RefreshCw } from "lucide-react";
 import {
   type TheaterFlagKey,
   type TheaterSummary,
+  THEATER_AVR_STATE_LABELS,
   THEATER_FLAG_LABELS,
+  THEATER_TV_STATE_LABELS,
 } from "@/lib/theater";
 
 // PC 卡片底部的「劇院 agent」區塊。只有 hostname 對上 theater summary agent_id
@@ -75,6 +77,31 @@ function LogBlock({ label, lines }: { label: string; lines: string[] }) {
 
 const FLAG_KEYS: TheaterFlagKey[] = ["kef_link", "tv_screen_auto", "tv_avr_sync"];
 
+// agent 的狀態機看到的電視 / AVR 狀態，加上「實際跑著的」agent 版本。
+// agent_sha 特別重要：agent 曾經卡在兩個月前的版本沒人發現（auto-update 靜默失效），
+// 那次如果版本有顯示在畫面上就會早早被抓到——這一列就是為了那件事而加的。
+function StatusRow({ monitor }: { monitor?: TheaterSummary["monitor"] }) {
+  const items = [
+    { label: "電視", value: THEATER_TV_STATE_LABELS[monitor?.last_tv_state ?? ""] ?? "未知" },
+    { label: "AVR", value: THEATER_AVR_STATE_LABELS[monitor?.last_avr_state ?? ""] ?? "未知" },
+    { label: "版本", value: monitor?.agent_sha || "未知", mono: true },
+  ];
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {items.map(({ label, value, mono }) => (
+        <div key={label} className="rounded-[10px] bg-elevated/40 px-2.5 py-1.5">
+          <p className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-mute">
+            {label}
+          </p>
+          <p className={`truncate text-[13px] text-foreground ${mono ? "font-mono" : ""}`} title={value}>
+            {value}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function TheaterSection({ summary, offline, refreshing, onRefresh, onFlagChange }: Props) {
   return (
     <div className="space-y-2.5 border-t border-line pt-3">
@@ -101,6 +128,8 @@ export function TheaterSection({ summary, offline, refreshing, onRefresh, onFlag
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} strokeWidth={1.8} />
         </button>
       </div>
+
+      <StatusRow monitor={summary.monitor} />
 
       <div className="space-y-2">
         {FLAG_KEYS.map((key) => (
