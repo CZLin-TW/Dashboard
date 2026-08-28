@@ -9,6 +9,15 @@ const ERROR_MESSAGES: Record<string, string> = {
   unauthorized: "登入已過期，請重新登入",
 };
 
+const DEFAULT_ERR = "無法取得驗證碼，請稍後再試";
+const POLL_INTERVAL_MS = 3000;
+// 連續失敗幾次才顯示「連不上」：一兩次抖動很常見（home-butler 冷啟動、網路換手），
+// 第一次就跳紅字只會製造假警報。
+const POLL_WARN_AFTER = 2;
+// 驗證碼壽命只有 5 分鐘（後端 device_auth.CODE_TTL=300）。連續失敗撐過這個長度，
+// 代表這組碼已經沒救了 → 停下來給重試按鈕，而不是繼續讓畫面空轉。
+const POLL_GIVE_UP_AFTER = Math.ceil(300_000 / POLL_INTERVAL_MS);
+
 type Phase = "checking" | "code" | "expired" | "error";
 // 登入方式：pair = 裝置配對（在 LINE 輸入碼，家庭成員 / 兒童）；remote = 遙控器模式（輸入共用密碼）。
 // 遙控器模式把「模式選擇」放在 UI 上而非網址，所以加到主畫面後的獨立 PWA 容器也能用
@@ -54,6 +63,10 @@ function LoginContent() {
   const [pw, setPw] = useState("");
   const [remoteBusy, setRemoteBusy] = useState(false);
   const [remoteErr, setRemoteErr] = useState<string | null>(null);
+  // 輪詢連續失敗的計數與提示：把「後端在噴錯」跟「還在等你按確認」分開顯示。
+  const [pollStale, setPollStale] = useState(false);
+  const [errMsg, setErrMsg] = useState(DEFAULT_ERR);
+  const pollFailRef = useRef(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tokenRef = useRef<string>("");
@@ -67,6 +80,8 @@ function LoginContent() {
 
   const requestCode = useCallback(async () => {
     stopPoll();
+    pollFailRef.current = 0;
+    setPollStale(false);
     setPhase("checking");
     try {
       const res = await fetch("/api/auth/device-code", {
@@ -84,6 +99,11 @@ function LoginContent() {
       setPhase("code");
 
       pollRef.current = setInterval(async () => {
+        // device-poll 內部一 throw 就回 {status:"error"} + HTTP 500，而平台層的 502
+        // 根本不是 JSON。兩種都要當失敗計數——**舊版把它們全部靜靜忽略**，於是後端一掛
+        // 畫面就只是無止盡地轉，使用者完全看不出壞了（實際踩過：一次部署重啟讓輪詢連續
+        // 吃到 5xx，登入頁空轉到配對碼過期，而畫面全程顯示「等待你在 LINE 確認」）。
+        let ok = false;
         try {
           const r = await fetch(
             `/api/auth/device-poll?token=${encodeURIComponent(tokenRef.current)}`,
@@ -92,15 +112,34 @@ function LoginContent() {
           if (d.status === "approved") {
             stopPoll();
             router.replace(isKid ? "/devices" : "/");
-          } else if (d.status === "expired" || d.status === "not_found" || d.status === "consumed") {
+            return;
+          }
+          if (d.status === "expired" || d.status === "not_found" || d.status === "consumed") {
             stopPoll();
             setPhase("expired");
+            return;
           }
+          // 正常等待中只會是 "pending"；其餘（"error" 或沒見過的值）一律當失敗。
+          ok = d.status === "pending";
         } catch {
-          /* 暫時性網路錯誤，下個 tick 再試 */
+          ok = false; // 網路錯誤，或後端回了非 JSON（平台的 502 錯誤頁）
         }
-      }, 3000);
+
+        if (ok) {
+          pollFailRef.current = 0;
+          setPollStale(false);
+          return;
+        }
+        pollFailRef.current += 1;
+        if (pollFailRef.current >= POLL_WARN_AFTER) setPollStale(true);
+        if (pollFailRef.current >= POLL_GIVE_UP_AFTER) {
+          stopPoll();
+          setErrMsg("一直連不上伺服器，請稍後再試");
+          setPhase("error");
+        }
+      }, POLL_INTERVAL_MS);
     } catch {
+      setErrMsg(DEFAULT_ERR);
       setPhase("error");
     }
   }, [router, stopPoll, isKid]);
@@ -262,11 +301,22 @@ function LoginContent() {
                   {copyFailed && <p className="mt-2 text-[11px] text-warm">無法複製</p>}
                 </div>
 
-                <div className="flex items-center justify-center gap-2 text-xs text-mute">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-fresh animate-pulse" />
-                  等待你在 LINE 確認...
-                </div>
-                <p className="mt-4 text-[11px] text-mute/70">驗證碼 5 分鐘有效，輸入後這裡會自動進入</p>
+                {pollStale ? (
+                  <div className="flex items-center justify-center gap-2 text-xs text-warm">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-warm animate-pulse" />
+                    伺服器暫時沒回應，重試中...
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 text-xs text-mute">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-fresh animate-pulse" />
+                    等待你在 LINE 確認...
+                  </div>
+                )}
+                <p className="mt-4 text-[11px] text-mute/70">
+                  {pollStale
+                    ? "在 LINE 確認過了也沒關係，連線恢復後這裡會自動進入"
+                    : "驗證碼 5 分鐘有效，輸入後這裡會自動進入"}
+                </p>
               </>
             )}
 
@@ -285,7 +335,7 @@ function LoginContent() {
 
             {phase === "error" && (
               <>
-                <p className="mt-2 mb-6 text-sm text-warm">無法取得驗證碼，請稍後再試</p>
+                <p className="mt-2 mb-6 text-sm text-warm">{errMsg}</p>
                 <button
                   onClick={requestCode}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-fresh px-6 py-3.5 text-base font-bold text-white hover:bg-fresh/85 transition-colors"
