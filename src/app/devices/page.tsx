@@ -237,77 +237,6 @@ export default function DevicesPage() {
         <DeviceScrollTarget deviceRefs={deviceRefs} />
       </Suspense>
 
-      {/* ── 環境感測 ── */}
-      <section className="space-y-3">
-        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
-          <Activity className="h-4 w-4" strokeWidth={2} />
-          環境感測
-        </h1>
-        <div className="flex items-center justify-between px-1">
-          <p className="text-xs text-mute">
-            釘選 1 個到首頁{pin.pinnedSensor ? "（已選 1）" : "（未選）"}
-          </p>
-          {pin.pinnedSensor && (
-            <button
-              onClick={() => pin.setPinnedSensor(null)}
-              className="text-xs text-warm hover:text-warm/80"
-            >
-              重置釘選
-            </button>
-          )}
-        </div>
-
-        {sensors.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {sensors.map((s) => {
-              const pinned = pin.isSensorPinned(s.name);
-              const SensorIcon = DEVICE_ICONS["感應器"] ?? DEVICE_ICON_FALLBACK;
-              return (
-                <div key={s.name} className={PANEL_BASE}>
-                  <div className="flex items-center justify-between gap-2.5">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="grid h-5 w-5 place-items-center text-mute">
-                        <SensorIcon className="h-5 w-5" strokeWidth={1.8} />
-                      </span>
-                      <span className="truncate text-[22px] font-bold tracking-[-0.01em] text-foreground">
-                        {s.name || s.location}
-                      </span>
-                    </div>
-                    <PinButton
-                      pinned={pinned}
-                      onClick={() => pin.setPinnedSensor(pinned ? null : s.name)}
-                      title={pinned ? "已釘選至首頁" : "釘選至首頁"}
-                    />
-                  </div>
-                  <ClimateReadout
-                    temp={s.temperature}
-                    humidity={s.humidity}
-                    co2={sensorsMap[s.name]?.current?.co2 ?? null}
-                    size="md"
-                  />
-                  {sensorsMap[s.name] && sensorsMap[s.name].history.length > 0 ? (
-                    <SensorChart
-                      history={sensorsMap[s.name].history}
-                      tempDomain={sensorDomains.tempDomain}
-                      humDomain={sensorDomains.humDomain}
-                      co2Domain={sensorsMap[s.name].history.some((p) => p.co2 != null) ? sensorDomains.co2Domain : null}
-                      acSegments={getAcSegmentsForLocation(acsMap, s.location || "")}
-                      dehumSegments={getDehumSegmentsForLocation(dehumHistoryMap, s.location || "")}
-                    />
-                  ) : (
-                    <p className="px-1 text-xs text-mute">等待 24h 資料累積...</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : loading ? (
-          <p className="px-1 text-sm text-mute">載入中...</p>
-        ) : (
-          <p className="px-1 text-sm text-mute">未偵測到感測器</p>
-        )}
-      </section>
-
       {/* ── 裝置控制 ── */}
       <section className="space-y-3">
         <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
@@ -397,6 +326,77 @@ export default function DevicesPage() {
           </div>
         ));
       })()}
+      </section>
+
+      {/* ── 環境感測 ── */}
+      <section className="space-y-3">
+        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
+          <Activity className="h-4 w-4" strokeWidth={2} />
+          環境感測
+        </h1>
+        <div className="flex items-center justify-between px-1">
+          <p className="text-xs text-mute">
+            釘選 1 個到首頁{pin.pinnedSensor ? "（已選 1）" : "（未選）"}
+          </p>
+          {pin.pinnedSensor && (
+            <button
+              onClick={() => pin.setPinnedSensor(null)}
+              className="text-xs text-warm hover:text-warm/80"
+            >
+              重置釘選
+            </button>
+          )}
+        </div>
+
+        {sensors.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {sensors.map((s) => {
+              const pinned = pin.isSensorPinned(s.name);
+              const SensorIcon = DEVICE_ICONS["感應器"] ?? DEVICE_ICON_FALLBACK;
+              return (
+                <div key={s.name} className={PANEL_BASE}>
+                  <div className="flex items-center justify-between gap-2.5">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="grid h-5 w-5 place-items-center text-mute">
+                        <SensorIcon className="h-5 w-5" strokeWidth={1.8} />
+                      </span>
+                      <span className="truncate text-[22px] font-bold tracking-[-0.01em] text-foreground">
+                        {s.name || s.location}
+                      </span>
+                    </div>
+                    <PinButton
+                      pinned={pinned}
+                      onClick={() => pin.setPinnedSensor(pinned ? null : s.name)}
+                      title={pinned ? "已釘選至首頁" : "釘選至首頁"}
+                    />
+                  </div>
+                  <ClimateReadout
+                    temp={s.temperature}
+                    humidity={s.humidity}
+                    co2={sensorsMap[s.name]?.current?.co2 ?? null}
+                    size="md"
+                  />
+                  {sensorsMap[s.name] && sensorsMap[s.name].history.length > 0 ? (
+                    <SensorChart
+                      history={sensorsMap[s.name].history}
+                      tempDomain={sensorDomains.tempDomain}
+                      humDomain={sensorDomains.humDomain}
+                      co2Domain={sensorsMap[s.name].history.some((p) => p.co2 != null) ? sensorDomains.co2Domain : null}
+                      acSegments={getAcSegmentsForLocation(acsMap, s.location || "")}
+                      dehumSegments={getDehumSegmentsForLocation(dehumHistoryMap, s.location || "")}
+                    />
+                  ) : (
+                    <p className="px-1 text-xs text-mute">等待 24h 資料累積...</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : loading ? (
+          <p className="px-1 text-sm text-mute">載入中...</p>
+        ) : (
+          <p className="px-1 text-sm text-mute">未偵測到感測器</p>
+        )}
       </section>
 
       {/* ── 電腦 ── */}

@@ -75,15 +75,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 ### 設備 `/devices`
 
-分為三段：
-
-**環境感測**（H1）
-- 感測器卡（grid，桌機 3 欄、手機 1 欄）
-- 每張卡片標題 = sheet 裝置名稱
-- 卡片頂部大字 readout（°C · % · ppm），CO2 sensor 多顯示 ppm 欄
-- 24h chart：溫度（warm）+ 濕度（cool）+（可選）CO2（amber）三條獨立 panel 堆疊
-- chart 背景疊該 sensor 位置對應的 AC on 區段色塊（看冷氣何時開）
-- 右上 PinButton 釘選一個到首頁
+分為三段。**裝置控制排在最前面**：家電控制是這頁的主要用途，感測圖表與 PC 監控是輔助資訊，不該擋在它前面。
 
 **裝置控制**（H1）
 - 按房間分群顯示所有可控設備
@@ -95,6 +87,14 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
   - 規則 phase 為 armed_above / armed_below / sensor_lost_warning 時顯示倒數提示
 - IR 設備：自訂按鈕面板
 - 每個 panel 右上 PinButton 釘選到首頁（最多 4 個）
+
+**環境感測**（H1）
+- 感測器卡（grid，桌機 3 欄、手機 1 欄）
+- 每張卡片標題 = sheet 裝置名稱
+- 卡片頂部大字 readout（°C · % · ppm），CO2 sensor 多顯示 ppm 欄
+- 24h chart：溫度（warm）+ 濕度（cool）+（可選）CO2（amber）三條獨立 panel 堆疊
+- chart 背景疊該 sensor 位置對應的 AC on 區段色塊（看冷氣何時開）
+- 右上 PinButton 釘選一個到首頁
 
 **電腦**（H1）
 - 列出所有最近有 heartbeat 的 PC（依 IP 排序，桌機 2 欄、手機 1 欄）
@@ -173,7 +173,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/dashboard | GET | 首頁彙整（天氣、裝置、待辦、庫存，減少往返次數） |
 | /api/devices | GET | 列出所有裝置基本資料（名稱、類型、位置、IR 按鈕、AC 上次指令快照），不含即時讀值 |
 | /api/devices/status | GET | 統一裝置狀態快取（空調 last-command、感應器、除濕機），key 為裝置名稱 |
-| /api/devices/options | GET | 裝置控制選項（空調模式/風速、除濕機模式/濕度） |
+| /api/devices/options | GET | 裝置控制選項（空調模式/風速、除濕機模式/濕度）。回應是純常數，帶 `s-maxage=3600, stale-while-revalidate=3600` 讓 Vercel CDN 在邊緣回應——命中時連 Function 都不會被叫起來。只有成功回應加快取標頭 |
 | /api/devices/control | POST | 控制裝置（空調/IR/除濕機）；除濕機自動模式啟用時拒收 |
 | /api/sensors/status | GET | 所有感測器當下值 + 24h history（溫度 / 濕度 / CO2），proxy 到 home-butler in-memory ring buffer |
 | /api/ac/status | GET | 所有空調當下狀態 + 24h history，給感測器 chart 背景畫 AC on 區段用 |
