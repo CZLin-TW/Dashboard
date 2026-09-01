@@ -237,7 +237,9 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 | 檔案 | 說明 |
 |------|------|
-| computer-card.tsx | PC 監控卡（IP + 在線指示燈 + CPU/GPU 當下值橫排 + 兩張 Recharts 折線圖；内部 useMemo transform raw history → chart shape） |
+| lazy-charts.tsx | **所有 recharts 元件的唯一入口**：以 `next/dynamic({ ssr: false })` 包裝，把 391 KB 的圖表函式庫移出 `/` 與 `/devices` 的初始 chunk，家電控制不必等圖表載完才能互動。新增用到 recharts 的元件請一律加到這裡並從這裡 import |
+| computer-card.tsx | PC 監控卡（IP + 在線指示燈 + CPU/GPU 當下值橫排；内部 useMemo transform raw history → chart shape，圖表本體在 computer-charts.tsx） |
+| computer-charts.tsx | PC 卡的使用率 / 溫度兩張 Recharts 折線圖（從 computer-card 拆出來獨立成非同步 chunk） |
 | sensor-chart.tsx | 感測器 24h 折線圖（溫度 / 濕度 / CO2 三層獨立 panel + AC on 區段背景） |
 | auto-mode-chart.tsx | 除濕機自動模式專用：綁定 sensor 24h 濕度線 + 後端 API 提供的 hysteresis 上下界虛線 + 除濕機運轉中綠色背景區段 |
 | schedule-section.tsx | 裝置卡內嵌的排程區段（lockedDevice 鎖在當前裝置）；inline 新增 / 編輯 / 刪除，共用 `src/lib/schedule.ts` 的 helpers |
@@ -257,7 +259,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 | Hook | 說明 |
 |------|------|
-| use-user.ts | 取得當前使用者 Session、登出功能 |
+| use-user.ts | 取得當前使用者 Session、登出功能。**模組層共享 store（`useSyncExternalStore`）**：ScheduleSection 是每張裝置卡各一份，各自 fetch 的話裝置頁一掛載就會發出 N+1 個重複的 `/api/auth/me`，跟真正要用的裝置資料搶資源；現在整頁只打一次 |
 | use-cached-fetch.ts | 帶 localStorage 快取的 fetch（先顯示快取，背景更新最新資料；APP_VERSION 變更會自動失效） |
 | use-pinned-devices.ts | 管理釘選設備清單（localStorage 儲存），支援釘選感測器 / 釘選裝置 / 全部重置 |
 | use-complete-todo.ts | 待辦勾選完成的樂觀更新邏輯（包含動畫 + refetch 同步避免閃爍），首頁 + todos 頁共用 |

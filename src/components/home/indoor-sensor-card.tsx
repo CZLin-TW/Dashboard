@@ -10,7 +10,7 @@ import { type DeviceData, DEVICE_ICONS, DEVICE_ICON_FALLBACK } from "@/lib/types
 import type { Sensor } from "@/lib/sensor";
 import type { AcSegment } from "@/lib/ac";
 import type { DehumOnSegment } from "@/lib/dehumidifier";
-import { SensorChart } from "@/components/devices/sensor-chart";
+import { SensorChart } from "@/components/devices/lazy-charts";
 
 interface Props {
   sensor: DeviceData | null;

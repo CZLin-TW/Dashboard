@@ -12,8 +12,9 @@ import type { Sensor } from "@/lib/sensor";
 import type { DehumDevice } from "@/lib/dehumidifier";
 import { dehumHistoryToSegments } from "@/lib/dehumidifier";
 import { Toggle2, Stepper, Segment, Dropdown, Field, StatusLine } from "./device-controls";
-import { AutoModeChart } from "@/components/devices/auto-mode-chart";
-import { HumidityCurveChart } from "@/components/devices/humidity-curve-chart";
+// 兩張圖走 lazy-charts 的非同步 chunk：DeviceController 是家電控制的核心 UI，
+// 不該為了預設看不到的圖表等 recharts 下載完才能互動（見 lazy-charts.tsx）。
+import { AutoModeChart, HumidityCurveChart } from "@/components/devices/lazy-charts";
 
 const DURATION_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: "立即" },

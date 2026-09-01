@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/device-controls";
 import { DeviceController } from "@/components/ui/device-controller";
 import { ComputerCard } from "@/components/devices/computer-card";
-import { SensorChart } from "@/components/devices/sensor-chart";
+import { SensorChart } from "@/components/devices/lazy-charts";
 import { ScheduleSection } from "@/components/devices/schedule-section";
 import type { ComputerPC } from "@/lib/computer";
 import type { TheaterFlagKey, TheaterSummary } from "@/lib/theater";
