@@ -13,11 +13,11 @@ import { ChevronDown, Pin } from "lucide-react";
 /** Field label（小字、mute 色、輕微字距）。 */
 export const FIELD_LABEL = "text-xs font-medium text-mute";
 
-/** 設備 panel 容器 className：圓角 14px、surface 底、預設 column flex + gap。 */
+/** 設備 panel 容器 className：圓角 22px、surface 底、預設 column flex + gap。 */
 export const PANEL_BASE =
-  "rounded-[22px] border border-line/80 bg-surface p-4 md:p-5 flex flex-col gap-5";
+  "rounded-[22px] border border-line/80 bg-surface p-4 md:p-5 flex flex-col gap-4";
 
-/** ON 綠、OFF 中性灰；紅色保留給失敗。觸控目標至少 44px。 */
+/** ON 綠、OFF 中性灰；紅色保留給失敗。整組高 38px，與下拉選單對齊。 */
 export function Toggle2({
   value,
   onChange,
@@ -34,13 +34,13 @@ export function Toggle2({
     ? !value ? "bg-faint text-white" : "text-faint"
     : !value ? "bg-soft text-white shadow-sm" : "text-mute";
   return (
-    <div className="inline-flex items-center gap-1 rounded-full bg-elevated p-1">
+    <div className="inline-flex items-center gap-0.5 rounded-full bg-elevated p-[3px]">
       <button
         type="button"
         disabled={disabled}
         onClick={() => onChange(true)}
         aria-pressed={value}
-        className={`inline-flex min-h-11 min-w-12 items-center justify-center rounded-full px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${onCls}`}
+        className={`inline-flex h-8 w-9 items-center justify-center rounded-full p-0 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${onCls}`}
       >
         ON
       </button>
@@ -49,7 +49,7 @@ export function Toggle2({
         disabled={disabled}
         onClick={() => onChange(false)}
         aria-pressed={!value}
-        className={`inline-flex min-h-11 min-w-12 items-center justify-center rounded-full px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${offCls}`}
+        className={`inline-flex h-8 w-9 items-center justify-center rounded-full p-0 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${offCls}`}
       >
         OFF
       </button>
@@ -80,12 +80,12 @@ export function Stepper({
   max?: number;
 }) {
   return (
-    <div className="inline-flex items-center gap-4 rounded-full bg-surface p-1">
+    <div className="inline-flex items-center gap-2 rounded-full bg-surface p-[3px]">
       <button
         type="button"
         onClick={onMinus}
         disabled={disabled || (min !== undefined && value <= min)}
-        className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface text-xl text-soft transition-colors hover:bg-elevated disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-surface"
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-line bg-surface text-xl text-soft transition-colors hover:bg-elevated disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-surface"
         aria-label="減少"
       >
         −
@@ -109,7 +109,7 @@ export function Stepper({
           <span className="text-[13px] font-semibold text-mute">{unit}</span>
         </span>
       ) : (
-        <span className="num min-w-[72px] text-center text-[34px] font-semibold tracking-[-0.04em]">
+        <span className="num min-w-[60px] text-center text-[28px] font-semibold leading-8 tracking-[-0.04em]">
           {value}
           <span className="ml-[2px] text-[13px] font-semibold text-mute">{unit}</span>
         </span>
@@ -118,7 +118,7 @@ export function Stepper({
         type="button"
         onClick={onPlus}
         disabled={disabled || (max !== undefined && value >= max)}
-        className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface text-xl text-soft transition-colors hover:bg-elevated disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-surface"
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-line bg-surface text-xl text-soft transition-colors hover:bg-elevated disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-surface"
         aria-label="增加"
       >
         +
@@ -148,7 +148,7 @@ export function Segment<T extends string | number>({
   format?: (v: T) => string;
 }) {
   return (
-    <div className="inline-flex flex-wrap items-center gap-1 rounded-[24px] bg-elevated p-1">
+    <div className="inline-flex flex-wrap items-center gap-0.5 rounded-[20px] bg-elevated p-[3px]">
       {options.map((opt) => {
         const isActive = opt.value === value;
         const isPending = pendingValue !== undefined && opt.value === pendingValue;
@@ -172,7 +172,7 @@ export function Segment<T extends string | number>({
             disabled={disabled}
             onClick={() => onSelect(opt.value)}
             aria-pressed={isActive}
-            className={`inline-flex min-h-11 items-center justify-center rounded-full px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${cls}`}
+            className={`inline-flex min-h-8 items-center justify-center rounded-full px-2.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${cls}`}
           >
             {format ? format(opt.value) : opt.label}
           </button>
@@ -193,7 +193,7 @@ export function Field({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-col gap-2 ${className}`}>
+    <div className={`flex min-w-0 flex-col gap-1.5 ${className}`}>
       <span className={FIELD_LABEL}>{label}</span>
       <div>{children}</div>
     </div>
@@ -227,7 +227,7 @@ export function Dropdown<T extends string | number>({
         if (opt) onSelect(opt.value);
       }}
       disabled={disabled}
-      className={`min-h-11 max-w-full rounded-full border border-line/70 bg-elevated px-3 text-[13px] font-medium text-soft transition-colors hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      className={`device-select field-select block max-w-full rounded-full border border-line/70 bg-elevated font-medium text-soft transition-colors hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     >
       {selectedStr === "" && (
         <option value="" disabled>{placeholder}</option>
@@ -261,7 +261,7 @@ export function PinButton({
       title={title}
       aria-label={title}
       aria-pressed={pinned}
-      className={`grid h-11 w-11 shrink-0 place-items-center rounded-full transition-colors ${
+      className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors ${
         pinned
           ? "bg-pin-bg text-pin"
           : disabled
@@ -432,7 +432,7 @@ export function PillButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${variantCls} ${className}`}
+      className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${variantCls} ${className}`}
     >
       {icon}
       {children}
@@ -462,7 +462,7 @@ export function IconActionButton({
       onClick={onClick}
       title={title}
       aria-label={title}
-      className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-mute transition-colors ${hoverCls}`}
+      className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-mute transition-colors ${hoverCls}`}
     >
       {icon}
     </button>
@@ -474,7 +474,7 @@ export function ControlDetails({ title, summary, children }: { title: string; su
   const [open, setOpen] = useState(false);
   const id = useId();
   return <div className="border-t border-line/80 pt-1">
-    <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(v => !v)} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg py-2 text-left text-sm">
+    <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(v => !v)} className="flex min-h-9 w-full items-center justify-between gap-3 rounded-lg py-2 text-left text-sm">
       <span className="font-medium text-soft">{title}</span>
       <span className="flex min-w-0 items-center gap-2 text-xs text-mute"><span className="truncate">{summary}</span><ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} /></span>
     </button>

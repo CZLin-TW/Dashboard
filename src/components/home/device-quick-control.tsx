@@ -97,7 +97,7 @@ export function DeviceQuickControl({
           <button
             type="button"
             onClick={() => setExpandedDevice(null)}
-            className="flex min-h-11 items-center gap-1 rounded-full bg-elevated px-4 text-xs text-mute hover:text-soft"
+            className="flex min-h-9 items-center gap-1 rounded-full bg-elevated px-3 text-xs text-mute hover:text-soft"
           >
             收合
             <ChevronUp className="h-3.5 w-3.5" strokeWidth={2} />

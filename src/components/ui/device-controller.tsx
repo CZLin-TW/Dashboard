@@ -456,7 +456,7 @@ export function DeviceController({
           type="button"
           onClick={sendAcCommand}
           disabled={sending || acAwaiting}
-          className={`inline-flex min-h-11 w-full items-center justify-center rounded-full border px-4 py-3 text-sm font-semibold transition-colors ${
+          className={`inline-flex min-h-[38px] w-full items-center justify-center rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
             acFailed
               ? "border-transparent bg-warm text-white animate-pulse"
               : acAwaiting
@@ -534,8 +534,8 @@ export function DeviceController({
             }
           />
         )}
-        {/* Row 1: 電源 toggle + 自動模式 toggle + 監控時間 dropdown（撐滿剩餘寬度，對齊 Row 2 目標濕度右側） */}
-        <div className="flex flex-wrap items-start gap-x-3 gap-y-4">
+        {/* Row 1: 兩個定寬開關 + 監控時間，同一列皆高 38px。 */}
+        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2">
           <Field label="電源">
             <Toggle2
               value={!!device.power}
@@ -550,7 +550,7 @@ export function DeviceController({
               disabled={autoRulePending}
             />
           </Field>
-          <Field label="監控時間" className="min-w-[110px] flex-1">
+          <Field label="監控時間" className="min-w-0">
             <Dropdown
               options={DURATION_OPTIONS}
               value={dehumRule?.duration_min ?? 30}
@@ -560,13 +560,13 @@ export function DeviceController({
             />
           </Field>
         </div>
-        {/* Row 2: 監控感測器（撐滿剩餘寬度）+ 目標濕度（自然寬，靠右）。
+        {/* Row 2: 監控感測器與目標濕度等寬，不依原生選項字長決定欄位大小。
             目標濕度 / 監控時間在 auto ON 時都可即時修改：後端只在 auto_mode 翻轉時
             reset runtime state，改門檻 / 時間不會清計時器，_evaluate_steady 下個 tick
             現撈新值即可。只有「感測器」維持 auto ON lock——換綁定 sensor 會 rebind
             歷史 / 圖表、計時器基準也整個變，才需要鎖。 */}
-        <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
-          <Field label="監控感測器" className="flex-1 min-w-0">
+        <div className="grid grid-cols-2 items-start gap-3">
+          <Field label="監控感測器" className="min-w-0">
             <Dropdown
               options={(availableSensors ?? []).map((s) => ({ value: s, label: s }))}
               value={dehumRule?.sensor_name || undefined}
@@ -575,8 +575,9 @@ export function DeviceController({
               className="w-full"
             />
           </Field>
-          <Field label="目標濕度">
+          <Field label="目標濕度" className="min-w-0">
             <Dropdown
+              className="w-full"
               options={THRESHOLD_OPTIONS}
               value={
                 thresholdIsCustom
@@ -594,11 +595,13 @@ export function DeviceController({
             />
           </Field>
           {thresholdIsCustom && (
-            <HumidityCurveChart
-              curve={dehumRule?.humidity_curve ?? []}
-              error={dehumRule?.humidity_curve_error}
-              fallbackThreshold={dehumRule?.threshold ?? THRESHOLD_DEFAULT}
-            />
+            <div className="col-span-2 min-w-0">
+              <HumidityCurveChart
+                curve={dehumRule?.humidity_curve ?? []}
+                error={dehumRule?.humidity_curve_error}
+                fallbackThreshold={dehumRule?.threshold ?? THRESHOLD_DEFAULT}
+              />
+            </div>
           )}
         </div>
         {phaseText && (

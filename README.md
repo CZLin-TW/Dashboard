@@ -356,7 +356,8 @@ npm run start
 
 幾乎所有按鈕都是 `rounded-full`，少數場景用 `rounded-[10px]/[12px]/[14px]`：
 
-- Toggle2 / Segment：內按鈕 `rounded-full`，主要控制按鈕至少 44px 高，並提供選取狀態與鍵盤焦點
+- Toggle2 / Segment：內按鈕高 32px、整組高 38px，並提供選取狀態與鍵盤焦點
+- Dropdown：跨裝置統一高 38px、字級 16px、自訂箭頭與外觀；保留原生選項挑選器。監控感測器與目標濕度等寬
 - 主動作 button (新增 / 確認新增 / 送出設定)：`rounded-full`
 - 列表 row：`rounded-[12px]`
 - 表單 input：`rounded-[10px]`
