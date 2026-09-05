@@ -264,27 +264,27 @@ export function foodUrgency(expiry: string): Urgency {
 
 /** 食品過期日 → 顯示用 label。home / food 共用。
  *  text：人類可讀的描述（已過期 / 今天到期 / 明天到期 / N 天後到期 / N 天後）
- *  cls：對應 Tailwind className（≤3 天用 warm semibold、其他 mute）
+ *  cls：對應 Tailwind className（已過期用 warm、≤3 天用 amber semibold、其他 mute）
  *  days：原始天數差，caller 想自己判斷可用 */
 export function expiryLabel(expiry: string): { text: string; cls: string; days: number } {
   const days = daysUntilExpiry(expiry);
   if (days < 0) return { text: "已過期", cls: "text-warm font-semibold", days };
-  if (days === 0) return { text: "今天到期", cls: "text-warm font-semibold", days };
-  if (days === 1) return { text: "明天到期", cls: "text-warm font-semibold", days };
-  if (days <= 3) return { text: `${days} 天後到期`, cls: "text-warm font-semibold", days };
+  if (days === 0) return { text: "今天到期", cls: "text-amber font-semibold", days };
+  if (days === 1) return { text: "明天到期", cls: "text-amber font-semibold", days };
+  if (days <= 3) return { text: `${days} 天後到期`, cls: "text-amber font-semibold", days };
   return { text: `${days} 天後`, cls: "text-mute", days };
 }
 
 /** Urgency → row className（list row 用）。
  *  overdue：飽和 warm-bg + 左邊 inset bar + font-semibold（最強警示）
- *  today：較淡 warm-bg + 左邊 inset bar（次強）
+ *  today：amber-bg + 左邊 inset bar（次強）
  *  normal：空字串
  *  inset shadow 而不是 border-left：避免破 row 的 rounded-[12px]。 */
 export function urgencyRowClass(urgency: Urgency): string {
   if (urgency === "overdue")
     return "bg-warm-bg/70 shadow-[inset_3px_0_0_var(--color-warm)] font-semibold";
   if (urgency === "today")
-    return "bg-warm-bg/30 shadow-[inset_3px_0_0_var(--color-warm)]";
+    return "bg-amber-bg/60 shadow-[inset_3px_0_0_var(--color-amber)]";
   return "";
 }
 

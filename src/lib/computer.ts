@@ -79,12 +79,12 @@ export function relativeFromHeartbeat(fromUnixSec: number, toMs: number = Date.n
   return `${h} 小時前回報`;
 }
 
-// 配色簡化：CPU = fresh（用量+溫度同色）、GPU = warm（用量+溫度同色）、RAM = amber。
+// 配色簡化：CPU = 深海藍（用量+溫度同色）、GPU = 陶土、RAM = 赭黃。
 // ComputerCard 的數值區塊與 ComputerCharts 的折線共用同一組，兩邊視覺才對得起來——
 // charts 被拆成非同步 chunk（見 lazy-charts.tsx）後，放在這個不相依 recharts 的 lib
 // 是唯一能同時被兩邊 import 又不會把圖表拉回初始 bundle 的位置。
 export const PC_COLORS = {
-  cpu: "var(--color-fresh)",
-  gpu: "var(--color-warm)",
-  ram: "var(--color-amber)",
+  cpu: "var(--color-chart-humidity)",
+  gpu: "var(--color-chart-temperature)",
+  ram: "var(--color-chart-co2)",
 } as const;

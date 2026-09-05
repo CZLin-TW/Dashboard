@@ -206,7 +206,7 @@ export function SensorChart({ history, tempDomain, humDomain, co2Domain, acSegme
           ticks={ticks}
           yTicks={tempYTicks}
           dataKey="temp"
-          color="var(--color-warm)"
+          color="var(--color-chart-temperature)"
           unit="°C"
           domain={tempDomain}
           acSegments={acSegments}
@@ -222,7 +222,7 @@ export function SensorChart({ history, tempDomain, humDomain, co2Domain, acSegme
           ticks={ticks}
           yTicks={humYTicks}
           dataKey="humidity"
-          color="var(--color-cool)"
+          color="var(--color-chart-humidity)"
           unit="%"
           domain={humDomain}
           acSegments={acSegments}
@@ -239,7 +239,7 @@ export function SensorChart({ history, tempDomain, humDomain, co2Domain, acSegme
             ticks={ticks}
             yTicks={co2YTicks}
             dataKey="co2"
-            color="var(--color-amber)"
+            color="var(--color-chart-co2)"
             unit=" ppm"
             domain={co2Domain}
             acSegments={acSegments}

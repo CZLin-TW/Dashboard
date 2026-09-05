@@ -155,7 +155,7 @@ export function AutoModeChart({
           <Line
             type="monotone"
             dataKey="humidity"
-            stroke="var(--color-cool)"
+            stroke="var(--color-chart-humidity)"
             strokeWidth={2}
             dot={false}
             isAnimationActive={false}

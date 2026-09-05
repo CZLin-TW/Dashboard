@@ -342,17 +342,22 @@ npm run start
 
 ### Palette / Design tokens
 
-低飽和 light theme，所有色號透過 Tailwind 4 `@theme` 集中在 `globals.css`，整體換色只改一處：
+「暖石白 × 深海藍」日間主題：頁面 `#F3F1EC`、卡片 `#FFFEFA`、控制底色 `#ECEAE4`，文字使用深灰綠。保留既有排版與控制尺寸，顏色透過 Tailwind 4 `@theme` 集中在 `globals.css`。
 
 | Token | Hex | 語義 |
 |---|---|---|
-| `cool` | `#3A6289` | 深藍 — Segment active / link / scroll-target ring / 「被選中」一致語意 |
-| `fresh` | `#3C977D` | 鼠尾草 — ON / 運轉中 / primary action / 完成 |
-| `warm` | `#DF766E` | 珊瑚 — IR 型別 / destructive / 過期警示；OFF 使用中性灰 |
-| `amber` | `#B88324` | 琥珀 — pending / 待執行 |
-| `pin` | `#7B6BA8` | 柔和紫 — 釘選狀態獨立色，跟 cool/fresh/warm/amber 都不重疊 |
+| `cool` | `#315B70` | 深海藍 — 主要操作、選取、連結、焦點 |
+| `fresh` | `#47745D` | 植物綠 — ON、運轉、已完成 |
+| `warm` | `#AC4943` | 磚紅 — 失敗、刪除、已過期；OFF 使用中性灰 |
+| `amber` | `#855E18` | 琥珀 — 送出中、等待、即期提醒 |
+| `pin` | 同 `cool` | 釘選沿用主色，以淺底與圖示區分 |
+| `chart-temperature` | `#A75F40` | 陶土 — 環境溫度；PC 圖表 GPU 序列 |
+| `chart-humidity` | `#315B70` | 深海藍 — 濕度與目標曲線；PC 圖表 CPU 序列 |
+| `chart-co2` | `#855E18` | 赭黃 — CO₂；PC 圖表 RAM 序列 |
 
 每個 accent 都搭一個 `*-bg` 淺底色（cool-bg / fresh-bg / warm-bg / amber-bg / pin-bg）給 pill / row highlight 用。
+
+新增元件時依語意使用 token，不以設備種類分配警示色、不另用 Tailwind 預設亮黃／亮紅。圖表序列不借用錯誤色，數值維持深色，狀態同時提供文字／圖示。PWA 的 manifest 與瀏覽器主題色同步頁面底色。
 
 ### Pill 系統
 
@@ -375,7 +380,7 @@ npm run start
 待辦 / 庫存 list row 跟首頁兩張卡，依 urgency 自動上樣式：
 
 - **overdue**：`bg-warm-bg/70 + inset 3px warm bar + font-semibold`（最強警示）
-- **today**：`bg-warm-bg/30 + inset 3px warm bar`（次強）
+- **today**：`bg-amber-bg/60 + inset 3px amber bar`（即期提醒）
 - **normal**：維持原樣
 
 inset shadow 不破 row 的 `rounded-[12px]`。

@@ -1,36 +1,40 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Light surfaces — 略帶冷色調的暖白，避免純白刺眼 */
-  --color-background: #F3F4F3;   /* page bg */
-  --color-foreground: #1F242B;   /* primary text (near-black) */
-  --color-surface: #FFFFFF;      /* card */
-  --color-surface-2: #F8F8F8;    /* between surface & elevated; segment/toggle 容器、room cells */
-  --color-elevated: #F0F2F2;     /* sunken inputs / hover / panel inside card */
+  /* 暖石白 × 深海藍 — 日間居家配色 */
+  --color-background: #F3F1EC;   /* page bg */
+  --color-foreground: #28312F;   /* primary text (near-black) */
+  --color-surface: #FFFEFA;      /* card */
+  --color-surface-2: #F7F5F0;    /* between surface & elevated; segment/toggle 容器、room cells */
+  --color-elevated: #ECEAE4;     /* sunken inputs / hover / panel inside card */
 
   /* Text scale */
-  --color-mute: #6B7886;         /* secondary text / labels / hints */
-  --color-soft: #2A3138;         /* primary content (slightly lighter than foreground) */
-  --color-faint: #A8B0BA;        /* placeholders / 最淡的 icon、disabled */
+  --color-mute: #5F6965;         /* secondary text / labels / hints */
+  --color-soft: #343D39;         /* primary content (slightly lighter than foreground) */
+  --color-faint: #A0A8A1;        /* placeholders / 最淡的 icon、disabled */
 
   /* Borders */
-  --color-line: #E5E7EB;         /* 預設邊框 */
-  --color-line-strong: #D1D5DB;  /* checkbox 邊框、強調分隔 */
+  --color-line: #DDDCD4;         /* 預設邊框 */
+  --color-line-strong: #BFC4BB;  /* checkbox 邊框、強調分隔 */
 
-  /* Brand accents — 低飽和 palette（light/dark 共用） */
-  --color-cool: #3A6289;         /* AC / info / link */
-  --color-cool-bg: #EFF1F4;      /* link hover、accent badge 底色 */
-  --color-fresh: #3C977D;        /* dehumidifier / primary action / success */
-  --color-fresh-bg: #E5F1EA;     /* 成功 pill / 釘選 badge */
-  --color-warm: #DF766E;         /* IR / destructive / warning */
-  --color-warm-bg: #F7EDED;      /* warn pill / 即期食品標籤 */
-  --color-amber: #B88324;        /* in-progress 字色 */
-  --color-amber-bg: #F5EDD8;     /* 待執行 pill 底色 */
+  /* 語意色 — 操作、運轉、等待、異常各自固定 */
+  --color-cool: #315B70;         /* primary action / selected / link */
+  --color-cool-bg: #E7EEF1;      /* link hover、accent badge 底色 */
+  --color-fresh: #47745D;        /* ON / running / success */
+  --color-fresh-bg: #E8EFE8;     /* 成功與運轉狀態淺底 */
+  --color-warm: #AC4943;         /* error / destructive / overdue */
+  --color-warm-bg: #F8E8E4;      /* 錯誤提示 / 過期食品標籤 */
+  --color-amber: #855E18;        /* in-progress 字色 */
+  --color-amber-bg: #F5ECD8;     /* 待執行 pill 底色 */
 
-  /* Pin 釘選狀態專用色 — 柔和紫，跟 cool（active option）/ fresh / warm / amber 都不重疊，
-     避免「藍底白字」同時意味著「選中的模式」與「釘到首頁」造成語義混淆。 */
-  --color-pin: #7B6BA8;
-  --color-pin-bg: #EDE9F4;
+  /* 釘選沿用主色，以圖示填滿與淺底區分，不另加紫色。 */
+  --color-pin: var(--color-cool);
+  --color-pin-bg: var(--color-cool-bg);
+
+  /* 圖表序列獨立於錯誤色；PC 用量圖也沿用這三種色相。 */
+  --color-chart-temperature: #A75F40;
+  --color-chart-humidity: #315B70;
+  --color-chart-co2: #855E18;
 
   /* Fonts — Inter 給數字、Noto Sans TC 給內文（layout.tsx 透過 next/font 注入 var） */
   --font-sans: var(--font-noto-tc), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -70,11 +74,11 @@ body {
 }
 
 /* Select 自訂 chevron — 拿掉系統預設箭頭、用 inline SVG 對齊 input 視覺。
-   svg stroke 用 mute (#6B7886) 跟 ChevronDown lucide 圖示一致。 */
+   svg stroke 用 mute (#5F6965) 跟 ChevronDown lucide 圖示一致。 */
 select.field-select {
   -webkit-appearance: none;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7886' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235F6965' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 14px 14px;

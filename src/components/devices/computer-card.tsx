@@ -53,15 +53,15 @@ function MetricBlock({
   return (
     <div className="flex items-center justify-between gap-3 rounded-[12px] bg-elevated/40 px-3 py-2">
       <span className="min-w-0 truncate text-base text-mute">
-        <span className="font-semibold uppercase tracking-[0.06em]">{name}</span>
+        <span className="font-semibold uppercase tracking-[0.06em]" style={{ color }}>{name}</span>
         <span>：</span>
         <span className="num">{model || "—"}</span>
       </span>
       <div className="flex flex-shrink-0 items-baseline gap-3">
-        <span className="num text-base font-semibold" style={{ color }}>
+        <span className="num text-base font-semibold text-foreground">
           {pctText}%
         </span>
-        <span className="num text-base font-semibold" style={{ color }}>
+        <span className="num text-base font-semibold text-foreground">
           {tempText}°C
         </span>
       </div>

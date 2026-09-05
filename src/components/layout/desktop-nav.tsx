@@ -15,7 +15,7 @@ export function DesktopNav() {
     <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b border-line bg-surface/80 backdrop-blur-md px-6 py-3">
       <div className="flex items-center gap-8">
         <Link href="/" className="flex items-center gap-2 text-lg font-bold text-soft">
-          <Zap className="h-5 w-5 text-fresh" strokeWidth={2} fill="currentColor" />
+          <Zap className="h-5 w-5 text-cool" strokeWidth={2} fill="currentColor" />
           Smart Home
           <span className="text-xs font-normal text-mute">v{process.env.APP_VERSION}</span>
         </Link>

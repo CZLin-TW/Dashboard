@@ -153,7 +153,7 @@ export default function FoodPage() {
             <button
               onClick={addFood}
               disabled={!newFood.name.trim() || !newFood.expiry}
-              className="w-full rounded-full bg-fresh px-5 py-2.5 text-sm font-semibold text-white hover:bg-fresh/85 disabled:bg-elevated disabled:text-mute transition-colors"
+              className="w-full rounded-full bg-cool px-5 py-2.5 text-sm font-semibold text-white hover:bg-cool/85 disabled:bg-elevated disabled:text-mute transition-colors"
             >
               確認新增
             </button>
@@ -224,7 +224,7 @@ export default function FoodPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={saveEdit}
-                        className="rounded-full bg-fresh px-4 py-1.5 text-xs font-semibold text-white hover:bg-fresh/85"
+                        className="rounded-full bg-cool px-4 py-1.5 text-xs font-semibold text-white hover:bg-cool/85"
                       >
                         儲存
                       </button>

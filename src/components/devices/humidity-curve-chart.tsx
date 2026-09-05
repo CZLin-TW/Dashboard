@@ -129,7 +129,7 @@ export function HumidityCurveChart({ curve, error, fallbackThreshold }: Props) {
           <Line
             type="stepAfter"
             dataKey="threshold"
-            stroke="var(--color-cool)"
+            stroke="var(--color-chart-humidity)"
             strokeWidth={2}
             dot={false}
             isAnimationActive={false}

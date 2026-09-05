@@ -481,7 +481,7 @@ export default function TodosPage() {
             <button
               onClick={addTodo}
               disabled={!newTodo.item.trim() || (recurEnabled ? !recurValid : !newTodo.date)}
-              className="w-full rounded-full bg-fresh px-5 py-2.5 text-sm font-semibold text-white hover:bg-fresh/85 disabled:bg-elevated disabled:text-mute transition-colors"
+              className="w-full rounded-full bg-cool px-5 py-2.5 text-sm font-semibold text-white hover:bg-cool/85 disabled:bg-elevated disabled:text-mute transition-colors"
             >
               {recurEnabled ? "確認新增週期提醒" : "確認新增"}
             </button>
@@ -588,7 +588,7 @@ export default function TodosPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={saveEdit}
-                        className="rounded-full bg-fresh px-4 py-1.5 text-xs font-semibold text-white hover:bg-fresh/85"
+                        className="rounded-full bg-cool px-4 py-1.5 text-xs font-semibold text-white hover:bg-cool/85"
                       >
                         儲存
                       </button>
@@ -654,7 +654,7 @@ export default function TodosPage() {
                   </div>
                   <span
                     className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-medium ${
-                      isPublic ? "bg-fresh-bg text-fresh" : "bg-cool-bg text-cool"
+                      isPublic ? "bg-elevated text-mute" : "bg-cool-bg text-cool"
                     }`}
                   >
                     {todo["類型"]}

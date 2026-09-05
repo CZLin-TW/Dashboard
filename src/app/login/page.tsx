@@ -229,7 +229,7 @@ function LoginContent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm rounded-[18px] bg-surface border border-line p-8 shadow-lg shadow-mute/10 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-fresh-bg text-fresh">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-cool-bg text-cool">
           <Zap className="h-8 w-8" strokeWidth={2} fill="currentColor" />
         </div>
         <h1 className="text-2xl font-bold text-soft mb-2">Smart Home Dashboard</h1>
@@ -261,7 +261,7 @@ function LoginContent() {
             <button
               type="submit"
               disabled={remoteBusy || !pw}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-fresh px-6 py-3.5 text-base font-bold text-white hover:bg-fresh/85 transition-colors disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-cool px-6 py-3.5 text-base font-bold text-white hover:bg-cool/85 transition-colors disabled:opacity-50"
             >
               <Lock className="h-5 w-5" strokeWidth={2} />
               {remoteBusy ? "驗證中…" : "進入遙控器"}
@@ -308,7 +308,7 @@ function LoginContent() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center gap-2 text-xs text-mute">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-fresh animate-pulse" />
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber animate-pulse" />
                     等待你在 LINE 確認...
                   </div>
                 )}
@@ -325,7 +325,7 @@ function LoginContent() {
                 <p className="mt-2 mb-6 text-sm text-mute">驗證碼已過期</p>
                 <button
                   onClick={requestCode}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-fresh px-6 py-3.5 text-base font-bold text-white hover:bg-fresh/85 transition-colors"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-cool px-6 py-3.5 text-base font-bold text-white hover:bg-cool/85 transition-colors"
                 >
                   <RefreshCw className="h-5 w-5" strokeWidth={2} />
                   重新取得驗證碼
@@ -338,7 +338,7 @@ function LoginContent() {
                 <p className="mt-2 mb-6 text-sm text-warm">{errMsg}</p>
                 <button
                   onClick={requestCode}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-fresh px-6 py-3.5 text-base font-bold text-white hover:bg-fresh/85 transition-colors"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-cool px-6 py-3.5 text-base font-bold text-white hover:bg-cool/85 transition-colors"
                 >
                   <RefreshCw className="h-5 w-5" strokeWidth={2} />
                   重試

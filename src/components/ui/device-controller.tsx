@@ -104,7 +104,7 @@ export function DeviceController({
   const [dhFailed, setDhFailed] = useState<{ type: string; value: unknown } | null>(null);
   const [autoRulePending, setAutoRulePending] = useState(false);
   const [autoModePending, setAutoModePending] = useState<boolean | null>(null);
-  // IR fire-and-forget：tap 顯示 fresh 綠表示「指令送出中」，failed 顯示 warm 紅。
+  // IR fire-and-forget：tap 顯示 amber 琥珀表示「指令送出中」，failed 顯示 warm 紅。
   // 不做 success state——HTTP 200 只代表 Hub 收到、不代表裝置真的動作了，給綠燈會誤導。
   const [irTap, setIrTap] = useState<string | null>(null);
   const [irFailed, setIrFailed] = useState<{ button: string; message: string } | null>(null);
@@ -460,9 +460,9 @@ export function DeviceController({
             acFailed
               ? "border-transparent bg-warm text-white animate-pulse"
               : acAwaiting
-              ? "border-transparent bg-amber-500 text-white animate-pulse"
+              ? "border-transparent bg-amber text-white animate-pulse"
               : dirty
-              ? "border-transparent bg-fresh text-white hover:bg-fresh/85"
+              ? "border-transparent bg-cool text-white hover:bg-cool/85"
               : "border-line/70 bg-surface-2 text-mute"
           }`}
         >
@@ -662,12 +662,12 @@ export function DeviceController({
           {buttons.map((btn) => {
             const isTap = irTap === btn;
             const isFailed = irFailed?.button === btn;
-            // 配色語言對齊全站：fresh = 送出中、warm = 失敗。沒有「成功」狀態，
+            // 配色語言對齊全站：amber = 送出中、warm = 失敗。沒有「成功」狀態，
             // 因為 IR 沒有狀態 ground truth，HTTP 200 只代表 Hub 收到。
             const stateCls = isFailed
               ? "border-transparent bg-warm text-white animate-pulse"
               : isTap
-              ? "border-transparent bg-fresh text-white scale-[0.97]"
+              ? "border-transparent bg-amber text-white scale-[0.97]"
               : "border-line bg-elevated text-soft hover:bg-mute/15 active:scale-[0.985]";
             return (
               <button

@@ -267,7 +267,7 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="flex-1 rounded-full bg-fresh px-5 py-2.5 text-sm font-semibold text-white hover:bg-fresh/85 disabled:bg-elevated disabled:text-mute transition-colors"
+          className="flex-1 rounded-full bg-cool px-5 py-2.5 text-sm font-semibold text-white hover:bg-cool/85 disabled:bg-elevated disabled:text-mute transition-colors"
         >
           {submitLabel}
         </button>

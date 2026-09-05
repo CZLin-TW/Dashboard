@@ -6,7 +6,7 @@ import { ChevronDown, Pin } from "lucide-react";
 // ─────────────────────────────────────────────────────────────
 // 裝置控制 UI 元件 — devices 頁、首頁裝置快捷與內嵌排程共用。
 // 目的是 visual & 行為一致：尺寸、圓角、配色都統一
-// （Toggle2 ON=fresh / OFF=soft、Segment active=cool、Pin pinned=pin 紫等）。
+// （Toggle2 ON=fresh / OFF=mute、Segment active=cool、Pin pinned=cool 主色等）。
 // 所有元件假設外層已給好 layout（Field 包覆等）。
 // ─────────────────────────────────────────────────────────────
 
@@ -32,7 +32,7 @@ export function Toggle2({
     : value ? "bg-fresh text-white shadow-sm" : "text-mute";
   const offCls = disabled
     ? !value ? "bg-faint text-white" : "text-faint"
-    : !value ? "bg-soft text-white shadow-sm" : "text-mute";
+    : !value ? "bg-mute text-white shadow-sm" : "text-mute";
   return (
     <div className="inline-flex items-center gap-0.5 rounded-full bg-elevated p-[3px]">
       <button
@@ -157,7 +157,7 @@ export function Segment<T extends string | number>({
         const cls = isFailed
           ? "bg-warm text-white animate-pulse"
           : isPending
-          ? "bg-amber-500 text-white animate-pulse"
+          ? "bg-amber text-white animate-pulse"
           : disabled && isActive
           ? "bg-faint text-white"
           : disabled
@@ -241,7 +241,7 @@ export function Dropdown<T extends string | number>({
   );
 }
 
-/** 圓形 pin button（panel 右上）。pinned=pin 紫底白字、disabled=灰、未釘=elevated 灰底。 */
+/** 圓形 pin button（panel 右上）。pinned=主色淺底、disabled=灰、未釘=elevated 灰底。 */
 export function PinButton({
   pinned,
   disabled,
@@ -288,7 +288,7 @@ export function StatusLine({
     tone === "running"
       ? "bg-fresh"
       : tone === "waiting"
-      ? "bg-amber-500 animate-pulse"
+      ? "bg-amber animate-pulse"
       : "bg-mute/40";
   return (
     <div role="status" className="flex items-center gap-2 text-xs leading-relaxed text-mute">
@@ -426,7 +426,7 @@ export function PillButton({
 }) {
   const variantCls =
     variant === "confirm"
-      ? "bg-fresh text-white hover:bg-fresh/85 disabled:bg-elevated disabled:text-mute"
+      ? "bg-cool text-white hover:bg-cool/85 disabled:bg-elevated disabled:text-mute"
       : "bg-cool text-white hover:bg-cool/85";
   return (
     <button
