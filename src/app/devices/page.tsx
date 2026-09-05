@@ -1,4 +1,5 @@
 "use client";
+import { appStorage } from "@/lib/storage";
 
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -59,7 +60,7 @@ const THEATER_CACHE_KEY = `cache:${process.env.APP_VERSION}:/api/theater/summary
 
 function saveTheaterCache(summary: TheaterSummary) {
   try {
-    localStorage.setItem(THEATER_CACHE_KEY, JSON.stringify(summary));
+    appStorage().setItem(THEATER_CACHE_KEY, JSON.stringify(summary));
   } catch { /* storage full, ignore */ }
 }
 
@@ -121,7 +122,7 @@ export default function DevicesPage() {
   useEffect(() => {
     // localStorage 還原：跟 use-cached-fetch 同一個 hydration trade-off（見該檔說明）
     try {
-      const cached = localStorage.getItem(THEATER_CACHE_KEY);
+      const cached = appStorage().getItem(THEATER_CACHE_KEY);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (cached) setTheater(JSON.parse(cached));
     } catch { /* ignore */ }

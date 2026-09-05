@@ -1,4 +1,5 @@
 "use client";
+import { appStorage } from "@/lib/storage";
 
 // React 19 react-hooks/set-state-in-effect 規則對下列兩個 effect 都會 fire：
 // (1) localStorage 還原 cache（必須等 client mount 才能讀，避免 SSR mismatch）
@@ -26,7 +27,7 @@ export function useCachedFetch<T>(url: string, fallback: T) {
   useEffect(() => {
     if (!hydrated) {
       try {
-        const cached = localStorage.getItem(cacheKey);
+        const cached = appStorage().getItem(cacheKey);
         if (cached) setData(JSON.parse(cached));
       } catch { /* ignore */ }
       setHydrated(true);
@@ -43,7 +44,7 @@ export function useCachedFetch<T>(url: string, fallback: T) {
       .then((fresh) => {
         setData(fresh);
         try {
-          localStorage.setItem(cacheKey, JSON.stringify(fresh));
+          appStorage().setItem(cacheKey, JSON.stringify(fresh));
         } catch { /* storage full, ignore */ }
       })
       .catch((err) => {

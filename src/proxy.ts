@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifyToken } from "@/lib/jwt";
+import { isDemoMode } from "@/lib/demo/config";
 
 const PUBLIC_PATHS = ["/login", "/api/auth", "/api/debug", "/api/version", "/manifest.webmanifest", "/icons"];
 
@@ -34,6 +35,16 @@ function kidPathAllowed(pathname: string): boolean {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (isDemoMode()) {
+    // Defense in depth: no API route (including public auth endpoints) runs on the server.
+    // Client mock gaps, direct HTTP requests and newly added routes all fail closed.
+    if (pathname === "/api" || pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Demo APIs are simulated in the browser only." }, { status: 503, headers: { "Cache-Control": "no-store" } });
+    }
+    if (pathname === "/login") return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.next();
+  }
 
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();

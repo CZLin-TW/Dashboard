@@ -1,4 +1,5 @@
 "use client";
+import { appStorage } from "@/lib/storage";
 
 // React 19 react-hooks/set-state-in-effect 規則建議用 useSyncExternalStore
 // 取代「mount 後從 localStorage 還原」這個 pattern。要正確實作 snapshot
@@ -21,8 +22,8 @@ export function usePinnedDevices() {
   // mismatch），所以一定要在 mount 後才讀。
   useEffect(() => {
     try {
-      const sensor = localStorage.getItem(SENSOR_KEY);
-      const devices = localStorage.getItem(DEVICES_KEY);
+      const sensor = appStorage().getItem(SENSOR_KEY);
+      const devices = appStorage().getItem(DEVICES_KEY);
       if (sensor) setPinnedSensorState(sensor);
       if (devices) setPinnedDevicesState(JSON.parse(devices));
     } catch { /* ignore */ }
@@ -32,9 +33,9 @@ export function usePinnedDevices() {
   const setPinnedSensor = useCallback((name: string | null) => {
     setPinnedSensorState(name);
     if (name) {
-      localStorage.setItem(SENSOR_KEY, name);
+      appStorage().setItem(SENSOR_KEY, name);
     } else {
-      localStorage.removeItem(SENSOR_KEY);
+      appStorage().removeItem(SENSOR_KEY);
     }
   }, []);
 
@@ -47,7 +48,7 @@ export function usePinnedDevices() {
         if (prev.length >= MAX_PINNED_DEVICES) return prev;
         next = [...prev, name];
       }
-      localStorage.setItem(DEVICES_KEY, JSON.stringify(next));
+      appStorage().setItem(DEVICES_KEY, JSON.stringify(next));
       return next;
     });
   }, []);
@@ -63,13 +64,13 @@ export function usePinnedDevices() {
   const resetAll = useCallback(() => {
     setPinnedSensorState(null);
     setPinnedDevicesState([]);
-    localStorage.removeItem(SENSOR_KEY);
-    localStorage.removeItem(DEVICES_KEY);
+    appStorage().removeItem(SENSOR_KEY);
+    appStorage().removeItem(DEVICES_KEY);
   }, []);
 
   const clearAllDevices = useCallback(() => {
     setPinnedDevicesState([]);
-    localStorage.removeItem(DEVICES_KEY);
+    appStorage().removeItem(DEVICES_KEY);
   }, []);
 
   const canPinMore = pinnedDevices.length < MAX_PINNED_DEVICES;

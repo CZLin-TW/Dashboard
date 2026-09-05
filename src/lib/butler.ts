@@ -1,9 +1,12 @@
+import { isDemoMode } from "./demo/config";
+
 const HOME_BUTLER_URL = process.env.HOME_BUTLER_URL ?? "https://home-butler.onrender.com";
 const HOME_BUTLER_API_KEY = process.env.HOME_BUTLER_API_KEY ?? "";
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
 async function butler(method: Method, path: string, body?: unknown): Promise<unknown> {
+  if (isDemoMode()) throw new Error("Demo mode blocks all home-butler requests.");
   // X-API-Key required by home-butler /api/*, /notify*, /switchbot/* endpoints.
   // Read on every call (not cached) so a redeploy with a rotated key takes effect immediately.
   const headers: Record<string, string> = { "X-API-Key": HOME_BUTLER_API_KEY };

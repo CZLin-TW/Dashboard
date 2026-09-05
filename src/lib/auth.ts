@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { isDemoMode, DEMO_USER } from "./demo/config";
 import { SignJWT } from "jose";
 // secret 解析 + 驗證集中在 edge-safe 的 lib/jwt.ts，與 proxy.ts(middleware) 共用，
 // 保證簽發與閘門驗簽用同一把金鑰。
@@ -27,6 +28,7 @@ export async function createSession(user: SessionUser): Promise<string> {
 }
 
 export async function getSession(): Promise<SessionUser | null> {
+  if (isDemoMode()) return DEMO_USER; // no JWT is ever issued for this synthetic identity
   const cookieStore = await cookies();
   return verifyToken(cookieStore.get(COOKIE_NAME)?.value);
 }

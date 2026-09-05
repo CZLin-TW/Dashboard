@@ -4,6 +4,8 @@ import { DesktopNav } from "@/components/layout/desktop-nav";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { getSession } from "@/lib/auth";
+import { isDemoMode } from "@/lib/demo/config";
+import { DemoProvider } from "@/components/demo/provider";
 import "./globals.css";
 
 // Inter 給數字（用 .num class 觸發），Noto Sans TC 給內文。
@@ -56,16 +58,18 @@ export default async function RootLayout({
   // 即使這裡誤渲染，middleware 仍會把兒童擋在裝置頁外。
   const session = await getSession();
   const isKid = session?.role === "kid";
+  const demo = isDemoMode();
+  const content = <>
+    {!isKid && <DesktopNav />}
+    {!isKid && <MobileHeader />}
+    <main className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8 pb-24 md:pb-8">{children}</main>
+    {!isKid && <MobileNav />}
+  </>;
 
   return (
-    <html lang="zh-TW" className={`h-full antialiased ${inter.variable} ${notoTC.variable}`}>
+    <html lang="zh-TW" data-demo={demo ? "true" : undefined} className={`h-full antialiased ${inter.variable} ${notoTC.variable}`}>
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        {!isKid && <DesktopNav />}
-        {!isKid && <MobileHeader />}
-        <main className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8 pb-24 md:pb-8">
-          {children}
-        </main>
-        {!isKid && <MobileNav />}
+        {demo ? <DemoProvider>{content}</DemoProvider> : content}
       </body>
     </html>
   );
