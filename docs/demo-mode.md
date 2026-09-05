@@ -3,6 +3,21 @@
 使用現有首頁、設備、照明、待辦、庫存頁面和元件，搭配固定的「測試成員」模擬身分。
 不需要 LINE 配對、不簽發正式 session，也不用建立 Google Sheets 家庭成員。
 
+## 新 Session 接手
+
+測試模式已納入版本庫，取得包含此功能的最新程式碼即可使用，無須依賴先前的聊天紀錄。
+根目錄 [AGENTS.md](../AGENTS.md) 提供 AI 開發指引，[README](../README.md) 開頭提供快速入口。
+使用其他工具時，若工具不會自動讀取 AGENTS.md，請明確請它先讀這兩份文件。
+
+1. 在 Dashboard 專案目錄工作，確認有 `npm run demo` 指令與本文件。
+2. 依下方步驟啟動，不要假設上一個 session 的程序、分頁或 sessionStorage 仍在。
+3. 開啟頁面並確認黃色測試模式列；需要一致的測試起點時按「重設資料」。
+4. 測試報告分清楚模擬操作、真實後端整合及實機瀏覽器驗證。
+
+可用這句話交接：
+
+> 請在 Dashboard 專案先讀 AGENTS.md 與 docs/demo-mode.md，使用既有 demo 檢查 UI 和互動，並說明實際驗證的範圍。
+
 ## 本機啟動
 
 ```sh
@@ -45,7 +60,22 @@ npm run demo
 
 需要分享網址時，另建 Vercel Preview，僅設定 `DASHBOARD_DEMO_MODE=1`，不要複製正式 secrets。
 一般自架 `NODE_ENV=production` 的建置／啟動也可在獨立測試主機使用，必須自己維持獨立網址與環境。
-此改動本身不部署、不變更正式網站。
+將程式碼推送到正式分支不會自動啟用 demo；一般正式網站仍走原本登入流程。
+
+## 維護入口
+
+| 檔案 | 用途 |
+| --- | --- |
+| `scripts/demo.mjs` | 本機啟動指令、位址與連接埠 |
+| `src/lib/demo/config.ts` | 伺服器端啟用條件、憑證與環境限制、測試身分 |
+| `src/lib/demo/fixtures.ts` | 虛構資料與測試情境 |
+| `src/lib/demo/simulator.ts` | 模擬 API、資料寫入與請求隔離 |
+| `src/components/demo/provider.tsx` | 安裝模擬請求處理器、分頁儲存、情境列 |
+| `src/proxy.ts`、`src/lib/butler.ts` | 伺服器 API 與後端轉送隔離 |
+| `tests/demo.test.ts` | 資料契約、互動與隔離測試 |
+
+新增頁面或 API 時同步維護模擬資料與測試；瀏覽器出現 501 通常表示該模擬端點尚未實作。
+不要用連接真實後端的 fallback 掩蓋缺少的模擬端點。
 
 ## 驗證
 

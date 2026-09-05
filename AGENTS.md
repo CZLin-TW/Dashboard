@@ -4,6 +4,19 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+# UI 開發與獨立測試模式
+
+本專案已有可操作的模擬家庭，不需建立測試帳號或取得正式登入憑證。
+新的 session 處理 UI、響應式排版或前端互動時，先讀 [測試模式說明](docs/demo-mode.md)，優先使用此模式驗證。
+
+- 在不含正式 `.env.local` 或真實憑證的獨立 checkout 中執行 `npm ci`、`npm run demo`，開啟 `http://127.0.0.1:3001`；啟動器會設定 `DASHBOARD_DEMO_MODE=1`。
+- 確認頁面頂端有「測試模式 · 模擬家庭」黃色列，再操作模擬設備。可切換正常、空資料、設備離線、API 失敗，或重設資料。
+- 不要假設前一個 session 的本機伺服器、瀏覽器分頁或測試資料仍存在。需要時重新啟動；連接埠已占用時先確認服務身分，不要任意停止其他程序。
+- 不移除正式環境的憑證來遷就 demo；改用獨立 checkout。不可用 query、cookie、通用密碼或修改正式登入流程來繞過驗證。
+- demo 只驗證 UI 與模擬資料互動；不能據此宣稱真實家電、登入權限、後端排程或推播已通過測試。手機 viewport 檢查也不等於 iPhone Safari 實機測試。
+- 新增或修改 API 資料格式時，同步更新 `src/lib/demo/fixtures.ts`、`src/lib/demo/simulator.ts` 與 `tests/demo.test.ts`；未知 API 應維持拒絕，不得退回真實後端。
+- 修改 demo／API 契約後執行 `npm run test:demo`；程式變更依範圍執行 lint、build 與相關 UI 操作檢查。純文件修改不需重跑應用測試，也不 bump 版本。
+
 # 版本管理
 
 `package.json:version` 是整個系統（Dashboard + home-butler）的**使用者體感版本** source of truth。

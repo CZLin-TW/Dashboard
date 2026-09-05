@@ -2,6 +2,8 @@
 
 > **獨立測試模式**：`npm ci` 後執行 `npm run demo`，開啟 `http://127.0.0.1:3001`，即可用模擬家庭資料查看與操作完整 UI，無須 LINE 配對。支援重設、空資料、離線與 API 失敗情境；不連接真實家電。詳見 [測試模式說明](docs/demo-mode.md)。
 
+新開發者或 AI session 請先讀 [專案開發指引](AGENTS.md) 與[測試模式交接說明](docs/demo-mode.md#新-session-接手)。請在不含正式環境憑證的獨立 checkout 啟動 demo；本機服務與分頁不保證跨 session 保留。
+
 家庭智慧中控面板，[家庭 AI 管家系統](https://github.com/CZLin-TW/home-butler)的網頁版操作介面。使用 Next.js + TypeScript + Tailwind CSS 建置。
 
 本專案 100% 由 AI 協作完成，包含架構設計、所有程式碼、文件撰寫。
