@@ -1,24 +1,23 @@
 "use client";
 
-import { Pin } from "lucide-react";
+import { useId, useState } from "react";
+import { ChevronDown, Pin } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────
 // 裝置控制 UI 元件 — devices 頁、首頁裝置快捷與內嵌排程共用。
 // 目的是 visual & 行為一致：尺寸、圓角、配色都統一
-// （Toggle2 ON=fresh / OFF=warm、Segment active=cool、Pin pinned=pin 紫等）。
+// （Toggle2 ON=fresh / OFF=soft、Segment active=cool、Pin pinned=pin 紫等）。
 // 所有元件假設外層已給好 layout（Field 包覆等）。
 // ─────────────────────────────────────────────────────────────
 
 /** Field label（小字、mute 色、輕微字距）。 */
-export const FIELD_LABEL = "text-[12px] font-medium text-mute tracking-[0.04em]";
+export const FIELD_LABEL = "text-xs font-medium text-mute";
 
 /** 設備 panel 容器 className：圓角 14px、surface 底、預設 column flex + gap。 */
 export const PANEL_BASE =
-  "rounded-[14px] border border-line bg-surface p-3.5 shadow-sm shadow-mute/5 flex flex-col gap-3.5";
+  "rounded-[22px] border border-line/80 bg-surface p-4 md:p-5 flex flex-col gap-5";
 
-/** ON/OFF 二段式 pill 開關。on=fresh 綠、off=warm 紅。
- *  外層 rounded-[19px] / 內按鈕 rounded-full / padding 3px → 同心圓弧。
- *  disabled 時亮色（fresh/warm）改 faint 灰，視覺明確告知不可動。 */
+/** ON 綠、OFF 中性灰；紅色保留給失敗。觸控目標至少 44px。 */
 export function Toggle2({
   value,
   onChange,
@@ -33,14 +32,15 @@ export function Toggle2({
     : value ? "bg-fresh text-white shadow-sm" : "text-mute";
   const offCls = disabled
     ? !value ? "bg-faint text-white" : "text-faint"
-    : !value ? "bg-warm text-white shadow-sm" : "text-mute";
+    : !value ? "bg-soft text-white shadow-sm" : "text-mute";
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
+    <div className="inline-flex items-center gap-1 rounded-full bg-elevated p-1">
       <button
         type="button"
         disabled={disabled}
         onClick={() => onChange(true)}
-        className={`inline-flex min-w-[42px] items-center justify-center rounded-full px-3 py-[4px] text-[13px] font-medium leading-[16px] transition-colors disabled:cursor-not-allowed ${onCls}`}
+        aria-pressed={value}
+        className={`inline-flex min-h-11 min-w-12 items-center justify-center rounded-full px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${onCls}`}
       >
         ON
       </button>
@@ -48,7 +48,8 @@ export function Toggle2({
         type="button"
         disabled={disabled}
         onClick={() => onChange(false)}
-        className={`inline-flex min-w-[42px] items-center justify-center rounded-full px-3 py-[4px] text-[13px] font-medium leading-[16px] transition-colors disabled:cursor-not-allowed ${offCls}`}
+        aria-pressed={!value}
+        className={`inline-flex min-h-11 min-w-12 items-center justify-center rounded-full px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${offCls}`}
       >
         OFF
       </button>
@@ -79,12 +80,12 @@ export function Stepper({
   max?: number;
 }) {
   return (
-    <div className="inline-flex items-center gap-3">
+    <div className="inline-flex items-center gap-4 rounded-full bg-surface p-1">
       <button
         type="button"
         onClick={onMinus}
-        disabled={disabled}
-        className="grid h-[30px] w-[30px] place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
+        disabled={disabled || (min !== undefined && value <= min)}
+        className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface text-xl text-soft transition-colors hover:bg-elevated disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-surface"
         aria-label="減少"
       >
         −
@@ -108,7 +109,7 @@ export function Stepper({
           <span className="text-[13px] font-semibold text-mute">{unit}</span>
         </span>
       ) : (
-        <span className="num min-w-[64px] text-center text-[22px] font-bold tracking-[-0.02em]">
+        <span className="num min-w-[72px] text-center text-[34px] font-semibold tracking-[-0.04em]">
           {value}
           <span className="ml-[2px] text-[13px] font-semibold text-mute">{unit}</span>
         </span>
@@ -116,8 +117,8 @@ export function Stepper({
       <button
         type="button"
         onClick={onPlus}
-        disabled={disabled}
-        className="grid h-[30px] w-[30px] place-items-center rounded-full border border-line bg-surface text-lg text-soft hover:bg-elevated disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface"
+        disabled={disabled || (max !== undefined && value >= max)}
+        className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface text-xl text-soft transition-colors hover:bg-elevated disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-surface"
         aria-label="增加"
       >
         +
@@ -147,7 +148,7 @@ export function Segment<T extends string | number>({
   format?: (v: T) => string;
 }) {
   return (
-    <div className="inline-flex flex-wrap items-center gap-y-[3px] gap-x-0.5 rounded-[19px] border border-line bg-elevated p-[3px]">
+    <div className="inline-flex flex-wrap items-center gap-1 rounded-[24px] bg-elevated p-1">
       {options.map((opt) => {
         const isActive = opt.value === value;
         const isPending = pendingValue !== undefined && opt.value === pendingValue;
@@ -170,7 +171,8 @@ export function Segment<T extends string | number>({
             type="button"
             disabled={disabled}
             onClick={() => onSelect(opt.value)}
-            className={`inline-flex items-center rounded-full px-3 py-[4px] text-[13px] font-medium leading-[16px] transition-colors disabled:cursor-not-allowed ${cls}`}
+            aria-pressed={isActive}
+            className={`inline-flex min-h-11 items-center justify-center rounded-full px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed ${cls}`}
           >
             {format ? format(opt.value) : opt.label}
           </button>
@@ -225,8 +227,7 @@ export function Dropdown<T extends string | number>({
         if (opt) onSelect(opt.value);
       }}
       disabled={disabled}
-      // 統一 row 高 30px（與 Toggle2 / Segment / Stepper 對齊）
-      className={`h-[30px] rounded-[19px] border border-line bg-elevated px-3.5 text-[13px] font-medium text-soft transition-colors hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      className={`min-h-11 max-w-full rounded-full border border-line/70 bg-elevated px-3 text-[13px] font-medium text-soft transition-colors hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     >
       {selectedStr === "" && (
         <option value="" disabled>{placeholder}</option>
@@ -259,9 +260,10 @@ export function PinButton({
       disabled={disabled}
       title={title}
       aria-label={title}
-      className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
+      aria-pressed={pinned}
+      className={`grid h-11 w-11 shrink-0 place-items-center rounded-full transition-colors ${
         pinned
-          ? "bg-pin text-white"
+          ? "bg-pin-bg text-pin"
           : disabled
           ? "bg-elevated text-faint cursor-not-allowed"
           : "bg-elevated text-mute hover:text-soft"
@@ -289,7 +291,7 @@ export function StatusLine({
       ? "bg-amber-500 animate-pulse"
       : "bg-mute/40";
   return (
-    <div className="flex items-center gap-2 text-[12.5px] text-mute">
+    <div role="status" className="flex items-center gap-2 text-xs leading-relaxed text-mute">
       <span className={`inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${dot}`} />
       <span className="text-soft">
         {text}
@@ -313,8 +315,17 @@ export function ClimateReadout({
   humidity: number | string | null | undefined;
   co2?: number | string | null;
   /** lg 給首頁主卡、md 給裝置頁感應器卡裡面 */
-  size?: "lg" | "md";
+  size?: "lg" | "md" | "compact";
 }) {
+  if (size === "compact") {
+    return <div className="flex flex-wrap items-baseline gap-x-2 gap-y-2">
+      <span className="num whitespace-nowrap text-[26px] font-semibold leading-none tracking-[-0.04em] text-foreground md:text-[36px]">
+        {temp ?? "--"}<span className="ml-0.5 text-xs font-medium text-mute md:text-sm">°C</span>
+      </span>
+      <span className="num whitespace-nowrap text-base font-medium text-soft md:text-lg">{humidity ?? "--"}<span className="ml-0.5 text-xs text-mute">%</span></span>
+      {co2 != null && <span className="num basis-full text-xs text-mute">CO₂ <span className="font-medium text-soft">{co2}</span> ppm</span>}
+    </div>;
+  }
   const tempCls =
     size === "lg"
       ? "num text-[32px] font-bold tracking-[-0.025em] leading-none text-foreground"
@@ -332,7 +343,7 @@ export function ClimateReadout({
       ? "ml-[1px] text-sm font-medium text-mute"
       : "ml-[1px] text-xs font-medium text-mute";
   return (
-    <div className="flex items-baseline gap-3">
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
       <span className={tempCls}>
         {temp ?? "--"}
         <span className={tempUnitCls}>°C</span>
@@ -421,7 +432,7 @@ export function PillButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${variantCls} ${className}`}
+      className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${variantCls} ${className}`}
     >
       {icon}
       {children}
@@ -451,9 +462,22 @@ export function IconActionButton({
       onClick={onClick}
       title={title}
       aria-label={title}
-      className={`grid h-7 w-7 place-items-center rounded-full text-mute transition-colors ${hoverCls}`}
+      className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-mute transition-colors ${hoverCls}`}
     >
       {icon}
     </button>
   );
+}
+
+/** Mount expensive charts only when opened; button remains keyboard accessible. */
+export function ControlDetails({ title, summary, children }: { title: string; summary?: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  return <div className="border-t border-line/80 pt-1">
+    <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(v => !v)} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg py-2 text-left text-sm">
+      <span className="font-medium text-soft">{title}</span>
+      <span className="flex min-w-0 items-center gap-2 text-xs text-mute"><span className="truncate">{summary}</span><ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} /></span>
+    </button>
+    <div id={id} hidden={!open}>{open && <div className="space-y-4 pb-2 pt-3">{children}</div>}</div>
+  </div>;
 }

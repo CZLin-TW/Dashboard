@@ -27,6 +27,7 @@ export function DesktopNav() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive ? "page" : undefined}
                 className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-cool-bg text-cool"

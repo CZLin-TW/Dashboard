@@ -11,7 +11,7 @@ import {
 import type { Sensor } from "@/lib/sensor";
 import type { DehumDevice } from "@/lib/dehumidifier";
 import { dehumHistoryToSegments } from "@/lib/dehumidifier";
-import { Toggle2, Stepper, Segment, Dropdown, Field, StatusLine } from "./device-controls";
+import { Toggle2, Stepper, Segment, Dropdown, Field, StatusLine, ControlDetails } from "./device-controls";
 // 兩張圖走 lazy-charts 的非同步 chunk：DeviceController 是家電控制的核心 UI，
 // 不該為了預設看不到的圖表等 recharts 下載完才能互動（見 lazy-charts.tsx）。
 import { AutoModeChart, HumidityCurveChart } from "@/components/devices/lazy-charts";
@@ -421,20 +421,25 @@ export function DeviceController({
           </div>
         )}
 
-        <Field label="電源">
-          <Toggle2 value={p.power} onChange={(v) => updateAcPending({ power: v })} />
-        </Field>
-
-        <Field label="溫度">
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-surface-2 p-3 md:p-4">
+          <Field label="電源">
+            <Toggle2 value={p.power} onChange={(v) => updateAcPending({ power: v })} disabled={sending || acAwaiting} />
+          </Field>
+          <Field label="設定溫度">
           <Stepper
             value={p.temperature}
             onMinus={() => updateAcPending({ temperature: Math.max(options.ac.temperature.min, p.temperature - 1) })}
             onPlus={() => updateAcPending({ temperature: Math.min(options.ac.temperature.max, p.temperature + 1) })}
+            min={options.ac.temperature.min}
+            max={options.ac.temperature.max}
+            disabled={sending || acAwaiting}
           />
-        </Field>
+          </Field>
+        </div>
 
+        <ControlDetails title="模式與風速" summary={[p.mode, p.fanSpeed].filter(Boolean).join(" · ")}>
         <Field label="模式">
-          <Segment options={options.ac.modes} value={p.mode} onSelect={(v) => updateAcPending({ mode: v })} />
+          <Segment options={options.ac.modes} value={p.mode} onSelect={(v) => updateAcPending({ mode: v })} disabled={sending || acAwaiting} />
         </Field>
 
         <Field label="風速">
@@ -442,21 +447,23 @@ export function DeviceController({
             options={options.ac.fan_speeds}
             value={p.fanSpeed}
             onSelect={(v) => updateAcPending({ fanSpeed: v })}
+            disabled={sending || acAwaiting}
           />
         </Field>
+        </ControlDetails>
 
         <button
           type="button"
           onClick={sendAcCommand}
           disabled={sending || acAwaiting}
-          className={`inline-flex w-full items-center justify-center rounded-full border py-[5px] text-sm font-semibold leading-[20px] transition-colors ${
+          className={`inline-flex min-h-11 w-full items-center justify-center rounded-full border px-4 py-3 text-sm font-semibold transition-colors ${
             acFailed
               ? "border-transparent bg-warm text-white animate-pulse"
               : acAwaiting
               ? "border-transparent bg-amber-500 text-white animate-pulse"
               : dirty
               ? "border-transparent bg-fresh text-white hover:bg-fresh/85"
-              : "border-dashed border-line-strong bg-elevated text-mute"
+              : "border-line/70 bg-surface-2 text-mute"
           }`}
         >
           {acFailed
@@ -528,7 +535,7 @@ export function DeviceController({
           />
         )}
         {/* Row 1: 電源 toggle + 自動模式 toggle + 監控時間 dropdown（撐滿剩餘寬度，對齊 Row 2 目標濕度右側） */}
-        <div className="flex flex-wrap items-start gap-x-2 gap-y-3">
+        <div className="flex flex-wrap items-start gap-x-3 gap-y-4">
           <Field label="電源">
             <Toggle2
               value={!!device.power}
@@ -543,7 +550,7 @@ export function DeviceController({
               disabled={autoRulePending}
             />
           </Field>
-          <Field label="監控時間" className="flex-1 min-w-0">
+          <Field label="監控時間" className="min-w-[110px] flex-1">
             <Dropdown
               options={DURATION_OPTIONS}
               value={dehumRule?.duration_min ?? 30}
@@ -628,12 +635,14 @@ export function DeviceController({
           </Field>
         )}
         {autoOn && dehumRule && (
+          <ControlDetails title="濕度趨勢" summary="過去 24 小時">
           <AutoModeChart
             sensorHistory={sensorsMap?.[dehumRule.sensor_name]?.history ?? []}
             onSegments={dehumHistoryToSegments(dehumHistoryMap?.[device.name]?.history ?? [])}
             humidityOnThreshold={dehumRule.humidity_on_threshold ?? dehumRule.threshold + 2}
             humidityOffThreshold={dehumRule.humidity_off_threshold ?? dehumRule.threshold - 1}
           />
+          </ControlDetails>
         )}
       </>
     );

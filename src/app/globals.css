@@ -2,11 +2,11 @@
 
 @theme inline {
   /* Light surfaces — 略帶冷色調的暖白，避免純白刺眼 */
-  --color-background: #F2F2F4;   /* page bg */
+  --color-background: #F3F4F3;   /* page bg */
   --color-foreground: #1F242B;   /* primary text (near-black) */
   --color-surface: #FFFFFF;      /* card */
   --color-surface-2: #F8F8F8;    /* between surface & elevated; segment/toggle 容器、room cells */
-  --color-elevated: #ECEEF1;     /* sunken inputs / hover / panel inside card */
+  --color-elevated: #F0F2F2;     /* sunken inputs / hover / panel inside card */
 
   /* Text scale */
   --color-mute: #6B7886;         /* secondary text / labels / hints */
@@ -41,6 +41,20 @@ body {
   background: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-sans);
+}
+
+:where(button, a, input, select, summary):focus-visible {
+  outline: 2px solid var(--color-cool);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* 數字專用：tabular nums + 微調字距，配合 design 的 .num 寫法。 */

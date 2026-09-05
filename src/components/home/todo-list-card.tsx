@@ -35,7 +35,7 @@ export function TodoListCard({ todos, onCompleted }: Props) {
         </Link>
       </CardHeader>
       {todos.length > 0 ? (
-        <ul className="flex flex-col gap-1">
+        <ul className="flex flex-col gap-2">
           {todos.map((todo, i) => {
             const completing = isCompleting(todo);
             const lightNotify = todoLightNotify(todo);
@@ -45,33 +45,38 @@ export function TodoListCard({ todos, onCompleted }: Props) {
             return (
               <li
                 key={i}
-                className={`flex items-center gap-3 rounded-[12px] px-2 py-1.5 transition-all duration-500 ${urgencyCls} ${hoverCls} ${
+                className={`flex items-center gap-2 rounded-2xl px-2 py-2 transition-all duration-500 ${urgencyCls} ${hoverCls} ${
                   completing ? "opacity-40 line-through scale-95" : ""
                 }`}
               >
                 <button
                   onClick={() => !completing && completeTodo(todo)}
                   disabled={completing}
-                  className={`flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors ${
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                  title="標記完成"
+                >
+                  <span className={`flex h-5 w-5 items-center justify-center rounded-md border-[1.5px] transition-colors ${
                     completing
                       ? "border-fresh bg-fresh text-white"
                       : "border-line-strong bg-surface hover:border-fresh hover:bg-fresh/15"
                   }`}
-                  title="標記完成"
-                >
+                  >
                   {completing && <Check className="h-3 w-3" strokeWidth={3} />}
+                  </span>
                 </button>
-                <span className="flex-1 truncate text-sm text-foreground">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-foreground">
                   {todo["事項"]}
                   {todo["時間"] && <span className="num ml-1.5 text-xs text-mute">{todo["時間"]}</span>}
                   {lightNotify && <Lightbulb className="ml-1.5 inline h-3 w-3 text-amber" strokeWidth={2} />}
-                </span>
-                <span className="num flex-shrink-0 text-xs text-mute">
+                  </span>
+                <span className="num mt-1 block text-[11px] leading-relaxed text-mute">
                   {todo["日期"]}
                   {(() => {
                     const rel = relativeDateLabel(todo["日期"]);
                     return rel ? ` (${rel})` : "";
                   })()}
+                </span>
                 </span>
               </li>
             );

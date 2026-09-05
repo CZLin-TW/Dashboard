@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "motion/react";
-import { LayoutGrid, ChevronUp, Pin } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { LayoutGrid, ChevronUp, ChevronDown, ArrowUpRight, Pin } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { PANEL_BASE } from "@/components/ui/device-controls";
 import { DeviceController } from "@/components/ui/device-controller";
@@ -74,6 +74,7 @@ export function DeviceQuickControl({
   onSchedulesChange,
 }: Props) {
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
+  const reduceMotion = useReducedMotion();
 
   function toggleExpand(name: string) {
     setExpandedDevice((prev) => (prev === name ? null : name));
@@ -96,7 +97,7 @@ export function DeviceQuickControl({
           <button
             type="button"
             onClick={() => setExpandedDevice(null)}
-            className="flex items-center gap-1 rounded-full border border-line bg-elevated px-2.5 py-1 text-xs text-mute hover:text-soft"
+            className="flex min-h-11 items-center gap-1 rounded-full bg-elevated px-4 text-xs text-mute hover:text-soft"
           >
             收合
             <ChevronUp className="h-3.5 w-3.5" strokeWidth={2} />
@@ -157,28 +158,46 @@ export function DeviceQuickControl({
       (device.type === "除濕機" && device.power === true);
     const isActive = expandedDevice === device.name;
     const Icon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
+    const rule = dehumRulesMap?.[device.name];
+    const sensor = rule?.sensor_name ? sensorsMap?.[rule.sensor_name] : undefined;
+    const humidity = sensor?.online ? sensor.current?.humidity : null;
+    const target = rule?.auto_mode ? rule.effective_threshold ?? rule.threshold : device.targetHumidity;
+    const known = device.type === "空調" ? ["on", "off"].includes(device.lastPower ?? "") : typeof device.power === "boolean";
+    const status = device.type === "IR" ? "紅外線" : !known ? "待更新" : device.type === "空調" ? (isRunning ? "上次開啟" : "上次關閉") : isRunning ? "運轉中" : "已關閉";
+    let readout = "遙控器";
+    let detail = `${(device.buttons ?? "").split(",").filter(s => s.trim()).length} 個按鈕 · 點擊操作`;
+    if (device.type === "空調") {
+      readout = !known ? "—" : !isRunning ? "關閉" : `${device.lastTemperature || "—"}°`;
+      detail = known ? `上次設定 · ${device.lastMode || "空調"}` : "等待裝置狀態";
+    } else if (device.type === "除濕機") {
+      readout = humidity != null ? `${Math.round(humidity)}%` : target != null ? `${String(target).replace("%", "")}%` : "—";
+      detail = humidity != null
+        ? `目前濕度 · ${rule?.auto_mode ? `自動 ${target}%` : "手動"}`
+        : `目標濕度 · ${rule?.auto_mode ? "自動" : "手動"}`;
+    }
     return (
       <motion.button
         key={device.name}
+        type="button"
         onClick={() => toggleExpand(device.name)}
-        whileTap={{ scale: 0.95 }}
-        whileHover={{ scale: 1.02 }}
+        aria-expanded={isActive}
+        whileTap={reduceMotion ? undefined : { scale: 0.985 }}
+        whileHover={reduceMotion ? undefined : { y: -2 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 shadow-sm shadow-mute/5 transition-colors duration-200 ${
+        className={`group relative flex min-w-0 flex-col rounded-[24px] border p-4 text-left transition-colors duration-200 md:p-5 ${
           isActive
-            ? "border-cool/40 bg-cool-bg"
-            : "border-line bg-surface hover:bg-elevated"
+            ? "border-cool/50 bg-cool-bg shadow-[0_0_0_1px_var(--color-cool)]"
+            : "border-line/80 bg-surface shadow-[0_3px_16px_-8px_rgba(31,36,43,0.12)] hover:border-cool/30"
         }`}
       >
-        {isRunning && (
-          <span aria-label="運作中" className="absolute top-2 left-2 flex h-2.5 w-2.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-          </span>
-        )}
-        <Icon className={`h-7 w-7 ${isActive ? "text-cool" : "text-mute"}`} strokeWidth={1.75} />
-        <span className="text-sm font-medium">{device.name}</span>
-        {device.location && <span className="text-xs text-mute">{device.location}</span>}
+        <span className="flex items-center justify-between gap-2">
+          <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl ${isRunning ? "bg-fresh-bg text-fresh" : "bg-elevated text-mute"}`}><Icon className="h-5 w-5" strokeWidth={1.6} /></span>
+          <span className={`flex items-center gap-1.5 text-[10px] font-medium md:text-xs ${isRunning ? "text-fresh" : "text-mute"}`}><span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isRunning ? "bg-fresh" : "bg-faint"}`} />{status}</span>
+        </span>
+        <span className="mt-4 truncate text-[15px] font-semibold text-soft" title={device.name}>{device.name}</span>
+        <span className="mt-0.5 text-[11px] text-mute">{device.location || device.type}</span>
+        <span className={`mt-4 font-semibold tracking-tight text-foreground ${device.type === "IR" ? "text-[24px] leading-[38px]" : "num text-[32px] leading-[38px]"}`}>{readout}</span>
+        <span className="mt-2 flex items-center justify-between gap-2 text-[11px] leading-relaxed text-mute"><span>{detail}</span><ChevronDown className={`h-3.5 w-3.5 shrink-0 text-cool transition-transform ${isActive ? "rotate-180" : ""}`} /></span>
       </motion.button>
     );
   }
@@ -205,8 +224,8 @@ export function DeviceQuickControl({
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{
-                      height: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
-                      opacity: { duration: 0.18, ease: "easeOut" },
+                      height: { duration: reduceMotion ? 0 : 0.28, ease: [0.32, 0.72, 0, 1] },
+                      opacity: { duration: reduceMotion ? 0 : 0.18, ease: "easeOut" },
                     }}
                     className="overflow-hidden"
                   >
@@ -222,18 +241,15 @@ export function DeviceQuickControl({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <LayoutGrid className="h-4 w-4" strokeWidth={2} />
-          裝置快捷
-        </CardTitle>
-        <Link href="/devices" className="text-sm text-cool hover:text-cool/80">
-          查看全部 →
+    <section aria-label="常用設備">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold tracking-tight text-soft">常用設備 <span className="num ml-1 text-xs font-normal text-mute">{devices.length}</span></h2>
+        <Link href="/devices" className="flex min-h-11 items-center gap-1 text-xs font-medium text-cool hover:text-cool/80">
+          全部裝置 <ArrowUpRight className="h-3.5 w-3.5" />
         </Link>
-      </CardHeader>
+      </div>
       {renderRows(2, "sm:hidden")}
       {renderRows(4, "hidden sm:block")}
-    </Card>
+    </section>
   );
 }

@@ -177,9 +177,17 @@ export default function HomePage() {
   const urgentFood = food.filter((f) => daysUntilExpiry(f["過期日"]) <= 5);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <WeatherCard weather={weather} />
-      <IndoorSensorCard
+    <div className="mx-auto max-w-6xl space-y-5 md:space-y-7">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="mb-1 text-sm text-mute">{currentUser ? `你好，${currentUser.name}` : "歡迎回家"}</p>
+          <h1 className="text-[28px] font-semibold tracking-tight text-foreground md:text-[32px]">居家總覽</h1>
+        </div>
+        <span className="mb-1 text-xs text-mute">環境・設備・生活</span>
+      </div>
+      <div className="grid grid-cols-2 items-start gap-3 md:gap-5">
+        <WeatherCard weather={weather} />
+        <IndoorSensorCard
         sensor={pinnedSensor}
         sensorHistory={pinnedSensorHistory}
         tempDomain={pinnedTempDomain}
@@ -187,7 +195,8 @@ export default function HomePage() {
         co2Domain={pinnedCo2Domain}
         acSegments={pinnedAcSegments}
         dehumSegments={pinnedDehumSegments}
-      />
+        />
+      </div>
       <DeviceQuickControl
         devices={controllableDevices}
         options={options}
@@ -202,7 +211,7 @@ export default function HomePage() {
         allDevices={allDevices.filter((d) => d.type !== "感應器")}
         onSchedulesChange={refetchSchedules}
       />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2 md:gap-5">
         <TodoListCard todos={visibleTodos} onCompleted={refetchDashboard} />
         <FoodAlertCard food={urgentFood} />
       </div>

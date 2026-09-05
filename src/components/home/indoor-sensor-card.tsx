@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { ChevronDown, Pin } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClimateReadout } from "@/components/ui/device-controls";
@@ -36,28 +36,29 @@ interface Props {
 export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain, co2Domain, acSegments, dehumSegments }: Props) {
   const SensorIcon = DEVICE_ICONS["感應器"] ?? DEVICE_ICON_FALLBACK;
   const [expanded, setExpanded] = useState(false);
+  const reduceMotion = useReducedMotion();
   const canExpand =
     !!(sensorHistory && tempDomain && humDomain && sensorHistory.history.length > 0);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <SensorIcon className="h-4 w-4" strokeWidth={2} />
+    <>
+    <Card className="min-h-[184px] p-4 md:min-h-[190px] md:p-5">
+      <CardHeader className="mb-3">
+        <CardTitle className="text-xs text-mute md:text-sm">
+          <SensorIcon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
           室內環境
         </CardTitle>
       </CardHeader>
       {sensor ? (
-        <div className="flex flex-col gap-2.5">
-          <div className="text-sm font-semibold text-foreground">
-            {sensor.name || sensor.location}
-          </div>
-          {/* readout 整列點擊展開（chart 有資料才能展開）；右邊 chevron 表 affordance */}
+        <div className="flex flex-col gap-3">
+          {/* 數值和提示皆可點擊，圖表在下方跨滿兩欄。 */}
           <button
             type="button"
             onClick={() => canExpand && setExpanded((p) => !p)}
             disabled={!canExpand}
-            className={`flex w-full items-center justify-between gap-2 rounded-[12px] px-1 py-1 text-left transition-colors ${
+            aria-expanded={canExpand ? expanded : undefined}
+            aria-label={`${sensor.name}，${expanded ? "收合" : "查看"}環境趨勢`}
+            className={`flex min-h-11 w-full flex-col items-start gap-3 rounded-[12px] text-left transition-colors ${
               canExpand ? "hover:bg-elevated/40 cursor-pointer" : "cursor-default"
             }`}
           >
@@ -65,18 +66,24 @@ export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain,
               temp={sensor.temperature}
               humidity={sensor.humidity}
               co2={sensorHistory?.current?.co2 ?? null}
-              size="lg"
+              size="compact"
             />
-            {canExpand && (
-              <ChevronDown
-                className={`h-4 w-4 flex-shrink-0 text-mute transition-transform ${
-                  expanded ? "rotate-180" : ""
-                }`}
-                strokeWidth={2}
-              />
-            )}
+          <span className="min-w-0 max-w-full text-xs leading-relaxed text-mute">
+            <span className="block truncate" title={sensor.name}>{sensor.name || sensor.location}</span>
+            {canExpand && <span className="mt-1 flex items-center gap-1 text-[11px] text-cool">{expanded ? "收合趨勢" : "點擊查看 24h 趨勢"}<ChevronDown className={`h-3 w-3 transition-transform ${expanded ? "rotate-180" : ""}`} /></span>}
+          </span>
           </button>
 
+        </div>
+      ) : (
+        <p className="flex flex-wrap items-center gap-1 text-sm text-mute">
+          請到
+          <Link href="/devices" className="text-cool hover:text-cool/80 mx-1">裝置頁</Link>
+          <Pin className="h-3.5 w-3.5" strokeWidth={2} />
+          釘選一個感測器
+        </p>
+      )}
+    </Card>
           <AnimatePresence initial={false}>
             {expanded && canExpand && (
               <motion.div
@@ -85,11 +92,13 @@ export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain,
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{
-                  height: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
-                  opacity: { duration: 0.18, ease: "easeOut" },
+                  height: { duration: reduceMotion ? 0 : 0.28, ease: [0.32, 0.72, 0, 1] },
+                  opacity: { duration: reduceMotion ? 0 : 0.18, ease: "easeOut" },
                 }}
-                className="overflow-hidden"
+                className="col-span-2 overflow-hidden"
               >
+                <Card>
+                <CardHeader><CardTitle>{sensor?.name} · 過去 24 小時</CardTitle><button type="button" onClick={() => setExpanded(false)} className="min-h-11 rounded-full px-3 text-xs text-mute hover:bg-elevated">收合趨勢</button></CardHeader>
                 <SensorChart
                   history={sensorHistory!.history}
                   tempDomain={tempDomain!}
@@ -98,18 +107,10 @@ export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain,
                   acSegments={acSegments}
                   dehumSegments={dehumSegments}
                 />
+                </Card>
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
-      ) : (
-        <p className="flex items-center gap-1 text-sm text-mute">
-          請到
-          <Link href="/devices" className="text-cool hover:text-cool/80 mx-1">裝置頁</Link>
-          <Pin className="h-3.5 w-3.5" strokeWidth={2} />
-          釘選一個感測器
-        </p>
-      )}
-    </Card>
+    </>
   );
 }

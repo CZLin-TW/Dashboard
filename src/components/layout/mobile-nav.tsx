@@ -18,11 +18,12 @@ export function MobileNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 text-xs transition-colors ${
-              isActive ? "text-cool" : "text-mute hover:text-soft"
+            aria-current={isActive ? "page" : undefined}
+            className={`flex min-h-12 min-w-[56px] flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-[11px] transition-colors ${
+              isActive ? "bg-cool-bg text-cool" : "text-mute hover:text-soft"
             }`}
           >
-            <Icon className="h-5 w-5" strokeWidth={2} />
+            <Icon className="h-5 w-5" strokeWidth={isActive ? 2 : 1.6} />
             <span className="font-medium">{item.label}</span>
           </Link>
         );

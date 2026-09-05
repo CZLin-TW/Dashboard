@@ -27,7 +27,7 @@ export function FoodAlertCard({ food }: Props) {
         </Link>
       </CardHeader>
       {food.length > 0 ? (
-        <ul className="flex flex-col gap-1">
+        <ul className="flex flex-col gap-2">
           {food.map((f, i) => {
             const exp = expiryLabel(f["過期日"]);
             const urgency = foodUrgency(f["過期日"]);
@@ -36,11 +36,11 @@ export function FoodAlertCard({ food }: Props) {
             return (
               <li
                 key={i}
-                className={`flex items-center gap-3 rounded-[12px] px-2 py-1.5 transition-colors ${urgencyCls} ${hoverCls}`}
+                className={`flex min-h-[68px] items-center gap-3 rounded-2xl px-3 py-3 transition-colors ${urgencyCls} ${hoverCls}`}
               >
                 <span className="flex-1 min-w-0 text-sm text-foreground">
-                  <span className="font-semibold">{f["品名"]}</span>
-                  <span className="num ml-1.5 text-mute">
+                  <span className="block font-medium">{f["品名"]}</span>
+                  <span className="num mt-1 block text-xs text-mute">
                     {f["數量"]} {f["單位"]}
                   </span>
                 </span>

@@ -69,9 +69,9 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 ### 首頁 `/`
 
 一頁式總覽，快速掌握家庭狀態：
-- **天氣**：今日/明日天氣預報（溫濕度排版跟感測器卡一致）
-- **室內感測器**：使用者釘選的感測器即時溫度/濕度
-- **裝置快捷**：釘選設備 tile 網格（手機 2 欄、桌機 4 欄），點擊展開 inline 控制面板
+- **環境摘要**：室外天氣與室內感測器並列，突出溫度、濕度與 CO₂；點擊室內數值可在下方展開全寬 24h 趨勢
+- **裝置快捷**：釘選設備 tile 網格（手機 2 欄、桌機 4 欄），直接顯示狀態與主要數值，點擊展開控制面板；冷氣數值註明「上次設定」，一般紅外線遙控器不推測電源狀態
+- **分層控制**：冷氣電源與溫度優先顯示，模式與風速可展開；除濕機濕度趨勢按需展開
 - **今日待辦**：未來 5 天內 + 已過期的「自己 + 公開」項目（最多 5 筆），可勾選完成
 - **食品到期提醒**：5 天內 + 已過期項目，全列出
 
@@ -346,7 +346,7 @@ npm run start
 |---|---|---|
 | `cool` | `#3A6289` | 深藍 — Segment active / link / scroll-target ring / 「被選中」一致語意 |
 | `fresh` | `#3C977D` | 鼠尾草 — ON / 運轉中 / primary action / 完成 |
-| `warm` | `#DF766E` | 珊瑚 — OFF / IR 型別 / destructive / 過期警示 |
+| `warm` | `#DF766E` | 珊瑚 — IR 型別 / destructive / 過期警示；OFF 使用中性灰 |
 | `amber` | `#B88324` | 琥珀 — pending / 待執行 |
 | `pin` | `#7B6BA8` | 柔和紫 — 釘選狀態獨立色，跟 cool/fresh/warm/amber 都不重疊 |
 
@@ -356,16 +356,16 @@ npm run start
 
 幾乎所有按鈕都是 `rounded-full`，少數場景用 `rounded-[10px]/[12px]/[14px]`：
 
-- Toggle2 / Segment：外框 `rounded-[19px]`、內按鈕 `rounded-full`，padding 設計成同心圓弧
+- Toggle2 / Segment：內按鈕 `rounded-full`，主要控制按鈕至少 44px 高，並提供選取狀態與鍵盤焦點
 - 主動作 button (新增 / 確認新增 / 送出設定)：`rounded-full`
 - 列表 row：`rounded-[12px]`
 - 表單 input：`rounded-[10px]`
-- Card：`rounded-[18px]`
-- Panel：`rounded-[14px]`
+- Card：`rounded-[24px]`，細邊框與輕陰影
+- Panel：`rounded-[22px]`
 
 ### Tile 視覺
 
-首頁裝置 tile 採 flat 風格（白底 + border + 細微 shadow），active 統一 `cool` 色（不依 device type 換色 — type 由 icon 形狀辨識，避免跟 OFF/ON 的 warm/fresh 語意混淆）。
+首頁裝置 tile 以設備名稱、主要數值、輔助說明分層排列。展開時使用 `cool` 外框；`fresh` 表示運轉，灰色表示關閉或未知，並搭配文字區分。減少動態效果偏好會停用轉場。
 
 ### 過期 highlight
 

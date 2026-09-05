@@ -48,22 +48,22 @@ export function WeatherCard({ weather }: Props) {
   const next24h = weather?.forecast?.next_24h;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <MapPin className="h-4 w-4" strokeWidth={2} />
-          {weather?.location ?? "--"} {obs?.observed_at ?? "--:--"}
+    <Card className="min-h-[184px] bg-gradient-to-br from-surface to-cool-bg/60 p-4 md:min-h-[190px] md:p-5">
+      <CardHeader className="mb-3">
+        <CardTitle className="min-w-0 text-xs text-mute md:text-sm">
+          <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
+          <span className="truncate">{weather?.location ?? "室外天氣"}</span>
         </CardTitle>
+        <WxIcon wx={next24h?.wx} className="h-5 w-5 shrink-0 text-cool" strokeWidth={1.5} />
       </CardHeader>
       {hasValid ? (
-        <div className="flex flex-col gap-2.5">
-          <ClimateReadout temp={obs?.temp} humidity={obs?.humidity} size="lg" />
-          <p className="flex items-center gap-1.5 text-sm text-mute">
-            未來24h
-            <WxIcon wx={next24h?.wx} className="h-4 w-4" strokeWidth={2} />
-            {next24h?.wx ?? ""}
-            {next24h?.min_t !== null && next24h?.max_t !== null && next24h?.min_t !== undefined && next24h?.max_t !== undefined && ` · ${next24h.min_t}~${next24h.max_t}°C`}
-            {next24h?.pop !== null && next24h?.pop !== undefined && ` · 降雨 ${next24h.pop}%`}
+        <div className="flex flex-col gap-3">
+          <ClimateReadout temp={obs?.temp} humidity={obs?.humidity} size="compact" />
+          <p className="text-xs leading-relaxed text-mute">
+            <span className="block">未來 24h · {next24h?.wx ?? "預報更新中"}</span>
+            {next24h?.min_t != null && next24h?.max_t != null && <span className="num">{next24h.min_t}–{next24h.max_t}°C</span>}
+            {next24h?.pop != null && <span> · 降雨 {next24h.pop}%</span>}
+            {obs?.observed_at && <span className="mt-1 hidden text-[11px] md:block">觀測更新 {obs.observed_at}</span>}
           </p>
         </div>
       ) : (
