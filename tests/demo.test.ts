@@ -120,6 +120,7 @@ test("lighting, auto-rule, theater and schedule writes read back", async () => {
   assert.equal(sim.snapshot().lightingRules["demo-living"].threshold, 5);
   await sim.handle(request("/api/theater/flags", "POST", { kef_link: false }));
   assert.equal(sim.snapshot().theater.flags.kef_link, false);
+  assert.equal(sim.snapshot().theater.health?.appletv?.stale, false);
   await sim.handle(request("/api/dehumidifier/auto-rule", "POST", { device_name: "客廳除濕機", auto_mode: false }));
   assert.equal((await sim.handle(request("/api/devices/control", "POST", { deviceName: "客廳除濕機", action: "dehumidifier", params: { power: false } }))).status, 200);
   await sim.handle(request("/api/schedules", "POST", { device_name: "循環扇", trigger_time: "2026-10-01 20:00", target_action: "control_ir", params: { button: "電源" } }));

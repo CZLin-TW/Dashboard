@@ -23,6 +23,9 @@ interface Props {
   theater?: TheaterSummary;
   theaterOffline?: boolean;
   theaterRefreshing?: boolean;
+  theaterSaving?: boolean;
+  theaterStale?: boolean;
+  theaterSaveError?: string | null;
   onTheaterRefresh?: () => void;
   onTheaterFlagChange?: (key: TheaterFlagKey, value: boolean) => void;
 }
@@ -75,6 +78,9 @@ export function ComputerCard({
   theater,
   theaterOffline,
   theaterRefreshing,
+  theaterSaving,
+  theaterStale,
+  theaterSaveError,
   onTheaterRefresh,
   onTheaterFlagChange,
 }: Props) {
@@ -132,6 +138,9 @@ export function ComputerCard({
           summary={theater}
           offline={!!theaterOffline}
           refreshing={!!theaterRefreshing}
+          saving={!!theaterSaving}
+          stale={!!theaterStale}
+          saveError={theaterSaveError}
           onRefresh={onTheaterRefresh ?? (() => {})}
           onFlagChange={onTheaterFlagChange ?? (() => {})}
         />

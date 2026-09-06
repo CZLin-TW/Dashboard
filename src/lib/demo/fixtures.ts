@@ -83,7 +83,7 @@ export function createDemoState(scenario: Scenario = "normal", now = Date.now())
       effects: [{ key: "candle", label: "燭光", supported_count: 3, total_count: 3 }],
     })),
     lightingRules: {},
-    theater: { agent_id: "DEMO-PC", flags: { kef_link: true, tv_screen_auto: true, tv_avr_sync: false }, monitor: { last_avr_state: "on", last_tv_state: "active", auto_update: true }, devices: { marantz: { power: "on", source: "Apple TV", volume: 35 }, ls60: { power: "on" }, lsx2: { power: "off" } }, logs: { theater: ["[DEMO] 劇院服務已連線", "[DEMO] 此處為模擬紀錄"], appletv: ["[DEMO] Apple TV 待命"] } },
+    theater: { health: { api: "ok", appletv: { sha: "demo", stale: false, updated_at: Date.now() / 1000, restore_pending: null }, update: { status: "up_to_date" } }, agent_id: "DEMO-PC", flags: { kef_link: true, tv_screen_auto: true, tv_avr_sync: false }, monitor: { last_avr_state: "on", last_tv_state: "active", auto_update: true }, devices: { marantz: { power: "on", source: "Apple TV", volume: 35 }, ls60: { power: "on" }, lsx2: { power: "off" } }, logs: { theater: ["[DEMO] 劇院服務已連線", "[DEMO] 此處為模擬紀錄"], appletv: ["[DEMO] Apple TV 待命"] } },
   };
 }
 

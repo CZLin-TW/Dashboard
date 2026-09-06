@@ -14,7 +14,10 @@ export interface TheaterDeviceStatus {
   power?: string;
   source?: string;
   volume?: number | string;
-  error?: string;
+  error?: string | null;
+  updated_at?: number;
+  stale?: boolean;
+  refreshing?: boolean;
 }
 
 export interface TheaterSummary {
@@ -30,6 +33,12 @@ export interface TheaterSummary {
     marantz?: TheaterDeviceStatus;
     ls60?: TheaterDeviceStatus;
     lsx2?: TheaterDeviceStatus;
+  };
+  health?: {
+    api?: string;
+    flags_error?: string | null;
+    appletv?: { sha?: string; stale?: boolean; updated_at?: number; last_poll_success?: number | null; restore_pending?: string | null; restore_attempts?: number };
+    update?: { status?: string; sha?: string; blocked_sha?: string };
   };
   logs?: {
     theater?: string[];

@@ -18,6 +18,9 @@ interface Props {
   /** summary 拉取失敗（agent 離線 / Render 冷啟動逾時）。顯示上次成功資料 + 灰標 + 開關鎖定 */
   offline: boolean;
   refreshing: boolean;
+  saving?: boolean;
+  stale?: boolean;
+  saveError?: string | null;
   onRefresh: () => void;
   onFlagChange: (key: TheaterFlagKey, value: boolean) => void;
 }
@@ -104,7 +107,7 @@ function StatusRow({ monitor }: { monitor?: TheaterSummary["monitor"] }) {
   );
 }
 
-export function TheaterSection({ summary, offline, refreshing, onRefresh, onFlagChange }: Props) {
+export function TheaterSection({ summary, offline, refreshing, saving, stale, saveError, onRefresh, onFlagChange }: Props) {
   return (
     <div className="space-y-2.5 border-t border-line pt-3">
       <div className="flex items-center justify-between gap-2">
@@ -132,6 +135,21 @@ export function TheaterSection({ summary, offline, refreshing, onRefresh, onFlag
       </div>
 
       <StatusRow monitor={summary.monitor} />
+      {saving && <p role="status" className="px-1 text-xs text-mute">正在儲存設定…</p>}
+      {saveError && <p role="alert" className="px-1 text-xs text-amber-500">{saveError}</p>}
+      {stale && <p className="px-1 text-xs text-amber-500">顯示上次資料，請重新整理。</p>}
+      {Object.entries(summary.devices ?? {}).some(([, device]) => device?.stale || device?.error) && (
+        <p className="px-1 text-xs text-amber-500">部分設備狀態尚未更新：{Object.entries(summary.devices ?? {}).filter(([, d]) => d?.stale || d?.error).map(([name]) => name === "marantz" ? "AVR" : name === "ls60" ? "LS60" : "LSX II").join("、")}</p>
+      )}
+      {summary.health?.appletv && <p className="px-1 text-xs text-mute">
+        Apple TV 監控：{summary.health.appletv.stale ? "未收到近期心跳" : "運行中"}
+        {summary.health.appletv.sha ? ` · ${summary.health.appletv.sha}` : ""}
+        {summary.health.appletv.restore_pending ? " · 畫面恢復重試中" : ""}
+      </p>}
+      {summary.health?.flags_error && <p className="px-1 text-xs text-amber-500">設定檔讀取異常，暫用最後有效設定。</p>}
+      {summary.health?.update?.status && !["updated", "up_to_date"].includes(summary.health.update.status) && (
+        <p className="px-1 text-xs text-amber-500">{summary.health.update.status === "pending" ? "新版本健康確認中" : "自動更新需要留意，請查看服務紀錄。"}</p>
+      )}
 
       <div className="space-y-2">
         {FLAG_KEYS.map((key) => (
@@ -149,7 +167,7 @@ export function TheaterSection({ summary, offline, refreshing, onRefresh, onFlag
             </span>
             <Toggle
               checked={!!summary.flags?.[key]}
-              disabled={offline}
+              disabled={offline || !!saving || !!stale}
               label={THEATER_FLAG_LABELS[key].title}
               onChange={(value) => onFlagChange(key, value)}
             />

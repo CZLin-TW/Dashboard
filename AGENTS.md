@@ -50,3 +50,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 私人 routes 使用 `request-user.ts` 驗證 session，再由 butler helpers 加 `X-Dashboard-User`；不要直接轉送瀏覽器提供的同名 header，也不要把姓名前綴當授權。建立 Request 包裝只複製 URL／headers，不能消耗原始 mutation body。
 - 待辦修改／完成傳後端「待辦ID」，同名事項不能靠畫面 index 選取。新增 schema 請同步 demo fixtures／simulator。部署順序先 home-butler 再 Dashboard；回復時先退 Dashboard。
 - `npm run test:demo` 現在執行 tests 目錄所有測試，含 query store 並行、失敗、登出隔離及真實 route 的 JWT 邊界測試（後端呼叫為 fake）。
+
+## v1.38.0 劇院整合
+
+- 劇院 summary 已使用共用 query store；保留上次資料、顯示過時／離線，不再另建版本專用快取。開關写入期間鎖定，完成後替換讀取以免舊輪詢蓋回設定；不以反向值假裝回復。
+- `health` 與設備 `stale` / `updated_at` 等都是可選欄位，需相容舊版 theater-agent。區分 API 離線、設備狀態過時、Apple TV 心跳與畫面恢復重試。
+- Theater Agent 的 T1–T7 與現有八項架構清單分開。它在私人 repo，勿把其金鑰、配對或設備設定複製到 Dashboard。

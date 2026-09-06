@@ -1,5 +1,4 @@
 "use client";
-import { appStorage } from "@/lib/storage";
 
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -55,15 +54,6 @@ function DeviceScrollTarget({
   return null;
 }
 
-// 劇院 summary 的 localStorage cache key（版本前綴同 use-cached-fetch，bump 自動失效）
-const THEATER_CACHE_KEY = `cache:${process.env.APP_VERSION}:/api/theater/summary`;
-
-function saveTheaterCache(summary: TheaterSummary) {
-  try {
-    appStorage().setItem(THEATER_CACHE_KEY, JSON.stringify(summary));
-  } catch { /* storage full, ignore */ }
-}
-
 export default function DevicesPage() {
   // 刻意不用 /api/dashboard：那支是首頁的彙整端點，會等中央氣象署天氣 API（兩次、
   // timeout 15s）才回應，但這頁根本不顯示天氣——裝置卡片會被白等，氣象署慢的時候
@@ -95,64 +85,50 @@ export default function DevicesPage() {
   }, [refetchComputers]);
   const computers = Object.values(computersMap).sort((a, b) => a.ip.localeCompare(b.ip));
 
-  // 劇院 agent summary：不用 useCachedFetch——失敗時要明確標 offline（區塊變灰、
-  // 開關鎖定），但要保留上次成功資料才知道區塊掛在哪張 PC 卡（agent_id = hostname）。
-  const [theater, setTheater] = useState<TheaterSummary | null>(null);
-  const [theaterOffline, setTheaterOffline] = useState(false);
-  const [theaterRefreshing, setTheaterRefreshing] = useState(false);
-
-  const refetchTheater = useCallback(async () => {
-    setTheaterRefreshing(true);
-    try {
-      const r = await fetch("/api/theater/summary");
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const fresh: TheaterSummary = await r.json();
-      if (!fresh?.agent_id) throw new Error("missing agent_id");
-      setTheater(fresh);
-      setTheaterOffline(false);
-      saveTheaterCache(fresh);
-    } catch (err) {
-      console.error("[theater] summary fetch failed:", err);
-      setTheaterOffline(true);
-    } finally {
-      setTheaterRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // localStorage 還原：跟 use-cached-fetch 同一個 hydration trade-off（見該檔說明）
-    try {
-      const cached = appStorage().getItem(THEATER_CACHE_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (cached) setTheater(JSON.parse(cached));
-    } catch { /* ignore */ }
-    refetchTheater();
-    const id = setInterval(() => refetchTheater(), 60_000);
-    return () => clearInterval(id);
+  const { data: theater, error: theaterError, loading: theaterRefreshing,
+    isStale: theaterStale, refetch: refetchTheater } = useCachedFetch<TheaterSummary | null>("/api/theater/summary", null);
+  useAutoRefresh(refetchTheater);
+  const theaterOffline = !!theaterError;
+  const [theaterSavingRequest, setTheaterSavingRequest] = useState<{ refetch: typeof refetchTheater } | null>(null);
+  const theaterSaving = theaterSavingRequest?.refetch === refetchTheater;
+  const [theaterSaveError, setTheaterSaveError] = useState<string | null>(null);
+  const theaterWrite = useRef<AbortController | null>(null);
+  useEffect(() => () => {
+    theaterWrite.current?.abort();
+    theaterWrite.current = null;
   }, [refetchTheater]);
 
   const setTheaterFlag = useCallback(async (key: TheaterFlagKey, value: boolean) => {
-    // optimistic update；失敗 rollback（theater_agent 端開關生效要幾秒，樂觀顯示沒有風險）
-    setTheater((prev) => (prev ? { ...prev, flags: { ...prev.flags, [key]: value } } : prev));
+    if (theaterWrite.current) return;
+    const controller = new AbortController();
+    theaterWrite.current = controller;
+    setTheaterSavingRequest({ refetch: refetchTheater });
+    setTheaterSaveError(null);
+    const deadline = setTimeout(() => controller.abort(), 20_000);
     try {
-      const r = await fetch("/api/theater/flags", {
-        method: "POST",
+      const response = await fetch("/api/theater/flags", {
+        method: "POST", signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [key]: value }),
       });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
-      setTheater((prev) => {
-        if (!prev) return prev;
-        const next = data?.flags ? { ...prev, flags: data.flags } : prev;
-        saveTheaterCache(next);
-        return next;
-      });
-    } catch (err) {
-      console.error("[theater] flag update failed:", err);
-      setTheater((prev) => (prev ? { ...prev, flags: { ...prev.flags, [key]: !value } } : prev));
+      if (response.status === 401) window.dispatchEvent(new Event("session:expired"));
+      if (!response.ok) throw new Error("設定尚未確認，請重新整理後再試。");
+      const saved = await response.json();
+      if (saved?.flags?.[key] !== value) throw new Error("設備未確認設定，請重新整理後再試。");
+    } catch {
+      if (theaterWrite.current === controller) setTheaterSaveError("設定結果尚未確認，請確認目前設定後再試。");
+    } finally {
+      clearTimeout(deadline);
+      // Replace any poll that started before the write. Never roll back using an old inverse value.
+      if (theaterWrite.current === controller) {
+        await refetchTheater();
+        if (theaterWrite.current === controller) {
+          theaterWrite.current = null;
+          setTheaterSavingRequest(null);
+        }
+      }
     }
-  }, []);
+  }, [refetchTheater]);
 
   // 感測器歷史：home-butler 內部 polling 累積。
   const {
@@ -418,6 +394,9 @@ export default function DevicesPage() {
                 theater={theater && theater.agent_id === c.hostname ? theater : undefined}
                 theaterOffline={theaterOffline}
                 theaterRefreshing={theaterRefreshing}
+                theaterSaving={theaterSaving}
+                theaterStale={theaterStale}
+                theaterSaveError={theaterSaveError}
                 onTheaterRefresh={refetchTheater}
                 onTheaterFlagChange={setTheaterFlag}
               />

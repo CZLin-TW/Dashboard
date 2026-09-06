@@ -201,7 +201,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
     }
     if (path === "/api/theater/flags" && method === "POST") {
       for (const key of ["kef_link", "tv_screen_auto", "tv_avr_sync"] as const) if (typeof b[key] === "boolean") state.theater.flags[key] = b[key];
-      return json({ flags: state.theater.flags });
+      return json({ success: true, flags: state.theater.flags });
     }
     return error(`測試模式尚未模擬：${method} ${path}`, 501);
   }
