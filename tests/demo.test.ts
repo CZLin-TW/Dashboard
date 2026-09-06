@@ -121,7 +121,20 @@ test("lighting, auto-rule, theater and schedule writes read back", async () => {
   await sim.handle(request("/api/schedules", "PATCH", { device_name: "循環扇", trigger_time: "2026-10-01 20:00", trigger_time_new: "2026-10-01 21:00" }));
   assert.ok(sim.snapshot().schedules.some(s => s.觸發時間 === "2026-10-01 21:00"));
   await sim.handle(request("/api/schedules", "DELETE", { device_name: "循環扇", trigger_time: "2026-10-01 21:00" }));
-  assert.equal(sim.snapshot().schedules.length, 1);
+  assert.equal(sim.snapshot().schedules.length, 3);
+});
+
+test("attention records stay visible and removal targets only the specified attempt", async () => {
+  const sim = createSimulator();
+  const failed = sim.snapshot().schedules.find(s => s.狀態 === "執行失敗")!;
+  const body = { device_name: failed.設備名稱, trigger_time: failed.觸發時間 };
+  assert.equal((await sim.handle(request("/api/schedules", "PATCH", { ...body, trigger_time_new: "2026-10-01 22:00" }))).status, 404);
+  await sim.handle(request("/api/schedules", "POST", { ...body, target_action: "control_ac", params: { power: "on" } }));
+  await sim.handle(request("/api/schedules", "DELETE", { ...body, execution_id: failed.執行識別碼 }));
+  const rows = await (await sim.handle(request("/api/schedules"))).json();
+  assert.ok(rows.some((s: Record<string, string>) => s.設備名稱 === failed.設備名稱 && s.觸發時間 === failed.觸發時間 && s.狀態 === "待執行"));
+  assert.ok(rows.some((s: Record<string, string>) => s.狀態 === "待確認"));
+  assert.ok(!rows.some((s: Record<string, string>) => s.執行識別碼 === failed.執行識別碼));
 });
 
 test("empty/offline/error scenarios are deterministic; failed writes do not persist", async () => {

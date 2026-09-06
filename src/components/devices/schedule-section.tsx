@@ -17,9 +17,8 @@ import {
 import type { DeviceData, DeviceOptions } from "@/lib/types";
 
 // 裝置卡內嵌的排程區段；所有排程操作都從裝置卡進入。
-// 設計：/api/schedules 只回「待執行」排程，所以這裡顯示的一律是待執行——觸發時間已過的
-// 標「即將執行」（在等下一個 5 分 polling tick 來執行），未到的標「待執行」。這裡不會出現
-// 「已過期」：後端要超時 2h 才真的標已過期並封存，封存後就不會回到這份清單。
+// Pending schedules and attention records are separate: failed/unknown commands
+// are never silently re-armed by editing. Users check the device and add a new schedule.
 // 「新增」按鈕一直在（即使沒排程），讓進入點固定。
 
 interface Props {
@@ -37,6 +36,7 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
   const { currentUser } = useUser();
   const [showAdd, setShowAdd] = useState(false);
   const [editKey, setEditKey] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function openAdd() {
     setEditKey(null);
@@ -62,8 +62,15 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
     onSchedulesChange();
   }
 
-  function handleDelete(triggerTime: string) {
-    deleteSchedule(device.name, triggerTime).then(() => onSchedulesChange());
+  async function handleDelete(schedule: Schedule) {
+    setDeleteError(null);
+    try {
+      const attention = ["執行失敗", "待確認"].includes(schedule["狀態"]);
+      await deleteSchedule(device.name, schedule["觸發時間"], attention ? schedule["執行識別碼"] : undefined);
+      onSchedulesChange();
+    } catch {
+      setDeleteError("未能移除排程，請稍後重試。");
+    }
   }
 
   const sorted = [...schedules].sort(
@@ -109,9 +116,11 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
             const params = s["參數"] ?? "";
             const creator = s["建立者"] ?? "";
             const parsed = parseScheduleParams(params);
-            const rowKey = `${device.name}|${trigger}`;
+            const rowKey = `${device.name}|${trigger}|${s["執行識別碼"] || "pending"}`;
             const isEditing = editKey === rowKey;
             const past = isPastTrigger(trigger);
+            const status = s["狀態"] || "待執行";
+            const attention = status === "執行失敗" || status === "待確認";
 
             if (isEditing) {
               return (
@@ -143,19 +152,20 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
                     {trigger}
                     {creator && <span className="ml-2">· {creator}</span>}
                   </p>
+                  {attention && <p className="mt-1 text-xs leading-relaxed text-mute">{s["執行結果"] || "請先確認設備狀態。"}</p>}
                 </div>
-                <span className="flex-shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold bg-amber-bg text-amber">
-                  {past ? "即將執行" : "待執行"}
+                <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${status === "執行失敗" ? "bg-warm-bg text-warm" : "bg-amber-bg text-amber"}`}>
+                  {attention ? status : past ? "即將執行" : "待執行"}
                 </span>
-                <IconActionButton
+                {!attention && <IconActionButton
                   onClick={() => openEdit(rowKey)}
                   title="編輯"
                   icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
-                />
+                />}
                 <IconActionButton
-                  onClick={() => handleDelete(trigger)}
+                  onClick={() => void handleDelete(s)}
                   tone="danger"
-                  title="刪除"
+                  title={attention ? "移除紀錄" : "刪除"}
                   icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
                 />
               </div>
@@ -163,6 +173,8 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
           })}
         </div>
       )}
+      {sorted.some(s => ["執行失敗", "待確認"].includes(s["狀態"])) && <p className="text-xs leading-relaxed text-mute">失敗或待確認的指令不會自動重送。請先確認設備狀態，再新增排程；移除紀錄不會撤回已送出的指令。</p>}
+      {deleteError && <p role="alert" className="text-xs text-warm">{deleteError}</p>}
     </div>
   );
 }

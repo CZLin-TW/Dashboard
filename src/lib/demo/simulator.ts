@@ -158,7 +158,9 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         state.schedules.push({ 設備名稱: str(b.device_name), 觸發時間: str(b.trigger_time), 動作: str(b.target_action), 參數: JSON.stringify(b.params ?? {}), 建立者: "測試成員", 狀態: "待執行", 來源: "使用者" });
         return success();
       }
-      const index = state.schedules.findIndex(s => s.設備名稱 === value("device_name") && s.觸發時間 === value("trigger_time"));
+      const executionId = method === "DELETE" ? value("execution_id") : "";
+      const index = state.schedules.findIndex(s => s.設備名稱 === value("device_name") && s.觸發時間 === value("trigger_time")
+        && (executionId ? ["執行失敗", "待確認"].includes(s.狀態) && s.執行識別碼 === executionId : s.狀態 === "待執行"));
       if (index < 0) return error("找不到排程", 404);
       if (method === "DELETE") { state.schedules.splice(index, 1); return success(); }
       if (method === "PATCH") {

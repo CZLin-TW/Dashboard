@@ -150,10 +150,14 @@ export async function updateSchedule(
   return true;
 }
 
-export async function deleteSchedule(deviceName: string, triggerTime: string): Promise<void> {
-  await fetch("/api/schedules", {
+export async function deleteSchedule(deviceName: string, triggerTime: string, executionId?: string): Promise<void> {
+  const response = await fetch("/api/schedules", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ device_name: deviceName, trigger_time: triggerTime }),
+    body: JSON.stringify({ device_name: deviceName, trigger_time: triggerTime, ...(executionId ? { execution_id: executionId } : {}) }),
   });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error ?? `HTTP ${response.status}`);
+  }
 }

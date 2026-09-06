@@ -66,7 +66,11 @@ export function createDemoState(scenario: Scenario = "normal", now = Date.now())
       { 品名: "蘋果", 數量: "3", 單位: "顆", 過期日: dateAt(3, now), 狀態: "有效", 新增日: dateAt(-2, now), 新增者: "測試成員" },
     ],
     recurring: scenario === "empty" ? [] : [{ 規則ID: "demo-daily", 事項: "倒垃圾", 重複類型: "每天", 時間: "20:00", 負責人: "測試成員", 類型: "公開", 狀態: "啟用", 摘要: "每天 20:00" }],
-    schedules: scenario === "empty" ? [] : [{ 設備名稱: "客廳冷氣", 動作: "control_ac", 參數: '{"power":"off"}', 觸發時間: `${dateAt(1, now)} 23:00`, 建立者: "測試成員", 狀態: "待執行", 來源: "使用者" }],
+    schedules: scenario === "empty" ? [] : [
+      { 設備名稱: "客廳冷氣", 動作: "control_ac", 參數: '{"power":"off"}', 觸發時間: `${dateAt(1, now)} 23:00`, 建立者: "測試成員", 狀態: "待執行", 來源: "使用者" },
+      { 設備名稱: "客廳冷氣", 動作: "control_ac", 參數: '{"power":"on"}', 觸發時間: `${dateAt(-1, now)} 18:00`, 建立者: "測試成員", 狀態: "執行失敗", 來源: "使用者", 執行識別碼: "demo-failed-ac", 執行結果: "設備服務拒絕指令，請確認設備連線後再新增排程。" },
+      { 設備名稱: "循環扇", 動作: "control_ir", 參數: '{"button":"電源"}', 觸發時間: `${dateAt(-1, now)} 19:00`, 建立者: "測試成員", 狀態: "待確認", 來源: "使用者", 執行識別碼: "demo-unknown-ir", 執行結果: "指令回應中斷，請先確認循環扇目前的電源狀態。" },
+    ],
     rules: scenario === "empty" ? {} : {
       "客廳除濕機": { auto_mode: true, sensor_name: "客廳感測器", duration_min: 5, threshold: 55, effective_threshold: 55, humidity_on_threshold: 57, humidity_off_threshold: 54, on_mode: "連續除濕", auto_phase: "armed_below", countdown_min: 3 },
       "臥室除濕機": { auto_mode: false, sensor_name: "臥室感測器", duration_min: 5, threshold: 60, on_mode: "智慧除濕", auto_phase: "disabled" },
