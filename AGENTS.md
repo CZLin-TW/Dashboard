@@ -56,3 +56,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 劇院 summary 已使用共用 query store；保留上次資料、顯示過時／離線，不再另建版本專用快取。開關写入期間鎖定，完成後替換讀取以免舊輪詢蓋回設定；不以反向值假裝回復。
 - `health` 與設備 `stale` / `updated_at` 等都是可選欄位，需相容舊版 theater-agent。區分 API 離線、設備狀態過時、Apple TV 心跳與畫面恢復重試。
 - Theater Agent 的 T1–T7 與現有八項架構清單分開。它在私人 repo，勿把其金鑰、配對或設備設定複製到 Dashboard。
+
+## 文件維護
+
+先讀 [系統導覽](https://github.com/CZLin-TW/home-butler/blob/main/docs/system-overview.md) 與 [驗證紀錄](docs/verification.md)。修改行為時同步修正 README 原有段落、API 表格與相關註解，不只在文末追加版本說明。歷史實測需附日期／版本；模擬驗證不能寫成實機成功。

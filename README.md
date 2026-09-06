@@ -12,7 +12,7 @@
 - **視覺化操作**：LINE Bot 用自然語言，Dashboard 用按鈕和表格，兩者互補
 - **即時控制**：家電開關、溫度調整、排程設定，一鍵完成
 - **行動優先**：響應式設計，手機和桌機都好用
-- **零後端**：所有 API 代理到 home-butler，Dashboard 本身只做 UI 層
+- **前端與登入邊界**：Dashboard 提供 UI、Session 驗證與 API 代理；家庭資料寫入及設備規則由 home-butler／本機 agent 執行。
 
 ### 功能一覽
 
@@ -27,7 +27,7 @@
 | 照明 | 列出 Hue 房間/區域，每區一張卡：套用 Hue App 場景、套用通知動作、套用支援燈效、電源 On/Off、亮度（slider + 數字輸入雙向）、可改 Dashboard 顯示名稱；只顯示 room/zone（隱藏「全家」與未分區燈群） |
 | 自動夜燈 | 每張照明卡片下方的設定區塊：光感應器（SwitchBot Hub 2）、亮度門檻 1–20（附「偵測亮度」鈕實測當下值＋資料年齡）、觸發場景、開燈亮度、啟用時段（可跨午夜）。時段內亮度 ≤ 門檻且燈關著自動套場景、> 門檻自動關燈、時段結束關燈；規則由 home-butler 後端執行（SwitchBot webhook 秒級 + 5min 輪詢兜底），網頁關閉仍運作 |
 | PC 監控 | 家中 PC 跑 agent 推指標到後端，Dashboard 顯示當下值（CPU/GPU 用量+溫度）+ 24h 折線圖（CPU/GPU/RAM 用量、CPU/GPU 溫度） |
-| 劇院 agent 監控 | theater PC 的卡片底部多「劇院 agent」區塊：兩個自動化開關（KEF 喇叭連動、電視畫面自動關）+ agent.log / appletv_monitor.log 尾端監看。資料經 home-butler → PC agent WebSocket → 同機 [theater-agent](https://github.com/CZLin-TW/theater-agent) 轉送；開關 optimistic update、離線時顯示快取並鎖定 |
+| 劇院 agent 監控 | PC 卡片提供三個自動化開關：KEF 喇叭連動、電視畫面自動關閉、AVR 隨電視開啟；顯示兩程序版本、Apple TV 健康、設備過時提示與兩份 log。寫入期間鎖定所有開關，完成後重讀確認；失敗不以反向值假裝回復。資料經 home-butler → PC agent → 同機 theater-agent 轉送。 |
 | 裝置配對登入 | 登入頁顯示 6 位驗證碼，在 LINE Bot 輸入「登入 <6位數字>」核准後前端輪詢取得 session，全程不離開 PWA 容器；僅限家庭成員使用 |
 | PWA 主畫面 | 提供 manifest、standalone display、iOS web app meta 與 app icons，讓手機加入主畫面後更接近獨立 app |
 
@@ -45,7 +45,7 @@ home-butler（FastAPI 後端）
 Google Sheets / SwitchBot / Panasonic / 氣象署
 ```
 
-Dashboard 本身不做業務邏輯，所有 API Routes 都是代理層，轉發到 home-butler 後端處理。
+家庭資料與設備操作主要轉交 home-butler。Dashboard 的 API Routes 同時負責登入配對、JWT Session、私人端點身分驗證與錯誤轉換；`/api/version` 在本地回應。劇院與 Hue 控制再由 home-butler 經 PC agent 轉送到區網。
 
 ### 首頁資料載入
 
@@ -93,9 +93,9 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 - 按房間分群顯示所有可控設備
 - 空調：ON/OFF + 溫度 ±1°C（範圍由後端 options 定）+ 模式 + 風速 + 送出設定按鈕（dirty 才亮）
 - 除濕機：
-  - 手動：電源 toggle / 模式 / 目標濕度（操作後 10 秒輪詢雲端真實狀態確認）
+  - 手動：電源 toggle / 模式 / 目標濕度（操作後每秒輪詢單台雲端狀態，最多 30 秒）
   - 自動模式：toggle 啟用後 UI 自動把模式切到「連續除濕」(避開機體內部達標停機問題)，並依綁定感測器 + 持續時間 + 自訂門檻（45-65%）做條件式 ON/OFF；門檻是規則內部的判斷值、不下發給機器（避免 Panasonic 韌體把 mode flip 回「目標濕度」）
-  - 啟用期間電源 / 模式 / 感測器 / 監控時間鎖住灰化（faint 色）；只有「自動模式 toggle」跟「目標濕度 dropdown」可即時調整；手動的「目標濕度」segment 隱藏（連續除濕模式下沒意義）
+  - 啟用期間電源 / 模式 / 感測器鎖住；自動模式開關、監控時間與目標濕度可調整，設定送出期間再暫時鎖定；手動的「目標濕度」segment 隱藏（連續除濕模式下沒意義）
   - 規則 phase 為 armed_above / armed_below / sensor_lost_warning 時顯示倒數提示
 - IR 設備：自訂按鈕面板
 - 每個 panel 右上 PinButton 釘選到首頁（最多 4 個）
@@ -165,7 +165,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 ## API Routes
 
-所有 API Routes 代理到 home-butler 後端，Dashboard 不直接操作資料。
+資料 routes 代理到 home-butler；認證 routes 管理配對與 Session，`/api/version` 回傳本專案版本。私人資料會先驗證 Session，再傳送可信的使用者身分。
 
 ### 認證
 
@@ -201,11 +201,11 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/lighting/auto/rules/[areaId] | PATCH / DELETE | 自動夜燈：設定該區域規則（光感應器、門檻、場景、開燈亮度、時段、啟用開關）/ 刪除規則 |
 | /api/lighting/auto/sensors | GET | 自動夜燈：光感應器候選清單（home-butler「智能居家」啟用中的感應器） |
 | /api/lighting/auto/sensors/[deviceId]/light-level | GET | 自動夜燈：感應器當下亮度（webhook 快取優先附 `age_seconds`，否則 status 雲端值） |
-| /api/todos | GET | 列出所有待辦事項 |
+| /api/todos | GET | 列出登入者負責的私人待辦及公開項目 |
 | /api/todos | POST | 新增待辦（含選用 `light_notify` / `light_area_id`，由 home-butler 寫入 `燈光提醒` 與 `燈光區域ID`） |
-| /api/todos | PATCH | 修改待辦（含選用 `light_notify` / `light_area_id`） |
-| /api/todos | DELETE | 完成（刪除）待辦 |
-| /api/recurring-todos | GET | 列出啟用中的週期待辦模板（home-butler「週期待辦模板」分頁，附後端算好的「摘要」） |
+| /api/todos | PATCH | 依 `todo_id` 修改可操作的待辦（含選用 `light_notify` / `light_area_id`） |
+| /api/todos | DELETE | 依 `todo_id` 完成可操作的待辦；Notion 項目保留完成記號 |
+| /api/recurring-todos | GET | 列出登入者可見且啟用中的週期待辦模板（home-butler「週期待辦模板」分頁，附後端算好的「摘要」） |
 | /api/recurring-todos | POST | 新增週期模板（`recur_type` 每天/每週/每月/間隔天 + `weekdays` / `month_day` / `interval_days` / `end_date` 等） |
 | /api/recurring-todos | PATCH | 修改週期模板（`rule_id` 精準定位，或 `item` + `recur_type` 消歧） |
 | /api/recurring-todos | DELETE | 停止整個週期（模板狀態 → 停用，以 `rule_id` 或 `item` 指定；已生成的當次待辦不受影響） |
@@ -213,10 +213,10 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/food | POST | 新增食品 |
 | /api/food | PATCH | 修改食品 |
 | /api/food | DELETE | 刪除食品 |
-| /api/schedules | GET | 列出排程 |
+| /api/schedules | GET | 預設列待執行；畫面傳 `include_attention=true` 加入失敗／待確認紀錄 |
 | /api/schedules | POST | 新增排程 |
 | /api/schedules | PATCH | 修改排程 |
-| /api/schedules | DELETE | 刪除排程 |
+| /api/schedules | DELETE | 取消待執行排程，或用 `execution_id` 移除需注意的紀錄；不撤回已送指令 |
 | /api/weather | GET | 查詢天氣（參數：date, location） |
 | /api/version | GET | 公開端點，回 `{version}`（給 home-butler runtime 撈使用者體感版本，proxy whitelist） |
 | /api/computers/status | GET | PC 監控：proxy 到 home-butler in-memory ring buffer，回所有 PC 的 current snapshot + 24h raw history |
@@ -272,7 +272,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | Hook | 說明 |
 |------|------|
 | use-user.ts | 取得當前使用者 Session、登出功能。**模組層共享 store（`useSyncExternalStore`）**：ScheduleSection 是每張裝置卡各一份，各自 fetch 的話裝置頁一掛載就會發出 N+1 個重複的 `/api/auth/me`，跟真正要用的裝置資料搶資源；現在整頁只打一次 |
-| use-cached-fetch.ts | 帶 localStorage 快取的 fetch（先顯示快取，背景更新最新資料；APP_VERSION 變更會自動失效） |
+| use-cached-fetch.ts | 使用者／URL 共用 query store；取消被替換的請求、保留上次成功資料及過時標記。快取版本用 `CACHE_SCHEMA`，私人生活資料只存記憶體。 |
 | use-pinned-devices.ts | 管理釘選設備清單（localStorage 儲存），支援釘選感測器 / 釘選裝置 / 全部重置 |
 | use-complete-todo.ts | 待辦勾選完成的樂觀更新邏輯（包含動畫 + refetch 同步避免閃爍），首頁 + todos 頁共用 |
 
@@ -401,15 +401,15 @@ inset shadow 不破 row 的 `rounded-[12px]`。
 
 - **iOS 風 spring**：tile 點按 scale 0.95 + spring 回彈；展開/收合 ease curve（為避免 CSS Grid `gap` 在 unmount 瞬間造成 snap，panel 刻意渲染在 grid 外）
 - **icon 全 lucide**：所有 emoji 換成 SVG（含天氣、設備、狀態指示燈），strokeWidth 統一
-- **樂觀更新**：操作後立即顯示視覺回饋，refetch 完成後同一輪 React batch 一起 render（避免動畫結束→項目消失之間的閃爍）
-- **快取優先**：localStorage 快取 API 回應，先顯示舊資料再背景靜默更新；cache key 含 APP_VERSION 避免 schema drift
+- **操作回饋**：待辦完成等操作保留樂觀動畫；劇院開關採儲存鎖與完成後回讀，不預先宣稱已成功。空調、除濕機各自有命令確認流程。
+- **快取與隱私**：使用者／URL 共用 query store，快取格式使用獨立 `CACHE_SCHEMA`，不隨 `APP_VERSION` 清除。待辦、週期規則及含待辦的 dashboard 只存記憶體；其餘可存 localStorage，demo 改用 sessionStorage。失敗／過時有提示；登出與身分失效清除快取。
 - **統一裝置狀態同步**：首頁與裝置頁每 60 秒刷新 `/api/devices/status`，PWA 或分頁回到前景時立即刷新並在 5 秒後補抓背景更新結果；後端先回 in-memory cache，再以 single-flight 背景更新雲端裝置
 - **空調命令確認**：IR 沒法回讀，POST 後輪詢 `/api/devices/status?name=...` 10 秒等 home-butler 的 last-command cache 到位，匹配才清 pending、解鎖 UI（避免 B→A→B 閃爍 + 期間 disable 防連發 race）
 - **除濕機狀態輪詢**：手動操作後每秒輪詢單一設備、最多 30 秒，匹配雲端真實狀態後才解鎖 UI；自動模式 ON/OFF 後立即刷新統一裝置狀態
 
 ### Pending / dirty 邏輯（空調）
 
-「送出設定」按鈕亮綠（dirty）的條件 = pending 跟 device 的 last\* 任一欄位不同（power/temperature/mode/fan_speed 純值比對）。送出後輪詢匹配成功才清 pending、回到「未變更」。A→B→A 改回原值會自動回到「未變更」。
+「送出設定」按鈕呈主要操作色（dirty）的條件 = pending 跟 device 的 last\* 任一欄位不同（power/temperature/mode/fan_speed 純值比對）。送出後輪詢匹配成功才清 pending、回到「未變更」。A→B→A 改回原值會自動回到「未變更」。
 
 ---
 
@@ -420,7 +420,7 @@ Dashboard 是 home-butler 的**視覺化前端**，兩者共用同一套後端 A
 - **LINE Bot**（home-butler）：自然語言介面，適合口語化操作（「開冷氣 24 度」「牛奶快沒了」）
 - **Dashboard**（本專案）：圖形化介面，適合瀏覽總覽和精確控制（滑桿調溫度、表格管庫存）
 
-兩者操作同一份 Google Sheets 資料，互不衝突。
+兩者經 home-butler 操作同一份 Google Sheets 資料。待辦寫入以單程序共用鎖協調；多實例及直接手動改表不在鎖的保障範圍。
 
 **裝置配對登入**：Dashboard 不再走 LINE OAuth 外部跳轉，改成在登入頁顯示 6 位驗證碼，由使用者在 LINE Bot 輸入「登入 <6位數字>」核准；身分（lineUserId / name / picture）取自在 Bot 輸入碼的那個 LINE 帳號。home-butler 端提供 `POST /api/auth/device/create` 與 `GET /api/auth/device/status`，Dashboard 以 `/api/auth/device-code`、`/api/auth/device-poll` BFF 代理，核准後在容器內直接發 session，全程不離開 PWA。
 
@@ -433,3 +433,11 @@ Dashboard 是 home-butler 的**視覺化前端**，兩者共用同一套後端 A
 - 私人 routes 使用 `request-user.ts` 驗證 session，再由 butler helpers 加 `X-Dashboard-User`；不要直接轉送瀏覽器提供的同名 header，也不要把姓名前綴當授權。建立 Request 包裝只複製 URL／headers，不能消耗原始 mutation body。
 - 待辦修改／完成傳後端「待辦ID」，同名事項不能靠畫面 index 選取。新增 schema 請同步 demo fixtures／simulator。部署順序先 home-butler 再 Dashboard；回復時先退 Dashboard。
 - `npm run test:demo` 現在執行 tests 目錄所有測試，含 query store 並行、失敗、登出隔離及真實 route 的 JWT 邊界測試（後端呼叫為 fake）。
+
+## 劇院整合與維護入口
+
+- `GET /api/theater/summary`、`POST /api/theater/flags`：代理到 home-butler，沿 PC agent 的 `theater` capability 到達劇院服務。
+- `health` 與设备 `stale`／`updated_at` 為可選欄位，相容舊版 theater-agent；API 在線、Apple TV 程序有心跳和設備可讀是不同判斷。
+- KEF 事件訂閱及 15 秒補漏在 theater-agent 內執行，不依賴 Dashboard 開著，也不是瀏覽器直接接喇叭 push。
+- 三個 repo 的責任、部署與回復順序：[系統導覽](https://github.com/CZLin-TW/home-butler/blob/main/docs/system-overview.md)。
+- 測試方式與已驗證範圍：[驗證紀錄](docs/verification.md)；新 session 先讀 [AGENTS.md](AGENTS.md) 與 [demo 說明](docs/demo-mode.md)。

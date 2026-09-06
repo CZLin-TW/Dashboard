@@ -9,7 +9,7 @@ type Method = "GET" | "POST" | "PATCH" | "DELETE";
 async function butler(method: Method, path: string, body?: unknown, userId?: string): Promise<unknown> {
   if (isDemoMode()) throw new Error("Demo mode blocks all home-butler requests.");
   // X-API-Key required by home-butler /api/*, /notify*, /switchbot/* endpoints.
-  // Read on every call (not cached) so a redeploy with a rotated key takes effect immediately.
+  // The environment value is captured at module load; redeploy after rotating it.
   const headers: Record<string, string> = { "X-API-Key": HOME_BUTLER_API_KEY };
   if (/^\/api\/(dashboard|todos|recurring-todos)(?:[/?]|$)/.test(path)) {
     if (!userId) throw new RequestError("請先登入。", 401);
