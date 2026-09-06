@@ -1,3 +1,6 @@
+import { SignJWT } from "jose";
+import { JWT_SECRET } from "../src/lib/jwt";
+import { GET as todosGET, PATCH as todosPATCH } from "../src/app/api/todos/route";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { NextRequest } from "next/server";
@@ -60,8 +63,10 @@ test("proxy forwards explicit light queries and encoded sensor names, preserving
   delete process.env.DASHBOARD_DEMO_MODE;
   globalThis.fetch = async (input) => { seen.push(String(input)); return Response.json({}); };
   try {
-    await dashboardGET(request("/api/dashboard"));
-    await dashboardGET(request("/api/dashboard?include_weather=false"));
+    const token = await new SignJWT({ lineUserId: "fake-member", name: "測試成員", role: "member" }).setProtectedHeader({ alg: "HS256" }).setExpirationTime("5m").sign(JWT_SECRET);
+    const signed = (path: string) => new Request(origin + path, { headers: { cookie: `dashboard_session=${token}` } });
+    await dashboardGET(signed("/api/dashboard"));
+    await dashboardGET(signed("/api/dashboard?include_weather=false"));
     await sensorsGET(request("/api/sensors/status"));
     await sensorsGET(request(`/api/sensors/status?include_history=false&name=${encodeURIComponent("客廳 & 臥室")}`));
     assert.equal(new URL(seen[0]).search, "");
@@ -184,4 +189,34 @@ test("server gate blocks every demo API and backend egress; normal auth stays en
     if (previous === undefined) delete process.env.DASHBOARD_DEMO_MODE; else process.env.DASHBOARD_DEMO_MODE = previous;
     globalThis.fetch = native;
   }
+});
+
+
+test("private routes reject forged headers and forward only the verified member ID", async () => {
+  const original = globalThis.fetch;
+  const seen: RequestInit[] = [];
+  globalThis.fetch = async (_input, init) => { seen.push(init || {}); return Response.json([]); };
+  try {
+    assert.equal((await todosGET(new Request(origin + "/api/todos", { headers: { "X-Dashboard-User": "victim" } }))).status, 401);
+    assert.equal(seen.length, 0);
+    const token = await new SignJWT({ lineUserId: "alice-id", name: "Alice", role: "member" }).setProtectedHeader({ alg: "HS256" }).setExpirationTime("5m").sign(JWT_SECRET);
+    const req = new Request(origin + "/api/todos", { method: "PATCH", headers: { cookie: `dashboard_session=${token}`, "X-Dashboard-User": "victim", "Content-Type": "application/json" }, body: JSON.stringify({ item: "x", todo_id: "id-x", requester: "victim" }) });
+    assert.equal((await todosPATCH(req)).status, 200);
+    assert.equal(new Headers(seen[0].headers).get("X-Dashboard-User"), "alice-id");
+    const kid = await new SignJWT({ lineUserId: "kid-id", role: "kid" }).setProtectedHeader({ alg: "HS256" }).setExpirationTime("5m").sign(JWT_SECRET);
+    assert.equal((await todosGET(new Request(origin + "/api/todos", { headers: { cookie: `dashboard_session=${kid}` } }))).status, 403);
+    assert.equal(seen.length, 1);
+  } finally { globalThis.fetch = original; }
+});
+
+test("demo enforces private visibility and stable IDs after renames", async () => {
+  const sim = createSimulator();
+  const hidden = sim.snapshot().todos.find(t => t.負責人 === "其他成員")!;
+  const visible = await (await sim.handle(request("/api/todos"))).json();
+  assert.ok(!visible.some((t: Record<string, string>) => t.待辦ID === hidden.待辦ID));
+  assert.equal((await sim.handle(request("/api/todos", "PATCH", { todo_id: hidden.待辦ID, item: hidden.事項, requester: "其他成員" }))).status, 404);
+  const own = sim.snapshot().todos[0];
+  await sim.handle(request("/api/todos", "PATCH", { todo_id: own.待辦ID, item_new: "renamed" }));
+  await sim.handle(request("/api/todos?todo_id=" + encodeURIComponent(own.待辦ID!), "DELETE"));
+  assert.ok(!sim.snapshot().todos.some(t => t.待辦ID === own.待辦ID));
 });

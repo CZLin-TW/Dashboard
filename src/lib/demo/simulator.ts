@@ -35,12 +35,14 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
     if (state.scenario === "error") return error("模擬 API 失敗：請切回正常情境重試", 503);
     if (state.scenario === "offline" && (path.startsWith("/api/lighting/") || path.startsWith("/api/theater/") || (!read && path === "/api/devices/control"))) return error("模擬設備離線", 503);
 
+    const visibleTodo = (t: { 類型?: string; 負責人?: string }) => t.類型 === "公開" || t.負責人 === "測試成員";
+    const visibleTodos = state.todos.filter(t => t.狀態 === "待辦" && visibleTodo(t));
     if (read) {
       const history = () => monitoring(state);
       switch (path) {
         case "/api/dashboard": return json(value("include_weather") === "false"
-          ? { todos: state.todos, food: state.food }
-          : { weatherToday: weather(), weatherTomorrow: weather(), todos: state.todos, food: state.food });
+          ? { todos: visibleTodos, food: state.food }
+          : { weatherToday: weather(), weatherTomorrow: weather(), todos: visibleTodos, food: state.food });
         case "/api/devices": return json(state.devices);
         case "/api/devices/options": return json(OPTIONS);
         case "/api/devices/status": return json(Object.fromEntries(state.devices.filter(d => !value("name") || d.name === value("name")).map(d => [d.name, d])));
@@ -51,10 +53,10 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         case "/api/dehumidifier/history": return json(history().dehums);
         case "/api/computers/status": return json(history().computers);
         case "/api/dehumidifier/auto-rule": return json(state.rules);
-        case "/api/todos": return json(state.todos);
+        case "/api/todos": return json(visibleTodos);
         case "/api/food": return json(state.food);
         case "/api/schedules": return json(state.schedules);
-        case "/api/recurring-todos": return json(state.recurring.filter(r => r.狀態 === "啟用"));
+        case "/api/recurring-todos": return json(state.recurring.filter(r => r.狀態 === "啟用" && visibleTodo(r)));
         case "/api/lighting/areas": return json({ agent_id: "DEMO-PC", areas: state.areas });
         case "/api/lighting/auto/rules": return json({ rules: state.lightingRules });
         case "/api/lighting/auto/sensors": return json({ sensors: state.devices.filter(d => d.type === "感應器").map(d => ({ name: d.name, location: d.location, device_id: `demo-${d.name}` })) });
@@ -125,12 +127,15 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
     if (path === "/api/todos") {
       if (method === "POST") {
         if (!str(b.item).trim() || !b.date) return error("事項與日期必填");
-        state.todos.push({ 事項: str(b.item).trim(), 日期: str(b.date), 時間: str(b.time), 負責人: "測試成員", 狀態: "待辦", 類型: str(b.type, "私人"), 來源: "本地", 屬性: "讀寫", 燈光提醒: b.light_notify === true, 燈光區域ID: str(b.light_area_id) });
+        state.todos.push({ 待辦ID: `demo-created-${Date.now()}-${sequence++}`, 事項: str(b.item).trim(), 日期: str(b.date), 時間: str(b.time), 負責人: "測試成員", 狀態: "待辦", 類型: str(b.type, "私人"), 來源: "本地", 屬性: "讀寫", 燈光提醒: b.light_notify === true, 燈光區域ID: str(b.light_area_id) });
         return success();
       }
-      const index = state.todos.findIndex(t => t.事項 === value("item") && (value("date_orig") === undefined || t.日期 === value("date_orig")) && (value("time_orig") === undefined || t.時間 === value("time_orig")));
+      const index = state.todos.findIndex(t => t.狀態 === "待辦" && visibleTodo(t) && (value("todo_id")
+        ? t.待辦ID === value("todo_id")
+        : t.事項 === value("item") && (!value("date_orig") || t.日期 === value("date_orig")) && (!value("time_orig") || t.時間 === value("time_orig"))));
       if (index < 0) return error("找不到待辦", 404);
       const t = state.todos[index];
+      if (method === "DELETE" && t.來源 === "Notion") { t.狀態 = "已完成"; return success(); }
       if (t.屬性 === "唯讀") return error("外部唯讀待辦無法修改", 403);
       if (method === "DELETE") { state.todos.splice(index, 1); return success(); }
       if (method === "PATCH") {
@@ -146,7 +151,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         return success();
       }
       if (method === "DELETE") {
-        const r = state.recurring.find(r => r.規則ID === value("rule_id"));
+        const r = state.recurring.find(r => r.規則ID === value("rule_id") && visibleTodo(r));
         if (!r) return error("找不到週期模板", 404);
         r.狀態 = "停用";
         return success();

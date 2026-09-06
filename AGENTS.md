@@ -21,7 +21,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 `package.json:version` 是整個系統（Dashboard + home-butler）的**使用者體感版本** source of truth。
 
-**bump 時機**：使用者**體感得到**的變化才 bump（新功能、UI/行為改動、會被察覺的 bug fix）。純 refactor、註解、文件、type 整理**不 bump**。bump 副作用：所有使用者的 localStorage 快取會被清空（`use-cached-fetch.ts` 用 APP_VERSION 當 key prefix），首次載入會慢一拍——這也是不亂 bump 的另一個理由。
+**bump 時機**：使用者**體感得到**的變化才 bump（新功能、UI/行為改動、會被察覺的 bug fix）。純 refactor、註解、文件、type 整理**不 bump**。快取格式版本獨立由 `query-store.ts:CACHE_SCHEMA` 管理；UI 版本更新不再清除相容快取，只有不相容資料格式才調整 CACHE_SCHEMA。
 
 **bump 流程**（只動 Dashboard 一處）：
 1. 改 `package.json:version`
@@ -42,3 +42,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 不要改 SSH
 
 如果當下環境有 GitHub MCP 工具（`mcp__github__*`），直接切過去用；沒有就回報「這個環境沒有 push 權限」由 User 處理。
+
+## v1.37.0 資料與私人待辦
+
+- `useCachedFetch` 透過 `query-store.ts` 共用同一使用者／URL 的讀取與狀態；替換請求會取消前次，過期結果不能覆蓋新資料。失敗保留上次成功資料與時間，頁面上方顯示重試提示；首次失败不記成成功空資料。
+- 快取按 LINE ID 與獨立 CACHE_SCHEMA 分區。待辦、週期規則及含待辦的 dashboard 只存記憶體。登出、跨分頁登出與私人端點 401／403 會清除身分和資料；舊版未分帳號快取會移除。其他資料可保存供快速顯示，過期時標示並可重試。
+- 私人 routes 使用 `request-user.ts` 驗證 session，再由 butler helpers 加 `X-Dashboard-User`；不要直接轉送瀏覽器提供的同名 header，也不要把姓名前綴當授權。建立 Request 包裝只複製 URL／headers，不能消耗原始 mutation body。
+- 待辦修改／完成傳後端「待辦ID」，同名事項不能靠畫面 index 選取。新增 schema 請同步 demo fixtures／simulator。部署順序先 home-butler 再 Dashboard；回復時先退 Dashboard。
+- `npm run test:demo` 現在執行 tests 目錄所有測試，含 query store 並行、失敗、登出隔離及真實 route 的 JWT 邊界測試（後端呼叫為 fake）。

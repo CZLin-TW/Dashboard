@@ -1,3 +1,4 @@
+import { QueryStatus } from "@/components/ui/query-status";
 import type { Metadata, Viewport } from "next";
 import { Inter, Noto_Sans_TC } from "next/font/google";
 import { DesktopNav } from "@/components/layout/desktop-nav";
@@ -62,7 +63,7 @@ export default async function RootLayout({
   const content = <>
     {!isKid && <DesktopNav />}
     {!isKid && <MobileHeader />}
-    <main className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8 pb-24 md:pb-8">{children}</main>
+    <main className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8 pb-24 md:pb-8"><QueryStatus />{children}</main>
     {!isKid && <MobileNav />}
   </>;
 

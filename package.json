@@ -1,6 +1,6 @@
 {
   "name": "dashboard",
-  "version": "1.36.0",
+  "version": "1.37.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "demo": "node scripts/demo.mjs",
-    "test:demo": "tsx --test tests/demo.test.ts"
+    "test:demo": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

@@ -1,66 +1,22 @@
 "use client";
-import { appStorage } from "@/lib/storage";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useUser } from "./use-user";
+import { queryKey, querySnapshot, refreshQuery, subscribeQuery, type QueryState } from "@/lib/query-store";
 
-// React 19 react-hooks/set-state-in-effect 規則對下列兩個 effect 都會 fire：
-// (1) localStorage 還原 cache（必須等 client mount 才能讀，避免 SSR mismatch）
-// (2) mount 時觸發 fetch
-// 要乾淨改寫前者需要 useSyncExternalStore + snapshot identity 跟 cross-key
-// cache map 的 boilerplate；後者要遷移到 Suspense + use()。對這個 codebase
-// 不划算，整檔 disable 並在這裡集中說明 trade-off。
-/* eslint-disable react-hooks/set-state-in-effect */
+const EMPTY: QueryState = { data: undefined, hasData: false, loading: false, error: null, updatedAt: null, isStale: false };
+const serverSnapshot = () => EMPTY;
 
-import { useState, useEffect, useCallback } from "react";
-
-/**
- * Fetch data with localStorage cache (persists across tab closes).
- * Shows cached data immediately, then updates with fresh data from API.
- * Cache key is prefixed with APP_VERSION so a version bump auto-invalidates
- * all old cache entries — protecting users from schema-drift bugs after deploys.
- */
+/** User-scoped shared queries. Private life data is held in memory only. */
 export function useCachedFetch<T>(url: string, fallback: T, enabled = true) {
-  const cacheKey = `cache:${process.env.APP_VERSION}:${url}`;
-  const [data, setData] = useState<T>(fallback);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
-
-  // Load cache after hydration to avoid SSR mismatch
-  useEffect(() => {
-    if (!hydrated) {
-      try {
-        const cached = appStorage().getItem(cacheKey);
-        if (cached) setData(JSON.parse(cached));
-      } catch { /* ignore */ }
-      setHydrated(true);
-    }
-  }, [cacheKey, hydrated]);
-
-  const refetch = useCallback((): Promise<void> => {
-    if (!enabled) return Promise.resolve();
-    setLoading(true);
-    return fetch(url)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((fresh) => {
-        setError(null);
-        setData(fresh);
-        try {
-          appStorage().setItem(cacheKey, JSON.stringify(fresh));
-        } catch { /* storage full, ignore */ }
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "讀取失敗");
-        // Keep previous data and cache intact — never overwrite valid data with an error payload.
-        console.error(`[useCachedFetch] ${url} failed:`, err);
-      })
-      .finally(() => setLoading(false));
-  }, [url, cacheKey, enabled]);
-
-  useEffect(() => {
-    refetch();
-  }, [refetch]);
-
-  return { data, loading: enabled && loading, error, refetch };
+  const { currentUser, isLoaded } = useUser();
+  const active = enabled && !!currentUser;
+  const key = queryKey(currentUser?.lineUserId || "", url);
+  const subscribe = useCallback((listener: () => void) => active ? subscribeQuery(key, url, listener) : () => {}, [key, url, active]);
+  const snapshot = useCallback(() => active ? querySnapshot(key, url) : EMPTY, [key, url, active]);
+  const state = useSyncExternalStore(subscribe, snapshot, serverSnapshot);
+  useEffect(() => { if (active) void refreshQuery(key, url); }, [key, url, active]);
+  const refetch = useCallback(() => active ? refreshQuery(key, url, true) : Promise.resolve(), [key, url, active]);
+  return { data: state.hasData ? state.data as T : fallback, loading: enabled && (!isLoaded || state.loading || (active && !state.hasData && !state.error)),
+    error: state.error, updatedAt: state.updatedAt, hasData: state.hasData,
+    isStale: state.hasData && (!!state.error || state.isStale), refetch };
 }

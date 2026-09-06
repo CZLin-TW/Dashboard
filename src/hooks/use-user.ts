@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import { clearQueryCache, setQueryScope } from "@/lib/query-store";
 
 export interface SessionUser {
   lineUserId: string;
@@ -38,6 +39,7 @@ const INITIAL: SessionState = { currentUser: null, isLoaded: false };
 let state: SessionState = INITIAL;
 let inflight: Promise<void> | null = null;
 let failed = false;
+let sessionGeneration = 0;
 const subscribers = new Set<() => void>();
 
 function emit(): void {
@@ -46,18 +48,22 @@ function emit(): void {
 
 function fetchSession(): Promise<void> {
   if (inflight) return inflight;
+  const generation = sessionGeneration;
   inflight = fetch("/api/auth/me")
     .then((res) => (res.ok ? res.json() : null))
     .then((data) => {
+      if (generation !== sessionGeneration) return;
       failed = false;
       state = {
         currentUser: data && !data.error ? (data as SessionUser) : null,
         isLoaded: true,
       };
+      setQueryScope(state.currentUser?.lineUserId || null);
     })
     // 網路錯誤也要把 isLoaded 設 true，否則整個 app 會卡在 loading 狀態；
     // 但標記 failed 讓下一個掛載的元件重試（見上方說明）。
     .catch(() => {
+      if (generation !== sessionGeneration) return;
       failed = true;
       state = { currentUser: null, isLoaded: true };
     })
@@ -68,7 +74,24 @@ function fetchSession(): Promise<void> {
   return inflight;
 }
 
+let listeningForLogout = false;
 function subscribe(onStoreChange: () => void): () => void {
+  if (!listeningForLogout && typeof window !== "undefined") {
+    listeningForLogout = true;
+    window.addEventListener("session:expired", () => {
+      sessionGeneration++;
+      state = { currentUser: null, isLoaded: true };
+      setQueryScope(null);
+      emit();
+    });
+    window.addEventListener("storage", event => {
+      if (event.key !== "session:logout") return;
+      sessionGeneration++;
+      state = { currentUser: null, isLoaded: true };
+      setQueryScope(null);
+      emit();
+    });
+  }
   subscribers.add(onStoreChange);
   // 第一個掛載的訂閱者負責觸發；之後掛載的直接共用結果或同一個 in-flight promise。
   // 上次失敗過就再試一次（成功的結果才是終局）。
@@ -95,6 +118,12 @@ export function useUser() {
   );
 
   const logout = useCallback(async () => {
+    sessionGeneration++;
+    clearQueryCache();
+    setQueryScope(null);
+    state = { currentUser: null, isLoaded: true };
+    emit();
+    try { localStorage.setItem("session:logout", String(Date.now())); } catch { /* Storage disabled. */ }
     await fetch("/api/auth/logout", { method: "POST" });
     // 先清掉共享身分再導頁：萬一導頁被擋下來，畫面上不會還留著已登出的使用者。
     state = INITIAL;

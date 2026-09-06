@@ -1,3 +1,4 @@
+import { requestError } from "@/lib/request-user";
 import { NextResponse } from "next/server";
 import { butlerGet } from "@/lib/butler";
 
@@ -12,7 +13,6 @@ export async function GET(request: Request) {
     const data = await butlerGet(`/api/weather?${params}`);
     return NextResponse.json(data);
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return requestError(err);
   }
 }

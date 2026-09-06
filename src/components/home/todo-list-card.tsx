@@ -7,6 +7,7 @@ import { type TodoData, todoLightNotify, todoUrgency, urgencyRowClass, relativeD
 import { useCompleteTodo } from "@/hooks/use-complete-todo";
 
 interface Props {
+  statusText?: string;
   todos: TodoData[];
   /** 標記完成成功後呼叫，由父層 refetch 資料；失敗時不會被呼叫。
    *  回傳 Promise 讓 useCompleteTodo 等 todos prop 真的更新後再清 completing
@@ -20,7 +21,7 @@ interface Props {
  *
  * 視覺對齊 todos 頁的 list row（同尺寸 checkbox、同 .num 日期）。
  */
-export function TodoListCard({ todos, onCompleted }: Props) {
+export function TodoListCard({ todos, onCompleted, statusText }: Props) {
   const { completeTodo, isCompleting } = useCompleteTodo(onCompleted);
 
   return (
@@ -34,7 +35,7 @@ export function TodoListCard({ todos, onCompleted }: Props) {
           查看全部 →
         </Link>
       </CardHeader>
-      {todos.length > 0 ? (
+      {statusText ? <p className="text-sm text-mute">{statusText}</p> : todos.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {todos.map((todo, i) => {
             const completing = isCompleting(todo);

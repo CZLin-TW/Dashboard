@@ -29,7 +29,7 @@ const INPUT_BASE =
 
 export default function FoodPage() {
   const { currentUser } = useUser();
-  const { data: items, loading, refetch: fetchFood } = useCachedFetch<FoodItem[]>("/api/food", []);
+  const { data: items, loading, hasData, refetch: fetchFood } = useCachedFetch<FoodItem[]>("/api/food", []);
   const [showAdd, setShowAdd] = useState(false);
   const [newFood, setNewFood] = useState({ name: "", quantity: "", unit: "個", expiry: "" });
   // 用原始 item 快照當編輯身分，而非陣列 index（同 todos：refetch 替換陣列後 index 會錯位）。
@@ -164,10 +164,12 @@ export default function FoodPage() {
       <Card>
         <CardHeader>
           <CardTitle>庫存列表</CardTitle>
-          <span className="num text-xs text-mute">{filtered.length} 項</span>
+          <span className="num text-xs text-mute">{hasData ? `${filtered.length} 項` : "—"}</span>
         </CardHeader>
         {loading ? (
           <p className="text-sm text-mute">載入中...</p>
+        ) : !hasData ? (
+          <p className="text-sm text-mute">尚未取得食品資料，請重新讀取。</p>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-mute">沒有符合的食品項目</p>
         ) : (

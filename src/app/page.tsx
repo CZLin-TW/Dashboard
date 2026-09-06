@@ -33,7 +33,7 @@ export default function HomePage() {
   const { currentUser } = useUser();
   const [deviceExpanded, setDeviceExpanded] = useState(false);
 
-  const { data: dashboard, refetch: refetchDashboard } = useCachedFetch<DashboardData | null>(
+  const { data: dashboard, loading: lifeLoading, hasData: hasLifeData, refetch: refetchDashboard } = useCachedFetch<DashboardData | null>(
     "/api/dashboard?include_weather=false",
     null,
   );
@@ -91,11 +91,7 @@ export default function HomePage() {
     .filter((t) => {
       if (t["狀態"] !== "待辦") return false;
       if (!currentUser) return false;
-      const isMine =
-        t["負責人"] === currentUser.name ||
-        t["負責人"] === currentUser.name.substring(0, 2);
-      const isPublic = t["類型"] === "公開";
-      return isMine || isPublic;
+      return true; // The server has already enforced member visibility.
     })
     .filter((t) => {
       if (!t["日期"]) return false;
@@ -147,8 +143,8 @@ export default function HomePage() {
         onSchedulesChange={refetchSchedules}
       />
       <div className="grid items-start gap-4 lg:grid-cols-2 md:gap-5">
-        <TodoListCard todos={visibleTodos} onCompleted={refetchDashboard} />
-        <FoodAlertCard food={urgentFood} />
+        <TodoListCard todos={visibleTodos} onCompleted={refetchDashboard} statusText={!hasLifeData ? (lifeLoading ? "載入中…" : "尚未取得待辦資料，請重新讀取。") : undefined} />
+        <FoodAlertCard food={urgentFood} statusText={!hasLifeData ? (lifeLoading ? "載入中…" : "尚未取得食品資料，請重新讀取。") : undefined} />
       </div>
     </div>
   );

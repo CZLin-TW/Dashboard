@@ -33,7 +33,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved) as DemoState;
-          if (parsed.schema === 1 && Array.isArray(parsed.devices) && SCENARIOS.some(s => s.value === parsed.scenario)) state = parsed;
+          if (parsed.schema === 2 && Array.isArray(parsed.devices) && SCENARIOS.some(s => s.value === parsed.scenario)) state = parsed;
         } catch { /* corrupted demo data: restore synthetic defaults */ }
       }
       if (!saved) seedPins(state);

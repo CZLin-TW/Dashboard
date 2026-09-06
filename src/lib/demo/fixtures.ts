@@ -35,7 +35,7 @@ export interface DemoArea {
 }
 
 export interface DemoState {
-  schema: 1; scenario: Scenario; createdAt: number;
+  schema: 2; scenario: Scenario; createdAt: number;
   devices: DeviceData[]; todos: TodoData[]; food: (FoodData & { 狀態: string; 新增日: string; 新增者: string })[];
   recurring: RecurringRule[]; schedules: Schedule[]; rules: Record<string, DehumidifierAutoRule>;
   areas: DemoArea[]; lightingRules: Record<string, Row>; theater: TheaterSummary;
@@ -51,10 +51,10 @@ export function createDemoState(scenario: Scenario = "normal", now = Date.now())
     { name: "臥室感測器", type: "感應器", location: "臥室", temperature: 25.8, humidity: 53 },
   ];
   const todo = (item: string, offset: number, extra: Partial<TodoData> = {}): TodoData => ({
-    事項: item, 日期: dateAt(offset, now), 時間: "", 負責人: "測試成員", 狀態: "待辦", 類型: "私人", 來源: "本地", 屬性: "讀寫", ...extra,
+    待辦ID: `demo-todo-${item}`, 事項: item, 日期: dateAt(offset, now), 時間: "", 負責人: "測試成員", 狀態: "待辦", 類型: "私人", 來源: "本地", 屬性: "讀寫", ...extra,
   });
   return {
-    schema: 1, scenario, createdAt: now, devices: scenario === "empty" ? [] : devices,
+    schema: 2, scenario, createdAt: now, devices: scenario === "empty" ? [] : devices,
     todos: scenario === "empty" ? [] : [
       todo("清洗冷氣濾網", -1), todo("倒垃圾", 0, { 時間: "20:00", 類型: "公開", 燈光提醒: true, 燈光區域ID: "demo-living", 規則ID: "demo-daily" }),
       todo("購買洗衣精", 2, { 類型: "公開" }), todo("行事曆範例（唯讀）", 3, { 來源: "Notion", 屬性: "唯讀" }),

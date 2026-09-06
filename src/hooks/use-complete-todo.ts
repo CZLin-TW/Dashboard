@@ -5,13 +5,14 @@ import { useCallback, useState } from "react";
 /** 用 (事項, 日期, 時間) 三元組唯一識別一筆待辦——避免同名不同時間的兩筆
  *  在 completing set / DELETE API 上互相干擾（會誤標另一筆完成）。 */
 export interface CompletableTodo {
+  "待辦ID"?: string;
   "事項": string;
   "日期": string;
   "時間": string;
 }
 
 function todoKey(t: CompletableTodo): string {
-  return `${t["事項"]}${t["日期"]}${t["時間"] ?? ""}`;
+  return t["待辦ID"] || `${t["事項"]}${t["日期"]}${t["時間"] ?? ""}`;
 }
 
 /**
@@ -37,6 +38,7 @@ export function useCompleteTodo(onCompleted: () => void | Promise<void>) {
       try {
         const params = new URLSearchParams({
           item: todo["事項"],
+          todo_id: todo["待辦ID"] || "",
           date_orig: todo["日期"] || "",
           time_orig: todo["時間"] || "",
         });

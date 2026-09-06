@@ -19,6 +19,7 @@ import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useCompleteTodo } from "@/hooks/use-complete-todo";
 
 interface TodoItem {
+  "待辦ID"?: string;
   "事項": string;
   "日期": string;
   "時間": string;
@@ -84,7 +85,7 @@ const INPUT_BASE =
 
 export default function TodosPage() {
   const { currentUser } = useUser();
-  const { data: todos, loading, refetch: fetchTodos } = useCachedFetch<TodoItem[]>("/api/todos", []);
+  const { data: todos, loading, hasData, refetch: fetchTodos } = useCachedFetch<TodoItem[]>("/api/todos", []);
   const { data: lightingPayload } = useCachedFetch<LightingPayload | null>("/api/lighting/areas", null);
   const [showAdd, setShowAdd] = useState(false);
   const [newTodo, setNewTodo] = useState({ item: "", date: "", time: "", type: "私人", light_notify: false, light_area_id: "" });
@@ -121,17 +122,13 @@ export default function TodosPage() {
   // 隱私：移除「我的 / 全部」切換，永遠只顯示「自己負責 + 公開」項目；
   // 沒登入則完全不顯示（避免他人 device 看到任何個人待辦）。
   const myName = currentUser?.name ?? "";
-  const myShortName = myName.substring(0, 2);
   function isMine(t: TodoItem): boolean {
     if (!currentUser) return false;
-    return t["負責人"] === myName || t["負責人"] === myShortName;
-  }
-  function isPublic(t: TodoItem): boolean {
-    return t["類型"] === "公開";
+    return t["負責人"] === myName;
   }
 
   const filteredTodos = todos
-    .filter((t) => t["狀態"] === "待辦" && (isMine(t) || isPublic(t)))
+    .filter((t) => t["狀態"] === "待辦" && !!currentUser)
     .sort((a, b) => {
       const dateA = `${a["日期"]} ${a["時間"] || "99:99"}`;
       const dateB = `${b["日期"]} ${b["時間"] || "99:99"}`;
@@ -177,7 +174,8 @@ export default function TodosPage() {
         light_notify: hasTime && newTodo.light_notify,
         light_area_id: hasTime && newTodo.light_notify ? (newTodo.light_area_id || defaultLightAreaId) : undefined,
       }),
-    }).then(() => {
+    }).then(async (res) => {
+      if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error || "操作失敗，請稍後重試。"); return; }
       resetAddForm();
       fetchTodos();
     });
@@ -247,6 +245,7 @@ export default function TodosPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        todo_id: original["待辦ID"],
         item: original["事項"],
         date_orig: original["日期"],
         time_orig: original["時間"],
@@ -258,7 +257,8 @@ export default function TodosPage() {
         light_area_id: nextLightAreaId !== (original["燈光區域ID"] || "") ? nextLightAreaId : undefined,
         requester: currentUser.name,
       }),
-    }).then(() => {
+    }).then(async (res) => {
+      if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error || "操作失敗，請稍後重試。"); return; }
       setEditOriginal(null);
       fetchTodos();
     });
@@ -268,11 +268,15 @@ export default function TodosPage() {
   function deleteTodo(todo: TodoItem) {
     if (!confirm(`確定要刪除「${todo["事項"]}」嗎？`)) return;
     const params = new URLSearchParams({
+      todo_id: todo["待辦ID"] || "",
       item: todo["事項"],
       date_orig: todo["日期"] || "",
       time_orig: todo["時間"] || "",
     });
-    fetch(`/api/todos?${params}`, { method: "DELETE" }).then(() => fetchTodos());
+    fetch(`/api/todos?${params}`, { method: "DELETE" }).then(async res => {
+      if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error || "刪除失敗，請稍後重試。"); return; }
+      fetchTodos();
+    });
   }
 
   function getSheetIndex(todo: TodoItem): number {
@@ -492,10 +496,12 @@ export default function TodosPage() {
       <Card>
         <CardHeader>
           <CardTitle>待辦事項</CardTitle>
-          <span className="num text-xs text-mute">{filteredTodos.length} 項</span>
+          <span className="num text-xs text-mute">{hasData ? `${filteredTodos.length} 項` : "—"}</span>
         </CardHeader>
         {loading ? (
           <p className="text-sm text-mute">載入中...</p>
+        ) : !hasData ? (
+          <p className="text-sm text-mute">尚未取得待辦資料，請重新讀取。</p>
         ) : filteredTodos.length === 0 ? (
           <p className="text-sm text-mute">沒有待辦事項</p>
         ) : (

@@ -425,3 +425,11 @@ Dashboard 是 home-butler 的**視覺化前端**，兩者共用同一套後端 A
 **裝置配對登入**：Dashboard 不再走 LINE OAuth 外部跳轉，改成在登入頁顯示 6 位驗證碼，由使用者在 LINE Bot 輸入「登入 <6位數字>」核准；身分（lineUserId / name / picture）取自在 Bot 輸入碼的那個 LINE 帳號。home-butler 端提供 `POST /api/auth/device/create` 與 `GET /api/auth/device/status`，Dashboard 以 `/api/auth/device-code`、`/api/auth/device-poll` BFF 代理，核准後在容器內直接發 session，全程不離開 PWA。
 
 **版本同步**：Dashboard 的 `package.json:version` 是整個系統的使用者體感版本 source of truth。Dashboard 會在 build-time 注入 `APP_VERSION`，home-butler 則在 runtime 透過 Dashboard 的 `/api/version` 公開端點抓取版本並快取 1 小時；版本 bump 只需要改 Dashboard，不需要同步修改 home-butler。
+
+## v1.37.0 資料與私人待辦
+
+- `useCachedFetch` 透過 `query-store.ts` 共用同一使用者／URL 的讀取與狀態；替換請求會取消前次，過期結果不能覆蓋新資料。失敗保留上次成功資料與時間，頁面上方顯示重試提示；首次失败不記成成功空資料。
+- 快取按 LINE ID 與獨立 CACHE_SCHEMA 分區。待辦、週期規則及含待辦的 dashboard 只存記憶體。登出、跨分頁登出與私人端點 401／403 會清除身分和資料；舊版未分帳號快取會移除。其他資料可保存供快速顯示，過期時標示並可重試。
+- 私人 routes 使用 `request-user.ts` 驗證 session，再由 butler helpers 加 `X-Dashboard-User`；不要直接轉送瀏覽器提供的同名 header，也不要把姓名前綴當授權。建立 Request 包裝只複製 URL／headers，不能消耗原始 mutation body。
+- 待辦修改／完成傳後端「待辦ID」，同名事項不能靠畫面 index 選取。新增 schema 請同步 demo fixtures／simulator。部署順序先 home-butler 再 Dashboard；回復時先退 Dashboard。
+- `npm run test:demo` 現在執行 tests 目錄所有測試，含 query store 並行、失敗、登出隔離及真實 route 的 JWT 邊界測試（後端呼叫為 fake）。

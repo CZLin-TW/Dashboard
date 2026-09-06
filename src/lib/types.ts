@@ -117,6 +117,7 @@ export interface DeviceOptions {
 }
 
 export interface TodoData {
+  "待辦ID"?: string;
   "事項": string;
   "日期": string;
   "時間": string;
