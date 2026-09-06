@@ -6,6 +6,8 @@ import { createDemoState, monitoring } from "../src/lib/demo/fixtures";
 import { createSimulator, demoFetch } from "../src/lib/demo/simulator";
 import { proxy } from "../src/proxy";
 import { butlerGet, butlerPost } from "../src/lib/butler";
+import { GET as dashboardGET } from "../src/app/api/dashboard/route";
+import { GET as sensorsGET } from "../src/app/api/sensors/status/route";
 
 const origin = "http://127.0.0.1:3001";
 function request(path: string, method = "GET", body?: unknown) {
@@ -31,6 +33,46 @@ test("cold start has useful charts, identity and all page data contracts", async
   assert.equal(data.sensors["客廳感測器"].history.length, 289);
   assert.equal(Object.values(data.computers)[0].history.length, 1441);
   assert.equal((await (await sim.handle(request("/api/auth/me"))).json()).name, "測試成員");
+});
+
+test("homepage summaries omit history and weather while preserving current readings and legacy responses", async () => {
+  const sim = createSimulator();
+  const get = async (path: string) => (await sim.handle(request(path))).json();
+  const life = await get("/api/dashboard?include_weather=false");
+  assert.deepEqual(Object.keys(life).sort(), ["food", "todos"]);
+  assert.ok((await get("/api/dashboard")).weatherToday);
+  const summary = await get("/api/sensors/status?include_history=false");
+  const full = await get("/api/sensors/status");
+  assert.equal(summary["客廳感測器"].current.co2, full["客廳感測器"].current.co2);
+  assert.equal(summary["客廳感測器"].history.length, 0);
+  assert.ok(full["客廳感測器"].history.length > 0);
+  assert.ok(JSON.stringify(summary).length < JSON.stringify(full).length / 20);
+  const selected = await get(`/api/sensors/status?name=${encodeURIComponent("客廳感測器")}`);
+  assert.deepEqual(Object.keys(selected), ["客廳感測器"]);
+  assert.ok(selected["客廳感測器"].history.length > 0);
+  assert.deepEqual(await get("/api/sensors/status?name=missing"), {});
+});
+
+test("proxy forwards explicit light queries and encoded sensor names, preserving legacy defaults", async () => {
+  const native = globalThis.fetch;
+  const previous = process.env.DASHBOARD_DEMO_MODE;
+  const seen: string[] = [];
+  delete process.env.DASHBOARD_DEMO_MODE;
+  globalThis.fetch = async (input) => { seen.push(String(input)); return Response.json({}); };
+  try {
+    await dashboardGET(request("/api/dashboard"));
+    await dashboardGET(request("/api/dashboard?include_weather=false"));
+    await sensorsGET(request("/api/sensors/status"));
+    await sensorsGET(request(`/api/sensors/status?include_history=false&name=${encodeURIComponent("客廳 & 臥室")}`));
+    assert.equal(new URL(seen[0]).search, "");
+    assert.equal(new URL(seen[1]).searchParams.get("include_weather"), "false");
+    assert.equal(new URL(seen[2]).search, "");
+    assert.equal(new URL(seen[3]).searchParams.get("name"), "客廳 & 臥室");
+    assert.equal(new URL(seen[3]).searchParams.get("include_history"), "false");
+  } finally {
+    globalThis.fetch = native;
+    if (previous === undefined) delete process.env.DASHBOARD_DEMO_MODE; else process.env.DASHBOARD_DEMO_MODE = previous;
+  }
 });
 
 test("AC writes are confirmed by status polling, survive reload, and isolate sessions", async () => {

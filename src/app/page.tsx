@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState } from "react";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
@@ -15,9 +15,7 @@ import {
   DEFAULT_OPTIONS,
   daysUntilExpiry,
 } from "@/lib/types";
-import { type Sensor, computeSensorDomains } from "@/lib/sensor";
-import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
-import { type DehumDevice, getDehumSegmentsForLocation } from "@/lib/dehumidifier";
+import type { Sensor } from "@/lib/sensor";
 import type { Schedule } from "@/lib/schedule";
 import { WeatherCard } from "@/components/home/weather-card";
 import { IndoorSensorCard } from "@/components/home/indoor-sensor-card";
@@ -26,32 +24,20 @@ import { TodoListCard } from "@/components/home/todo-list-card";
 import { FoodAlertCard } from "@/components/home/food-alert-card";
 
 interface DashboardData {
-  weatherToday: WeatherData | null;
-  weatherTomorrow: WeatherData | null;
   todos: TodoData[];
   food: FoodData[];
 }
 
-/**
- * 首頁 = 五張卡的 orchestrator。
- *
- * 資料流：
- *   /api/dashboard          → 一次拉天氣、裝置清單、待辦、食品、選項（減少往返）
- *   /api/devices/status     → 統一裝置狀態快取；背景更新雲端裝置，空調命令後立即更新
- *   useCachedFetch          → localStorage 先回放 → 背景靜默更新（先看到舊值再更新）
- *
- * 每張卡只接收它需要的資料 + refetch callback；互動狀態（展開、樂觀更新等）住在卡內。
- */
+// Life cards, weather and device summaries load independently. History mounts on demand.
 export default function HomePage() {
   const { currentUser } = useUser();
+  const [deviceExpanded, setDeviceExpanded] = useState(false);
 
   const { data: dashboard, refetch: refetchDashboard } = useCachedFetch<DashboardData | null>(
-    "/api/dashboard",
+    "/api/dashboard?include_weather=false",
     null,
   );
-  // 裝置清單/選項刻意跟 /api/dashboard 分開抓：那支要等中央氣象署天氣 API（兩次、
-  // timeout 15s）才回應，天氣卡等它是合理的，但快速控制不該被天氣卡住。這兩支
-  // 只讀 Sheet / 純常數，先回來就能先操作裝置。
+  // Device controls do not wait for the life cards or weather.
   const { data: rawDevices } = useCachedFetch<DeviceData[]>("/api/devices", []);
   const { data: fetchedOptions } = useCachedFetch<DeviceOptions | null>("/api/devices/options", null);
   const { data: liveStatus, refetch: refetchStatus } = useCachedFetch<
@@ -59,14 +45,12 @@ export default function HomePage() {
   >("/api/devices/status", {});
   useAutoRefresh(refetchStatus);
 
-  // 今天天氣若拿不到（比如剛跨日預報還沒生）就退回明天的，比顯示「載入中」實用
-  const todayHasData =
-    dashboard?.weatherToday &&
-    !("error" in dashboard.weatherToday) &&
-    dashboard.weatherToday.max_t !== null;
-  const weather = todayHasData ? dashboard!.weatherToday : dashboard?.weatherTomorrow ?? null;
+  const today = useCachedFetch<WeatherData | null>("/api/weather?date=today", null);
+  const todayHasData = !!today.data && !("error" in today.data) && today.data.max_t !== null;
+  // Fetch tomorrow only when today's completed request cannot supply a forecast.
+  const tomorrow = useCachedFetch<WeatherData | null>("/api/weather?date=tomorrow", null, !today.loading && !todayHasData);
+  const weather = todayHasData ? today.data : tomorrow.data;
 
-  // 統一狀態覆蓋 /api/dashboard 的初始裝置資料。
   const allDevices: DeviceData[] = (Array.isArray(rawDevices) ? rawDevices : []).map(
     (d) => ({ ...d, ...(liveStatus[d.name] ?? {}) }),
   );
@@ -76,69 +60,23 @@ export default function HomePage() {
 
   const pin = usePinnedDevices();
 
-  // 拉感測器歷史（給釘選的 IndoorSensorCard 畫 24h 折線圖）。
-  // 60s auto-refetch 跟 home-butler 內部 polling 節奏對齊。
-  const {
-    data: sensorsMap,
-    refetch: refetchSensors,
-  } = useCachedFetch<Record<string, Sensor>>("/api/sensors/status", {});
-  useEffect(() => {
-    const id = setInterval(() => refetchSensors(), 60_000);
-    return () => clearInterval(id);
-  }, [refetchSensors]);
-
-  // 拉空調狀態歷史（給 IndoorSensorCard chart 背景畫 AC on 區段色塊）。
-  const {
-    data: acsMap,
-    refetch: refetchAcs,
-  } = useCachedFetch<Record<string, AcDevice>>("/api/ac/status", {});
-  useEffect(() => {
-    const id = setInterval(() => refetchAcs(), 60_000);
-    return () => clearInterval(id);
-  }, [refetchAcs]);
-
-  // 除濕機自動規則（給釘選的除濕機展開 panel 用）
-  const {
-    data: dehumRulesMap,
-    refetch: refetchDehumRules,
-  } = useCachedFetch<Record<string, DehumidifierAutoRule>>("/api/dehumidifier/auto-rule", {});
-  useEffect(() => {
-    const id = setInterval(() => refetchDehumRules(), 60_000);
-    return () => clearInterval(id);
-  }, [refetchDehumRules]);
-  // 除濕機 ON/OFF 歷史（給自動模式 chart 畫綠色背景）
-  const {
-    data: dehumHistoryMap,
-    refetch: refetchDehumHistory,
-  } = useCachedFetch<Record<string, DehumDevice>>("/api/dehumidifier/history", {});
-  useEffect(() => {
-    const id = setInterval(() => refetchDehumHistory(), 60_000);
-    return () => clearInterval(id);
-  }, [refetchDehumHistory]);
-
-  // 排程（首頁釘選裝置展開時 ScheduleSection 用）
-  const {
-    data: schedules,
-    refetch: refetchSchedules,
-  } = useCachedFetch<Schedule[]>("/api/schedules", []);
+  // Summary preserves CO2, current humidity and online status without downloading 24h history.
+  const { data: sensorsMap, refetch: refetchSensors } = useCachedFetch<Record<string, Sensor>>(
+    "/api/sensors/status?include_history=false", {},
+  );
+  useAutoRefresh(refetchSensors, 60_000, 0);
+  const { data: dehumRulesMap, refetch: refetchDehumRules } = useCachedFetch<Record<string, DehumidifierAutoRule>>(
+    "/api/dehumidifier/auto-rule", {},
+  );
+  useAutoRefresh(refetchDehumRules, 60_000, 0);
+  const { data: schedules, loading: schedulesLoading, error: schedulesError, refetch: refetchSchedules } = useCachedFetch<Schedule[]>(
+    "/api/schedules", [], deviceExpanded,
+  );
 
   // 首頁只顯示釘選的；裝置頁有完整列表
   const pinnedSensor = pin.pinnedSensor
     ? allDevices.find((d) => d.name === pin.pinnedSensor) ?? null
     : null;
-  const pinnedSensorHistory = pin.pinnedSensor ? sensorsMap[pin.pinnedSensor] ?? null : null;
-  // 首頁只算釘選那一個感測器的自有 domain（只有它自己一張圖）
-  const { tempDomain: pinnedTempDomain, humDomain: pinnedHumDomain, co2Domain: pinnedCo2Domain } = computeSensorDomains(
-    pinnedSensorHistory ? [pinnedSensorHistory] : [],
-  );
-  // 釘選 sensor 所屬的 location 對應的 AC on 區段
-  const pinnedAcSegments = pinnedSensorHistory
-    ? getAcSegmentsForLocation(acsMap, pinnedSensorHistory.location || "")
-    : [];
-  // 同 location 的除濕機 on 區段（斜紋背景）
-  const pinnedDehumSegments = pinnedSensorHistory
-    ? getDehumSegmentsForLocation(dehumHistoryMap, pinnedSensorHistory.location || "")
-    : [];
   const controllableDevices = pin.pinnedDevices
     .map((name) => allDevices.find((d) => d.name === name))
     .filter((d): d is DeviceData => d !== undefined && d.type !== "感應器");
@@ -186,15 +124,10 @@ export default function HomePage() {
         <span className="mb-1 text-xs text-mute">環境・設備・生活</span>
       </div>
       <div className="grid grid-cols-2 items-start gap-3 md:gap-5">
-        <WeatherCard weather={weather} />
+        <WeatherCard weather={weather} loading={today.loading || tomorrow.loading} />
         <IndoorSensorCard
         sensor={pinnedSensor}
-        sensorHistory={pinnedSensorHistory}
-        tempDomain={pinnedTempDomain}
-        humDomain={pinnedHumDomain}
-        co2Domain={pinnedCo2Domain}
-        acSegments={pinnedAcSegments}
-        dehumSegments={pinnedDehumSegments}
+        current={pin.pinnedSensor ? sensorsMap[pin.pinnedSensor]?.current : undefined}
         />
       </div>
       <DeviceQuickControl
@@ -206,7 +139,9 @@ export default function HomePage() {
         availableSensors={Object.keys(sensorsMap)}
         onDehumRuleUpdate={refetchDehumRules}
         sensorsMap={sensorsMap}
-        dehumHistoryMap={dehumHistoryMap}
+        onExpandedChange={setDeviceExpanded}
+        schedulesLoading={schedulesLoading}
+        schedulesError={schedulesError}
         schedules={schedules}
         allDevices={allDevices.filter((d) => d.type !== "感應器")}
         onSchedulesChange={refetchSchedules}

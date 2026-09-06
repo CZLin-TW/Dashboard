@@ -38,11 +38,15 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
     if (read) {
       const history = () => monitoring(state);
       switch (path) {
-        case "/api/dashboard": return json({ weatherToday: weather(), weatherTomorrow: weather(), todos: state.todos, food: state.food });
+        case "/api/dashboard": return json(value("include_weather") === "false"
+          ? { todos: state.todos, food: state.food }
+          : { weatherToday: weather(), weatherTomorrow: weather(), todos: state.todos, food: state.food });
         case "/api/devices": return json(state.devices);
         case "/api/devices/options": return json(OPTIONS);
         case "/api/devices/status": return json(Object.fromEntries(state.devices.filter(d => !value("name") || d.name === value("name")).map(d => [d.name, d])));
-        case "/api/sensors/status": return json(history().sensors);
+        case "/api/sensors/status": return json(Object.fromEntries(Object.entries(history().sensors)
+          .filter(([name]) => !value("name") || name === value("name"))
+          .map(([name, sensor]) => [name, value("include_history") === "false" ? { ...sensor, history: [] } : sensor])));
         case "/api/ac/status": return json(history().acs);
         case "/api/dehumidifier/history": return json(history().dehums);
         case "/api/computers/status": return json(history().computers);

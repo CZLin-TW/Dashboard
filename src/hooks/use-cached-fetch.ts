@@ -17,10 +17,11 @@ import { useState, useEffect, useCallback } from "react";
  * Cache key is prefixed with APP_VERSION so a version bump auto-invalidates
  * all old cache entries — protecting users from schema-drift bugs after deploys.
  */
-export function useCachedFetch<T>(url: string, fallback: T) {
+export function useCachedFetch<T>(url: string, fallback: T, enabled = true) {
   const cacheKey = `cache:${process.env.APP_VERSION}:${url}`;
   const [data, setData] = useState<T>(fallback);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   // Load cache after hydration to avoid SSR mismatch
@@ -35,6 +36,7 @@ export function useCachedFetch<T>(url: string, fallback: T) {
   }, [cacheKey, hydrated]);
 
   const refetch = useCallback((): Promise<void> => {
+    if (!enabled) return Promise.resolve();
     setLoading(true);
     return fetch(url)
       .then((r) => {
@@ -42,21 +44,23 @@ export function useCachedFetch<T>(url: string, fallback: T) {
         return r.json();
       })
       .then((fresh) => {
+        setError(null);
         setData(fresh);
         try {
           appStorage().setItem(cacheKey, JSON.stringify(fresh));
         } catch { /* storage full, ignore */ }
       })
       .catch((err) => {
+        setError(err instanceof Error ? err.message : "讀取失敗");
         // Keep previous data and cache intact — never overwrite valid data with an error payload.
         console.error(`[useCachedFetch] ${url} failed:`, err);
       })
       .finally(() => setLoading(false));
-  }, [url, cacheKey]);
+  }, [url, cacheKey, enabled]);
 
   useEffect(() => {
     refetch();
   }, [refetch]);
 
-  return { data, loading, refetch };
+  return { data, loading: enabled && loading, error, refetch };
 }

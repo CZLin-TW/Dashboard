@@ -15,6 +15,7 @@ import { Toggle2, Stepper, Segment, Dropdown, Field, StatusLine, ControlDetails 
 // 兩張圖走 lazy-charts 的非同步 chunk：DeviceController 是家電控制的核心 UI，
 // 不該為了預設看不到的圖表等 recharts 下載完才能互動（見 lazy-charts.tsx）。
 import { AutoModeChart, HumidityCurveChart } from "@/components/devices/lazy-charts";
+import { DehumidifierHistory } from "@/components/home/history-charts";
 
 const DURATION_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: "立即" },
@@ -83,6 +84,8 @@ interface Props {
   sensorsMap?: Record<string, Sensor>;
   /** 全部除濕機 power 歷史 map（key=device_name），給自動模式 chart 的綠色背景區段用。 */
   dehumHistoryMap?: Record<string, DehumDevice>;
+  /** Homepage fetches history only when the humidity disclosure is opened. */
+  loadHistoryOnExpand?: boolean;
 }
 
 export function DeviceController({
@@ -95,6 +98,7 @@ export function DeviceController({
   onDehumRuleUpdate,
   sensorsMap,
   dehumHistoryMap,
+  loadHistoryOnExpand = false,
 }: Props) {
   const [pending, setPending] = useState<AcPendingState | null>(null);
   const [acFailed, setAcFailed] = useState(false);
@@ -639,12 +643,12 @@ export function DeviceController({
         )}
         {autoOn && dehumRule && (
           <ControlDetails title="濕度趨勢" summary="過去 24 小時">
-          <AutoModeChart
+          {loadHistoryOnExpand ? <DehumidifierHistory key={dehumRule.sensor_name} deviceName={device.name} rule={dehumRule} /> : <AutoModeChart
             sensorHistory={sensorsMap?.[dehumRule.sensor_name]?.history ?? []}
             onSegments={dehumHistoryToSegments(dehumHistoryMap?.[device.name]?.history ?? [])}
             humidityOnThreshold={dehumRule.humidity_on_threshold ?? dehumRule.threshold + 2}
             humidityOffThreshold={dehumRule.humidity_off_threshold ?? dehumRule.threshold - 1}
-          />
+          />}
           </ControlDetails>
         )}
       </>

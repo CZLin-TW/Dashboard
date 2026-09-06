@@ -47,6 +47,14 @@ Google Sheets / SwitchBot / Panasonic / 氣象署
 
 Dashboard 本身不做業務邏輯，所有 API Routes 都是代理層，轉發到 home-butler 後端處理。
 
+### 首頁資料載入
+
+- 生活摘要走 `/api/dashboard?include_weather=false`，後端只讀待辦／庫存兩張表，不等待天氣。天氣獨立查今天，今天無有效資料才查明天。
+- 室內與除濕機摘要走 `/api/sensors/status?include_history=false`，保留 CO₂、當下讀值與上線狀態，`history` 為空陣列。
+- 環境趨勢與除濕曲線展開後才掛載 `components/home/history-charts.tsx`；指定感測器名稱下載歷史，收合即移除定期更新。設備排程在展開控制面板後才讀取。
+- 首頁定期更新統一使用 `useAutoRefresh`：背景分頁暫停，回到前景更新；歷史／摘要不追加雲端設備狀態專用的 5 秒補讀。裝置頁原有完整歷史查詢仍保留。
+- 後端 query 預設維持舊版行為；部署先更新 home-butler，再更新 Dashboard。新參數不改變登入或設備控制權限。
+
 Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskable PNG icon、iOS `apple-mobile-web-app-capable` meta。目標是讓手機主畫面啟動時維持 standalone app 體驗。登入改用「裝置配對驗證碼」流程後，全程不再離開容器（不跳 Safari），正是為了解決 iOS PWA 加入主畫面後因 OAuth 外部跳轉被踢去系統瀏覽器、得重新加入主畫面的問題。
 
 ---

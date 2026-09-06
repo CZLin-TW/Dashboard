@@ -17,6 +17,7 @@ import { type WeatherData } from "@/lib/types";
 
 interface Props {
   weather: WeatherData | null;
+  loading?: boolean;
 }
 
 /** 把 CWA 天氣現象文字對應到 lucide icon 的穩定 component。
@@ -42,7 +43,7 @@ function WxIcon({ wx, ...props }: { wx: string | null | undefined } & LucideProp
  * 溫濕度排版用共用的 ClimateReadout，跟 IndoorSensorCard / 裝置頁感應器
  * 卡視覺一致（大字 °C · 大字 %）。
  */
-export function WeatherCard({ weather }: Props) {
+export function WeatherCard({ weather, loading = true }: Props) {
   const hasValid = weather && !("error" in weather) && weather.max_t !== null;
   const obs = weather?.observation;
   const next24h = weather?.forecast?.next_24h;
@@ -67,7 +68,7 @@ export function WeatherCard({ weather }: Props) {
           </p>
         </div>
       ) : (
-        <p className="text-sm text-mute">載入中...</p>
+        <p className="text-sm text-mute">{loading ? "載入中..." : "暫時無法取得天氣"}</p>
       )}
     </Card>
   );

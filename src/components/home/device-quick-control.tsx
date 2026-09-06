@@ -47,6 +47,9 @@ interface Props {
   allDevices?: DeviceData[];
   /** 排程 CRUD 後呼叫，由父層 refetch /api/schedules。 */
   onSchedulesChange?: () => void;
+  onExpandedChange?: (expanded: boolean) => void;
+  schedulesLoading?: boolean;
+  schedulesError?: string | null;
 }
 
 /**
@@ -72,12 +75,17 @@ export function DeviceQuickControl({
   schedules,
   allDevices,
   onSchedulesChange,
+  onExpandedChange,
+  schedulesLoading,
+  schedulesError,
 }: Props) {
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
   const reduceMotion = useReducedMotion();
 
   function toggleExpand(name: string) {
-    setExpandedDevice((prev) => (prev === name ? null : name));
+    const next = expandedDevice === name ? null : name;
+    setExpandedDevice(next);
+    onExpandedChange?.(next !== null);
   }
 
   function renderPanel(device: DeviceData) {
@@ -96,7 +104,7 @@ export function DeviceQuickControl({
           </div>
           <button
             type="button"
-            onClick={() => setExpandedDevice(null)}
+            onClick={() => { setExpandedDevice(null); onExpandedChange?.(false); }}
             className="flex min-h-9 items-center gap-1 rounded-full bg-elevated px-3 text-xs text-mute hover:text-soft"
           >
             收合
@@ -104,6 +112,7 @@ export function DeviceQuickControl({
           </button>
         </div>
         <DeviceController
+          loadHistoryOnExpand
           device={device}
           options={options}
           onAcCommandSuccess={onAcCommandSent}
@@ -114,7 +123,9 @@ export function DeviceQuickControl({
           sensorsMap={device.type === "除濕機" ? sensorsMap : undefined}
           dehumHistoryMap={device.type === "除濕機" ? dehumHistoryMap : undefined}
         />
-        {schedules && onSchedulesChange && (
+        {schedulesError ? <p role="status" className="text-sm text-mute">暫時無法讀取排程。<button type="button" onClick={onSchedulesChange} className="ml-2 min-h-9 rounded-full bg-cool-bg px-3 text-cool">重試</button></p>
+        : schedulesLoading ? <p role="status" className="text-sm text-mute">正在讀取排程…</p>
+        : schedules && onSchedulesChange && (
           <ScheduleSection
             device={device}
             options={options}

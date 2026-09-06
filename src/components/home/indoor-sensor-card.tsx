@@ -7,24 +7,12 @@ import { ChevronDown, Pin } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClimateReadout } from "@/components/ui/device-controls";
 import { type DeviceData, DEVICE_ICONS, DEVICE_ICON_FALLBACK } from "@/lib/types";
-import type { Sensor } from "@/lib/sensor";
-import type { AcSegment } from "@/lib/ac";
-import type { DehumOnSegment } from "@/lib/dehumidifier";
-import { SensorChart } from "@/components/devices/lazy-charts";
+import type { SensorCurrentRaw } from "@/lib/sensor";
+import { EnvironmentHistory } from "./history-charts";
 
 interface Props {
   sensor: DeviceData | null;
-  /** 對應 sensor.name 的歷史資料（從 /api/sensors/status 拉到，page 層 lookup 後傳入）。
-   *  null 時不顯示展開按鈕，純 readout。 */
-  sensorHistory?: Sensor | null;
-  tempDomain?: [number, number];
-  humDomain?: [number, number];
-  /** Meter Pro CO2 才有；null 不畫第三個 panel。 */
-  co2Domain?: [number, number] | null;
-  /** 該 sensor location 對應的 AC on 區段（page 層 lookup 後傳入）。 */
-  acSegments?: AcSegment[];
-  /** 該 sensor location 對應的除濕機 on 區段（斜紋背景）。 */
-  dehumSegments?: DehumOnSegment[];
+  current?: SensorCurrentRaw;
 }
 
 /**
@@ -33,12 +21,11 @@ interface Props {
  *
  * 不放 PinButton——pin 操作集中在裝置頁，首頁只是展示已釘選的結果。
  */
-export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain, co2Domain, acSegments, dehumSegments }: Props) {
+export function IndoorSensorCard({ sensor, current }: Props) {
   const SensorIcon = DEVICE_ICONS["感應器"] ?? DEVICE_ICON_FALLBACK;
   const [expanded, setExpanded] = useState(false);
   const reduceMotion = useReducedMotion();
-  const canExpand =
-    !!(sensorHistory && tempDomain && humDomain && sensorHistory.history.length > 0);
+  const canExpand = !!sensor;
 
   return (
     <>
@@ -65,7 +52,7 @@ export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain,
             <ClimateReadout
               temp={sensor.temperature}
               humidity={sensor.humidity}
-              co2={sensorHistory?.current?.co2 ?? null}
+              co2={current?.co2 ?? null}
               size="compact"
             />
           <span className="min-w-0 max-w-full text-xs leading-relaxed text-mute">
@@ -99,14 +86,7 @@ export function IndoorSensorCard({ sensor, sensorHistory, tempDomain, humDomain,
               >
                 <Card>
                 <CardHeader><CardTitle>{sensor?.name} · 過去 24 小時</CardTitle><button type="button" onClick={() => setExpanded(false)} className="min-h-11 rounded-full px-3 text-xs text-mute hover:bg-elevated">收合趨勢</button></CardHeader>
-                <SensorChart
-                  history={sensorHistory!.history}
-                  tempDomain={tempDomain!}
-                  humDomain={humDomain!}
-                  co2Domain={co2Domain ?? null}
-                  acSegments={acSegments}
-                  dehumSegments={dehumSegments}
-                />
+                <EnvironmentHistory key={sensor!.name} sensorName={sensor!.name} />
                 </Card>
               </motion.div>
             )}
