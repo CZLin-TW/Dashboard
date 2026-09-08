@@ -19,6 +19,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # 版本管理
 
+v1.44.0：空調回饋 interval_min 可設整數 1–30、min_adjust_min 可設整數 1–60；預設仍 5／10 分鐘。後端 valid_config、Dashboard 進階欄位與 simulator 必須一致。回饋啟用且冷暖房開機時，其感測器約每分鐘取值；其他背景讀取及歷史仍每 300 秒。sensor_polling 共用每 ID 的鎖與每個 60 秒時段內的讀取結果，sensor_state.update_current 不寫歷史。1 分鐘查詢不等於設備有新測量，保留樣本去重、冷卻等待、關機／未知結果限制。
+
 `package.json:version` 是整個系統（Dashboard + home-butler）的**使用者體感版本** source of truth。
 
 **bump 時機**：使用者**體感得到**的變化才 bump（新功能、UI/行為改動、會被察覺的 bug fix）。純 refactor、註解、文件、type 整理**不 bump**。快取格式版本獨立由 `query-store.ts:CACHE_SCHEMA` 管理；UI 版本更新不再清除相容快取，只有不相容資料格式才調整 CACHE_SCHEMA。

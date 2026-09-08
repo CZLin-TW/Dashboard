@@ -101,13 +101,14 @@ test("feedback settings persist without operating AC or changing comfort target 
   let saved = createDemoState();
   const sim = createSimulator(saved, state => { saved = state; });
   const before = sim.snapshot();
-  const config = { ...AC_FEEDBACK_DEFAULTS, enabled: true, sensor_name: "客廳感測器", interval_min: 10 };
+  const config = { ...AC_FEEDBACK_DEFAULTS, enabled: true, sensor_name: "客廳感測器", interval_min: 1, min_adjust_min: 1 };
   assert.equal((await sim.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config }))).status, 200);
   assert.deepEqual(sim.snapshot().devices, before.devices);
   assert.deepEqual(sim.snapshot().schedules, before.schedules);
   const reloaded = createSimulator(JSON.parse(JSON.stringify(saved)));
   const read = async () => (await (await reloaded.handle(request("/api/ac/feedback"))).json()).devices["客廳冷氣"];
-  assert.equal((await read()).config.interval_min, 10);
+  assert.equal((await read()).config.interval_min, 1);
+  assert.equal((await read()).config.min_adjust_min, 1);
   assert.equal((await read()).target_temperature, 26);
   assert.equal((await read()).ir_temperature, 25);
   await reloaded.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config: { ...config, enabled: false } }));
@@ -115,7 +116,7 @@ test("feedback settings persist without operating AC or changing comfort target 
   await reloaded.handle(request("/api/devices/control", "POST", { deviceName: "客廳冷氣", action: "setAll", params: { power: true, temperature: 27, mode: "冷氣", fanSpeed: "低" } }));
   assert.equal((await read()).target_temperature, 27);
   assert.equal((await read()).ir_temperature, 27);
-  for (const invalid of [{ step: 3 }, { interval_min: 1 }, { tolerance: null }, { sensor_name: "主臥感測器" }, { enabled: "true" }, { power: "on" }]) {
+  for (const invalid of [{ step: 3 }, { interval_min: 0 }, { min_adjust_min: 0 }, { interval_min: 0.5 }, { min_adjust_min: 0.5 }, { interval_min: 31 }, { min_adjust_min: 61 }, { tolerance: null }, { sensor_name: "主臥感測器" }, { enabled: "true" }, { power: "on" }]) {
     assert.equal((await sim.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config: { ...config, ...invalid } }))).status, 422);
   }
 });

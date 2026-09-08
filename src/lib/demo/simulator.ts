@@ -85,7 +85,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       const cfg = { ...AC_FEEDBACK_DEFAULTS, ...raw } as AcFeedbackConfig;
       if (typeof cfg.enabled !== "boolean" || typeof cfg.sensor_name !== "string"
         || !Number.isFinite(cfg.tolerance) || cfg.tolerance < 0.3 || cfg.tolerance > 2
-        || ([["interval_min", 5, 30], ["step", 1, 2], ["min_adjust_min", 5, 60], ["max_offset", 1, 5]] as const)
+        || ([["interval_min", 1, 30], ["step", 1, 2], ["min_adjust_min", 1, 60], ["max_offset", 1, 5]] as const)
           .some(([key, min, max]) => !Number.isInteger(cfg[key]) || cfg[key] < min || cfg[key] > max)) return error("回饋設定超出範圍", 422);
       if (cfg.enabled && !state.devices.some(s => s.type === "感應器" && s.name === cfg.sensor_name && s.location === device.location)) return error("請選擇同房間感測器", 422);
       if (b.config != null && !cfg.enabled) device.lastTemperature = Math.floor(Number(device.lastTemperature) + 0.5);

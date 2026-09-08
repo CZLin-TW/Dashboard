@@ -446,3 +446,5 @@ Dashboard 是 home-butler 的**視覺化前端**，兩者共用同一套後端 A
 - KEF 事件訂閱及 15 秒補漏在 theater-agent 內執行，不依賴 Dashboard 開著，也不是瀏覽器直接接喇叭 push。
 - 三個 repo 的責任、部署與回復順序：[系統導覽](https://github.com/CZLin-TW/home-butler/blob/main/docs/system-overview.md)。
 - 測試方式與已驗證範圍：[驗證紀錄](docs/verification.md)；新 session 先讀 [AGENTS.md](AGENTS.md) 與 [demo 說明](docs/demo-mode.md)。
+
+空調回饋 v1.44.0：評估間隔最低 1 分鐘（上限 30）、最短調整間隔最低 1 分鐘（上限 60）。預設仍 5／10 分鐘，既有設定不變；回饋使用中的感測器約每分鐘取得最新讀值，歷史記錄仍約每 5 分鐘；同一顆感測器共用查詢，相同讀取樣本不重複調整。

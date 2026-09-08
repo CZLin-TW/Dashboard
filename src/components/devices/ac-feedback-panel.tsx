@@ -87,8 +87,8 @@ function FeedbackSettings({ device, onSettingsSaved }: { device: DeviceData; onS
           <summary className="cursor-pointer text-sm text-foreground">進階設定</summary>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {([
-              ["interval_min", "評估間隔（分鐘）", 5, 30, 1], ["tolerance", "容許溫差（±°C）", 0.3, 2, 0.1],
-              ["step", "每次調整（°C）", 1, 2, 1], ["min_adjust_min", "最短調整間隔（分鐘）", 5, 60, 1],
+              ["interval_min", "評估間隔（分鐘）", 1, 30, 1], ["tolerance", "容許溫差（±°C）", 0.3, 2, 0.1],
+              ["step", "每次調整（°C）", 1, 2, 1], ["min_adjust_min", "最短調整間隔（分鐘）", 1, 60, 1],
               ["max_offset", "最大補償（±°C）", 1, 5, 1],
             ] as const).map(([key, label, min, max, step]) => <label key={key} className="block text-xs text-mute">{label}
               <input required type="number" min={min} max={max} step={step} value={cfg[key]}
@@ -97,7 +97,7 @@ function FeedbackSettings({ device, onSettingsSaved }: { device: DeviceData; onS
           </div>
           <button type="button" onClick={() => change({ ...AC_FEEDBACK_DEFAULTS, enabled: cfg.enabled, sensor_name: cfg.sensor_name })}
             className="mt-3 min-h-[38px] text-xs font-medium text-cool">恢復進階預設值</button>
-          <p className="mt-1 text-xs leading-relaxed text-mute">感測器目前約每 5 分鐘更新；相同讀值時間不會重複調整。達標後保持補償，不立即歸零。</p>
+          <p className="mt-1 text-xs leading-relaxed text-mute">間隔最低可設 1 分鐘；回饋啟用且冷／暖房開機時，感測器約每分鐘取值，歷史仍每 5 分鐘記錄。相同讀值時間不會重複調整。達標後保持補償，不立即歸零。</p>
         </details>
         <button type="submit" disabled={!draft && !cfg.enabled} className="min-h-[38px] w-full rounded-full bg-cool px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
           {saving ? "處理中…" : draft ? cfg.enabled ? "保存並立即評估" : "保存回饋設定" : cfg.enabled ? "立即評估" : "回饋已停用"}
