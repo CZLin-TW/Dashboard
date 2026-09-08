@@ -36,7 +36,7 @@
 
 ## 系統架構
 
-空調回饋的演算法、Sheet 欄位、失敗處理及 IR 無法讀回實體電源的限制，見[後端補償說明](https://github.com/CZLin-TW/home-butler/blob/main/docs/ac-temperature-feedback.md)。部署先更新後端，再更新 Dashboard；Homebridge 1.1.0 不需更新。啟用時可「保存並立即評估」，保存後可隨時「立即評估」目前設定，符合條件才送 IR；仍遵守最短調整間隔等限制。停用保留上次 IR 溫度，不發指令，下一次手動送出才恢復面板目標。
+空調回饋的演算法、Sheet 欄位、失敗處理及 IR 無法讀回實體電源的限制，見[後端補償說明](https://github.com/CZLin-TW/home-butler/blob/main/docs/ac-temperature-feedback.md)。部署先更新後端，再更新 Dashboard；Apple Home 的半度調整需更新 Homebridge 插件至 1.2.0，保留既有配對。啟用時可「保存並立即評估」，保存後可隨時「立即評估」目前設定，符合條件才送 IR；仍遵守最短調整間隔等限制。Dashboard 與 Apple Home 的目標皆以 0.5°C 調整。啟用回饋時保留半度舒適目標，IR 仍為整數；未啟用時由後端四捨五入（26.5→27），兩前端同步後端接受的目標。停用會把既有目標四捨五入，但保留上次 IR 溫度、不發指令，下一次手動送出才套用目標。
 
 ```
 使用者（瀏覽器）
@@ -407,7 +407,7 @@ inset shadow 不破 row 的 `rounded-[12px]`。
 - **操作回饋**：待辦完成等操作保留樂觀動畫；劇院開關採儲存鎖與完成後回讀，不預先宣稱已成功。空調、除濕機各自有命令確認流程。
 - **快取與隱私**：使用者／URL 共用 query store，快取格式使用獨立 `CACHE_SCHEMA`，不隨 `APP_VERSION` 清除。待辦、週期規則及含待辦的 dashboard 只存記憶體；其餘可存 localStorage，demo 改用 sessionStorage。失敗／過時有提示；登出與身分失效清除快取。
 - **統一裝置狀態同步**：首頁與裝置頁每 60 秒刷新 `/api/devices/status`，PWA 或分頁回到前景時立即刷新並在 5 秒後補抓背景更新結果；後端先回 in-memory cache，再以 single-flight 背景更新雲端裝置
-- **空調命令確認**：IR 沒法回讀，POST 後輪詢 `/api/devices/status?name=...` 10 秒等 home-butler 的 last-command cache 到位，匹配才清 pending、解鎖 UI（避免 B→A→B 閃爍 + 期間 disable 防連發 race）
+- **空調命令確認**：IR 沒法回讀，POST 後輪詢 `/api/devices/status?name=...` 10 秒等 home-butler 的 last-command cache 到位，以 POST 回傳 state.lastTemperature 為接受目標，匹配才清 pending、解鎖 UI（避免 B→A→B 閃爍 + 期間 disable 防連發 race）
 - **除濕機狀態輪詢**：手動操作後每秒輪詢單一設備、最多 30 秒，匹配雲端真實狀態後才解鎖 UI；自動模式 ON/OFF 後立即刷新統一裝置狀態
 
 ### Pending / dirty 邏輯（空調）

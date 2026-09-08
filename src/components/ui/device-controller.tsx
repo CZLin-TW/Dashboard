@@ -7,6 +7,7 @@ import {
   type DehumidifierAutoRule,
   type AcPendingState,
   acPendingFromDevice,
+  acAcceptedTemperature,
 } from "@/lib/types";
 import type { Sensor } from "@/lib/sensor";
 import type { DehumDevice } from "@/lib/dehumidifier";
@@ -178,6 +179,10 @@ export function DeviceController({
       const message = typeof respData?.message === "string" ? respData.message : "";
       let noticeShown = !p.power && /防黴|送風/.test(message);
       if (noticeShown) setAcNotice(message);
+      const acceptedTemperature = acAcceptedTemperature(p.temperature, respData?.state);
+      if (p.power && acceptedTemperature !== p.temperature) {
+        setAcNotice(`回饋未啟用，目標已四捨五入為 ${acceptedTemperature}°C`);
+      }
 
       // AC 是 IR 單向、沒法回讀真實狀態。home-butler 寫回 Sheet 並同步更新
       // /api/devices/status 的 last-* cache，當作「已生效」訊號。10 秒內每秒輪詢，
@@ -194,12 +199,12 @@ export function DeviceController({
             const rawTemp = d.lastTemperature;
             const tempNum =
               typeof rawTemp === "number" ? rawTemp :
-              typeof rawTemp === "string" && rawTemp.trim() !== "" ? parseInt(rawTemp, 10) : NaN;
+              typeof rawTemp === "string" && rawTemp.trim() !== "" ? Number(rawTemp) : NaN;
             let matched: boolean;
             if (p.power) {
               matched =
                 d.lastPower === "on" &&
-                tempNum === p.temperature &&
+                tempNum === acceptedTemperature &&
                 (d.lastMode || "") === p.mode &&
                 (d.lastFanSpeed || "") === p.fanSpeed;
             } else {
@@ -433,8 +438,8 @@ export function DeviceController({
           <Field label="設定溫度">
           <Stepper
             value={p.temperature}
-            onMinus={() => updateAcPending({ temperature: Math.max(options.ac.temperature.min, p.temperature - 1) })}
-            onPlus={() => updateAcPending({ temperature: Math.min(options.ac.temperature.max, p.temperature + 1) })}
+            onMinus={() => updateAcPending({ temperature: Math.max(options.ac.temperature.min, p.temperature - 0.5) })}
+            onPlus={() => updateAcPending({ temperature: Math.min(options.ac.temperature.max, p.temperature + 0.5) })}
             min={options.ac.temperature.min}
             max={options.ac.temperature.max}
             disabled={sending || acAwaiting}
@@ -481,7 +486,10 @@ export function DeviceController({
             ? "送出設定"
             : "未變更"}
         </button>
-        <AcFeedbackPanel device={device} />
+        <AcFeedbackPanel device={device} onSettingsSaved={async () => {
+          if (onAcCommandSuccess) await onAcCommandSuccess();
+          setPending(null);
+        }} />
       </>
     );
   }

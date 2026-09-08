@@ -13,6 +13,7 @@ import { GET as dashboardGET } from "../src/app/api/dashboard/route";
 import { GET as sensorsGET } from "../src/app/api/sensors/status/route";
 import { GET as feedbackGET, POST as feedbackPOST } from "../src/app/api/ac/feedback/route";
 import { AC_FEEDBACK_DEFAULTS } from "../src/lib/ac-feedback";
+import { acAcceptedTemperature, acPendingFromDevice } from "../src/lib/types";
 
 const origin = "http://127.0.0.1:3001";
 function request(path: string, method = "GET", body?: unknown) {
@@ -155,6 +156,31 @@ test("explicit feedback evaluation adjusts only IR once and reports skipped cond
   const offline = createSimulator(createDemoState("offline"));
   const result = await (await offline.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config, evaluate_now: true }))).json();
   assert.equal(result.evaluation.status, "sensor_stale");
+});
+
+test("half-degree targets round only without feedback and disabling preserves the IR setting", async () => {
+  const sim = createSimulator();
+  const send = async (temperature: number) => sim.handle(request("/api/devices/control", "POST", {
+    deviceName: "客廳冷氣", action: "setAll", params: { power: true, temperature, mode: "冷氣", fanSpeed: "低" },
+  }));
+  const rounded = await (await send(26.5)).json();
+  assert.equal(rounded.state.lastTemperature, 27);
+  assert.equal(acAcceptedTemperature(26.5, rounded.state), 27);
+  const config = { ...AC_FEEDBACK_DEFAULTS, enabled: true, sensor_name: "客廳感測器" };
+  await sim.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config }));
+  const precise = await (await send(26.5)).json();
+  assert.equal(precise.state.lastTemperature, 26.5);
+  assert.equal(acAcceptedTemperature(26.5, precise.state), 26.5);
+  assert.equal(acPendingFromDevice({ ...precise.state, lastTemperature: "26.5" }).temperature, 26.5);
+  assert.equal(sim.snapshot().acFeedback!["客廳冷氣"].ir_temperature, 27);
+  const before = sim.snapshot();
+  await sim.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config: { ...config, enabled: false } }));
+  assert.equal(sim.snapshot().devices[0].lastTemperature, 27);
+  assert.equal(sim.snapshot().acFeedback!["客廳冷氣"].ir_temperature, before.acFeedback!["客廳冷氣"].ir_temperature);
+  assert.equal(sim.snapshot().devices[0].lastPower, before.devices[0].lastPower);
+  assert.deepEqual(sim.snapshot().schedules, before.schedules);
+  assert.equal((await send(26.2)).status, 400);
+  assert.equal(acAcceptedTemperature(26.5), 26.5); // Old server: no guessed normalization.
 });
 
 test("todo and food CRUD change data; readonly entries reject edits", async () => {

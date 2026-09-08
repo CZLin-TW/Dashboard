@@ -59,6 +59,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 文件維護
 
+v1.43.0：空調目標步幅 0.5°C，不可用 parseInt 讀取。未啟用回饋時後端四捨五入；命令確認依 POST 的 state.lastTemperature（acAcceptedTemperature）輪詢，不能拿原始半度草稿等待。停用回饋設定後刷新父層裝置並清空草稿。demo 必須保留半度舒適目標與整數 IR 的區別，Apple Home 插件需 1.2.0。
+
 v1.42.1：啟用時按鈕為「保存並立即評估」，無草稿時為「立即評估」；POST 明確傳 `evaluate_now`，無草稿不可傳 config 覆蓋後端。停用僅保存、不評估。顯示後端 `evaluation.status` 的實際結果，不把保存成功說成已發 IR；不可自動重送未知結果。
 
 v1.42.0 空調回饋 UI 位於 `ac-feedback-panel.tsx`，首頁／裝置頁共用。`最後溫度`／`lastTemperature` 仍是舒適目標，IR 下發另讀 `/api/ac/feedback`；不要把补償值寫回面板或 HomeKit 目標。設定 API 必須驗證 Session 並拒絕 kid，後端只接受 owner Key。模擬設定需同步 fixtures、simulator、`tests/demo.test.ts`；保存設定不應觸發 `devices/control`。

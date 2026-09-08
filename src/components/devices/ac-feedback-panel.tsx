@@ -6,7 +6,7 @@ import { useUser } from "@/hooks/use-user";
 import { AC_FEEDBACK_DEFAULTS, AC_FEEDBACK_STATUS, type AcFeedbackConfig, type AcFeedbackResponse } from "@/lib/ac-feedback";
 import type { DeviceData } from "@/lib/types";
 
-export function AcFeedbackPanel({ device }: { device: DeviceData }) {
+export function AcFeedbackPanel({ device, onSettingsSaved }: { device: DeviceData; onSettingsSaved?: () => Promise<void> | void }) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const { currentUser } = useUser();
@@ -16,11 +16,11 @@ export function AcFeedbackPanel({ device }: { device: DeviceData }) {
       className="flex min-h-[38px] w-full items-center justify-between gap-2 text-left text-sm font-medium text-foreground">
       溫度回饋補償<ChevronDown className={`h-4 w-4 text-mute transition-transform ${open ? "rotate-180" : ""}`} />
     </button>
-    {open && <div id={id}><FeedbackSettings device={device} /></div>}
+    {open && <div id={id}><FeedbackSettings device={device} onSettingsSaved={onSettingsSaved} /></div>}
   </section>;
 }
 
-function FeedbackSettings({ device }: { device: DeviceData }) {
+function FeedbackSettings({ device, onSettingsSaved }: { device: DeviceData; onSettingsSaved?: () => Promise<void> | void }) {
   const { data, error, loading, refetch } = useCachedFetch<AcFeedbackResponse | null>("/api/ac/feedback", null);
   const [draft, setDraft] = useState<AcFeedbackConfig | null>(null);
   const [saving, setSaving] = useState(false);
@@ -50,6 +50,7 @@ function FeedbackSettings({ device }: { device: DeviceData }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "設定保存失敗");
       await refetch(); setDraft(null);
+      if (draft) await onSettingsSaved?.();
       const status = result.evaluation?.status;
       setNotice(status
         ? `${draft ? "設定已保存；" : ""}${status === "compensating" ? "已送出一次補償調整。" : `已評估：${AC_FEEDBACK_STATUS[status] ?? "結果未確認，請重新讀取"}。`}`
@@ -105,6 +106,6 @@ function FeedbackSettings({ device }: { device: DeviceData }) {
       </fieldset>
     </form>
     {notice && <p role="status" className="text-xs text-cool">{notice}</p>}
-    <p className="text-[11px] leading-relaxed text-mute">停用只停止後續補償，保留目前 IR 設定；下次手動送出設定會恢復面板目標。IR 無法讀回實體狀態，啟用期間請透過管家或 Apple Home 關機。</p>
+    <p className="text-[11px] leading-relaxed text-mute">停用會將面板目標四捨五入為整數，保留目前 IR 設定；下次手動送出設定才套用目標。IR 無法讀回實體狀態，啟用期間請透過管家或 Apple Home 關機。</p>
   </div>;
 }

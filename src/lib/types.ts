@@ -216,13 +216,20 @@ export function acPendingFromDevice(device: DeviceData): AcPendingState {
   const raw = device.lastTemperature;
   const tempNum =
     typeof raw === "number" ? raw :
-    typeof raw === "string" && raw.trim() !== "" ? parseInt(raw, 10) : NaN;
+    typeof raw === "string" && raw.trim() !== "" ? Number(raw) : NaN;
   return {
     power: device.lastPower === "on",
     temperature: Number.isFinite(tempNum) ? tempNum : 26,
     mode: device.lastMode || "",
     fanSpeed: device.lastFanSpeed || "",
   };
+}
+
+/** Match the target accepted by the backend; never guess whether feedback is enabled. */
+export function acAcceptedTemperature(requested: number, state?: Partial<DeviceData>): number {
+  const raw = state?.lastTemperature;
+  const value = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() ? Number(raw) : NaN;
+  return Number.isFinite(value) && value >= 16 && value <= 30 && Number.isInteger(value * 2) ? value : requested;
 }
 
 /** 待辦 / 食品的緊急程度 — 用於 list row 的 highlight。

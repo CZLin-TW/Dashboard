@@ -88,6 +88,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         || ([["interval_min", 5, 30], ["step", 1, 2], ["min_adjust_min", 5, 60], ["max_offset", 1, 5]] as const)
           .some(([key, min, max]) => !Number.isInteger(cfg[key]) || cfg[key] < min || cfg[key] > max)) return error("回饋設定超出範圍", 422);
       if (cfg.enabled && !state.devices.some(s => s.type === "感應器" && s.name === cfg.sensor_name && s.location === device.location)) return error("請選擇同房間感測器", 422);
+      if (b.config != null && !cfg.enabled) device.lastTemperature = Math.floor(Number(device.lastTemperature) + 0.5);
       const feedback = { ...prior, config: cfg, status: cfg.enabled ? "settling" : "disabled",
         target_temperature: Number(device.lastTemperature), sensor_temperature: null,
         ir_temperature: prior?.ir_temperature ?? Number(device.lastTemperature) };
@@ -106,7 +107,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         else {
           const target = feedback.target_temperature;
           const sent = feedback.ir_temperature;
-          const next = Math.max(16, target - cfg.max_offset, Math.min(30, target + cfg.max_offset, sent + (measured > target ? -cfg.step : cfg.step)));
+          const next = Math.max(16, Math.ceil(target - cfg.max_offset), Math.min(30, Math.floor(target + cfg.max_offset), sent + (measured > target ? -cfg.step : cfg.step)));
           feedback.status = Math.abs(next - sent) > cfg.step ? "needs_manual" : next === sent ? "at_limit" : "compensating";
           if (feedback.status === "compensating") {
             feedback.ir_temperature = next;
@@ -124,10 +125,12 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       if (state.rules[device.name]?.auto_mode) return error("自動模式啟用中，請先關閉自動模式", 409);
       const p = row(b.params);
       if (b.action === "setAll" && device.type === "空調") {
-        const temp = Number(p.temperature);
-        if (!Number.isFinite(temp) || temp < 16 || temp > 30 || typeof p.power !== "boolean") return error("空調設定無效");
-        if (p.power && state.acFeedback![device.name]) Object.assign(state.acFeedback![device.name], { ir_temperature: temp, last_adjusted_at: Date.now() / 1000, last_sample_at: 0 });
+        const requested = Number(p.temperature);
+        if (!Number.isFinite(requested) || requested < 16 || requested > 30 || !Number.isInteger(requested * 2) || typeof p.power !== "boolean") return error("空調設定無效");
+        const temp = state.acFeedback![device.name]?.config.enabled ? requested : Math.floor(requested + 0.5);
+        if (p.power && state.acFeedback![device.name]) Object.assign(state.acFeedback![device.name], { ir_temperature: Math.floor(temp + 0.5), last_adjusted_at: Date.now() / 1000, last_sample_at: 0 });
         Object.assign(device, { lastPower: p.power ? "on" : "off", lastTemperature: temp, lastMode: str(p.mode), lastFanSpeed: str(p.fanSpeed), lastUpdatedAt: new Date().toISOString() });
+        return json({ ok: true, message: "模擬操作完成", state: device });
       } else if (b.action === "dehumidifier" && device.type === "除濕機") {
         if (typeof p.power === "boolean") device.power = p.power;
         if (typeof p.mode === "string") device.mode = p.mode;
