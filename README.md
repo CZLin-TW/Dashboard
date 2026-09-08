@@ -36,7 +36,7 @@
 
 ## 系統架構
 
-空調回饋的演算法、Sheet 欄位、失敗處理及 IR 無法讀回實體電源的限制，見[後端補償說明](https://github.com/CZLin-TW/home-butler/blob/main/docs/ac-temperature-feedback.md)。部署先更新後端，再更新 Dashboard；Apple Home 的半度調整需更新 Homebridge 插件至 1.2.0，保留既有配對。啟用時可「保存並立即評估」，保存後可隨時「立即評估」目前設定，符合條件才送 IR；仍遵守最短調整間隔等限制。Dashboard 與 Apple Home 的目標皆以 0.5°C 調整。啟用回饋時保留半度舒適目標，IR 仍為整數；未啟用時由後端四捨五入（26.5→27），兩前端同步後端接受的目標。停用會把既有目標四捨五入，但保留上次 IR 溫度、不發指令，下一次手動送出才套用目標。
+空調回饋的演算法、Sheet 欄位、失敗處理及 IR 無法讀回實體電源的限制，見[後端補償說明](https://github.com/CZLin-TW/home-butler/blob/main/docs/ac-temperature-feedback.md)。部署先更新後端，再更新 Dashboard；Apple Home 的半度調整需更新 Homebridge 插件至 1.2.0，保留既有配對。啟用時可「保存並立即評估」，保存後可隨時「立即評估」目前設定，符合條件才送 IR；仍遵守最短調整間隔等限制。Dashboard 以 0.5°C 調整；HomeKit 路徑也接受半度，但使用者實測 Apple Home 按鈕仍為 1°C，Siri 半度控制與畫面顯示正常。啟用回饋時保留半度舒適目標，IR 仍為整數；未啟用時由後端四捨五入（26.5→27），兩前端同步後端接受的目標。停用會把既有目標四捨五入，但保留上次 IR 溫度、不發指令，下一次手動送出才套用目標。
 
 ```
 使用者（瀏覽器）
@@ -417,6 +417,8 @@ inset shadow 不破 row 的 `rounded-[12px]`。
 ---
 
 ## 與 home-butler 的關係
+
+v1.43.1 僅同步系統版本與文件：Homebridge 插件 1.3.0 加入預設關閉的「半度測試空調」，用新配件排查 Apple Home 步幅，無真實家電操作。Dashboard 控制行為沿用 v1.43.0；[診斷操作](https://github.com/CZLin-TW/home-butler/blob/main/homebridge/README.md#半度步幅診斷插件-130)。
 
 Dashboard 是 home-butler 的**視覺化前端**，兩者共用同一套後端 API：
 
