@@ -7,6 +7,7 @@ export interface SessionUser {
   lineUserId: string;
   name: string;
   picture?: string;
+  role?: string;
 }
 
 interface SessionState {

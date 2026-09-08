@@ -5,6 +5,7 @@ import type { AcDevice } from "../ac";
 import type { DehumDevice } from "../dehumidifier";
 import type { ComputerPC } from "../computer";
 import type { TheaterSummary } from "../theater";
+import { AC_FEEDBACK_DEFAULTS, type AcFeedbackState } from "../ac-feedback";
 
 export type Scenario = "normal" | "empty" | "offline" | "error";
 export type Row = Record<string, unknown>;
@@ -39,6 +40,7 @@ export interface DemoState {
   devices: DeviceData[]; todos: TodoData[]; food: (FoodData & { 狀態: string; 新增日: string; 新增者: string })[];
   recurring: RecurringRule[]; schedules: Schedule[]; rules: Record<string, DehumidifierAutoRule>;
   areas: DemoArea[]; lightingRules: Record<string, Row>; theater: TheaterSummary;
+  acFeedback?: Record<string, AcFeedbackState>;
 }
 
 export function createDemoState(scenario: Scenario = "normal", now = Date.now()): DemoState {
@@ -55,6 +57,10 @@ export function createDemoState(scenario: Scenario = "normal", now = Date.now())
   });
   return {
     schema: 2, scenario, createdAt: now, devices: scenario === "empty" ? [] : devices,
+    acFeedback: scenario === "empty" ? {} : { "客廳冷氣": {
+      config: { ...AC_FEEDBACK_DEFAULTS, sensor_name: "客廳感測器" }, status: "disabled",
+      sensor_temperature: scenario === "offline" ? null : 26.4, target_temperature: 26, ir_temperature: 25,
+    } },
     todos: scenario === "empty" ? [] : [
       todo("清洗冷氣濾網", -1), todo("倒垃圾", 0, { 時間: "20:00", 類型: "公開", 燈光提醒: true, 燈光區域ID: "demo-living", 規則ID: "demo-daily" }),
       todo("購買洗衣精", 2, { 類型: "公開" }), todo("行事曆範例（唯讀）", 3, { 來源: "Notion", 屬性: "唯讀" }),

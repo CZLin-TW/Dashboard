@@ -1,4 +1,5 @@
 import { createDemoState, dateAt, monitoring, OPTIONS, weather, type DemoState, type Row } from "./fixtures";
+import { AC_FEEDBACK_DEFAULTS, type AcFeedbackConfig } from "../ac-feedback";
 
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { "Cache-Control": "no-store", "X-Dashboard-Demo": "1" } });
 const error = (message: string, status = 400) => json({ error: message }, status);
@@ -9,6 +10,7 @@ const success = () => json({ ok: true, message: "模擬操作完成" });
 /** An independent store per browser tab. Unknown requests never fall through to a backend. */
 export function createSimulator(initial = createDemoState(), persist: (state: DemoState) => void = () => {}) {
   const state = structuredClone(initial);
+  state.acFeedback ??= {};
   let sequence = 0;
 
   async function dispatch(request: Request): Promise<Response> {
@@ -50,6 +52,13 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
           .filter(([name]) => !value("name") || name === value("name"))
           .map(([name, sensor]) => [name, value("include_history") === "false" ? { ...sensor, history: [] } : sensor])));
         case "/api/ac/status": return json(history().acs);
+        case "/api/ac/feedback": return json({ devices: Object.fromEntries(state.devices.filter(d => d.type === "空調").map(d => {
+          const saved = state.acFeedback![d.name] ?? { config: AC_FEEDBACK_DEFAULTS, ir_temperature: Number(d.lastTemperature) };
+          const sensor = state.devices.find(s => s.name === saved.config.sensor_name);
+          const status = !saved.config.enabled ? "disabled" : state.scenario === "offline" ? "sensor_stale"
+            : d.lastPower !== "on" ? "waiting_power" : !["冷氣", "暖氣"].includes(d.lastMode ?? "") ? "waiting_mode" : "settling";
+          return [d.name, { ...saved, status, target_temperature: Number(d.lastTemperature), sensor_temperature: state.scenario === "offline" ? null : sensor?.temperature ?? null }];
+        })), sensors: state.devices.filter(d => d.type === "感應器").map(d => ({ name: d.name, location: d.location })) });
         case "/api/dehumidifier/history": return json(history().dehums);
         case "/api/computers/status": return json(history().computers);
         case "/api/dehumidifier/auto-rule": return json(state.rules);
@@ -66,6 +75,22 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       if (/^\/api\/lighting\/auto\/sensors\/[^/]+\/light-level$/.test(path)) return json({ light_level: 4, source: "webhook", age_seconds: 5 });
     }
 
+    if (path === "/api/ac/feedback" && method === "POST") {
+      const device = state.devices.find(d => d.name === b.device_name && d.type === "空調");
+      if (!device) return error("找不到模擬空調", 404);
+      const raw = row(b.config);
+      if (Object.keys(raw).some(k => !(k in AC_FEEDBACK_DEFAULTS))) return error("回饋設定欄位無效", 422);
+      const cfg = { ...AC_FEEDBACK_DEFAULTS, ...raw } as AcFeedbackConfig;
+      if (typeof cfg.enabled !== "boolean" || typeof cfg.sensor_name !== "string"
+        || !Number.isFinite(cfg.tolerance) || cfg.tolerance < 0.3 || cfg.tolerance > 2
+        || ([["interval_min", 5, 30], ["step", 1, 2], ["min_adjust_min", 5, 60], ["max_offset", 1, 5]] as const)
+          .some(([key, min, max]) => !Number.isInteger(cfg[key]) || cfg[key] < min || cfg[key] > max)) return error("回饋設定超出範圍", 422);
+      if (cfg.enabled && !state.devices.some(s => s.type === "感應器" && s.name === cfg.sensor_name && s.location === device.location)) return error("請選擇同房間感測器", 422);
+      state.acFeedback![device.name] = { config: cfg, status: cfg.enabled ? "settling" : "disabled",
+        target_temperature: Number(device.lastTemperature), sensor_temperature: null,
+        ir_temperature: state.acFeedback![device.name]?.ir_temperature ?? Number(device.lastTemperature) };
+      return json({ config: cfg });
+    }
     if (path === "/api/devices/control" && method === "POST") {
       const device = state.devices.find(d => d.name === b.deviceName);
       if (!device) return error("找不到模擬設備", 404);
@@ -74,6 +99,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       if (b.action === "setAll" && device.type === "空調") {
         const temp = Number(p.temperature);
         if (!Number.isFinite(temp) || temp < 16 || temp > 30 || typeof p.power !== "boolean") return error("空調設定無效");
+        if (p.power && state.acFeedback![device.name]) state.acFeedback![device.name].ir_temperature = temp;
         Object.assign(device, { lastPower: p.power ? "on" : "off", lastTemperature: temp, lastMode: str(p.mode), lastFanSpeed: str(p.fanSpeed), lastUpdatedAt: new Date().toISOString() });
       } else if (b.action === "dehumidifier" && device.type === "除濕機") {
         if (typeof p.power === "boolean") device.power = p.power;

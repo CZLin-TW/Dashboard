@@ -16,6 +16,7 @@ import { Toggle2, Stepper, Segment, Dropdown, Field, StatusLine, ControlDetails 
 // 不該為了預設看不到的圖表等 recharts 下載完才能互動（見 lazy-charts.tsx）。
 import { AutoModeChart, HumidityCurveChart } from "@/components/devices/lazy-charts";
 import { DehumidifierHistory } from "@/components/home/history-charts";
+import { AcFeedbackPanel } from "@/components/devices/ac-feedback-panel";
 
 const DURATION_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: "立即" },
@@ -480,6 +481,7 @@ export function DeviceController({
             ? "送出設定"
             : "未變更"}
         </button>
+        <AcFeedbackPanel device={device} />
       </>
     );
   }

@@ -11,6 +11,8 @@ import { proxy } from "../src/proxy";
 import { butlerGet, butlerPost } from "../src/lib/butler";
 import { GET as dashboardGET } from "../src/app/api/dashboard/route";
 import { GET as sensorsGET } from "../src/app/api/sensors/status/route";
+import { GET as feedbackGET, POST as feedbackPOST } from "../src/app/api/ac/feedback/route";
+import { AC_FEEDBACK_DEFAULTS } from "../src/lib/ac-feedback";
 
 const origin = "http://127.0.0.1:3001";
 function request(path: string, method = "GET", body?: unknown) {
@@ -92,6 +94,47 @@ test("AC writes are confirmed by status polling, survive reload, and isolate ses
   assert.equal(other.snapshot().devices[0].lastTemperature, 26);
   assert.equal((await sim.handle(request("/api/devices/control", "POST", { ...body, params: { ...body.params, temperature: 100 } }))).status, 400);
   assert.equal((await sim.handle(request("/api/devices/control", "POST", { deviceName: "客廳除濕機", action: "dehumidifier", params: { power: false } }))).status, 409);
+});
+
+test("feedback settings persist without operating AC or changing comfort target and schedules", async () => {
+  let saved = createDemoState();
+  const sim = createSimulator(saved, state => { saved = state; });
+  const before = sim.snapshot();
+  const config = { ...AC_FEEDBACK_DEFAULTS, enabled: true, sensor_name: "客廳感測器", interval_min: 10 };
+  assert.equal((await sim.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config }))).status, 200);
+  assert.deepEqual(sim.snapshot().devices, before.devices);
+  assert.deepEqual(sim.snapshot().schedules, before.schedules);
+  const reloaded = createSimulator(JSON.parse(JSON.stringify(saved)));
+  const read = async () => (await (await reloaded.handle(request("/api/ac/feedback"))).json()).devices["客廳冷氣"];
+  assert.equal((await read()).config.interval_min, 10);
+  assert.equal((await read()).target_temperature, 26);
+  assert.equal((await read()).ir_temperature, 25);
+  await reloaded.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config: { ...config, enabled: false } }));
+  assert.equal((await read()).ir_temperature, 25);
+  await reloaded.handle(request("/api/devices/control", "POST", { deviceName: "客廳冷氣", action: "setAll", params: { power: true, temperature: 27, mode: "冷氣", fanSpeed: "低" } }));
+  assert.equal((await read()).target_temperature, 27);
+  assert.equal((await read()).ir_temperature, 27);
+  for (const invalid of [{ step: 3 }, { interval_min: 1 }, { tolerance: null }, { sensor_name: "主臥感測器" }, { enabled: "true" }, { power: "on" }]) {
+    assert.equal((await sim.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config: { ...config, ...invalid } }))).status, 422);
+  }
+});
+
+test("feedback routes reject anonymous and kid sessions before contacting backend", async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return Response.json({ devices: {}, sensors: [] }); };
+  try {
+    assert.equal((await feedbackGET(request("/api/ac/feedback"))).status, 401);
+    assert.equal((await feedbackPOST(request("/api/ac/feedback", "POST", {}))).status, 401);
+    const kid = await new SignJWT({ lineUserId: "kid-id", role: "kid" }).setProtectedHeader({ alg: "HS256" }).setExpirationTime("5m").sign(JWT_SECRET);
+    for (const handler of [feedbackGET, feedbackPOST]) {
+      assert.equal((await handler(new Request(origin + "/api/ac/feedback", { headers: { cookie: `dashboard_session=${kid}` } }))).status, 403);
+    }
+    assert.equal(calls, 0);
+    const member = await new SignJWT({ lineUserId: "member-id", role: "member" }).setProtectedHeader({ alg: "HS256" }).setExpirationTime("5m").sign(JWT_SECRET);
+    assert.equal((await feedbackGET(new Request(origin + "/api/ac/feedback", { headers: { cookie: `dashboard_session=${member}` } }))).status, 200);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = original; }
 });
 
 test("todo and food CRUD change data; readonly entries reject edits", async () => {
