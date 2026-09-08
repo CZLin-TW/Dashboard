@@ -137,6 +137,26 @@ test("feedback routes reject anonymous and kid sessions before contacting backen
   } finally { globalThis.fetch = original; }
 });
 
+test("explicit feedback evaluation adjusts only IR once and reports skipped conditions", async () => {
+  const initial = createDemoState();
+  initial.devices.find(d => d.name === "客廳感測器")!.temperature = 28;
+  const sim = createSimulator(initial);
+  const config = { ...AC_FEEDBACK_DEFAULTS, enabled: true, sensor_name: "客廳感測器" };
+  const evaluate = async (body: object) => (await (await sim.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", evaluate_now: true, ...body }))).json());
+  assert.equal((await evaluate({ config })).evaluation.status, "compensating");
+  assert.equal(sim.snapshot().acFeedback!["客廳冷氣"].ir_temperature, 24);
+  assert.deepEqual(sim.snapshot().devices, initial.devices);
+  assert.deepEqual(sim.snapshot().schedules, initial.schedules);
+  const repeated = await evaluate({});
+  assert.equal(repeated.evaluation.status, "waiting_sample");
+  assert.equal(repeated.config, undefined);
+  assert.equal(sim.snapshot().acFeedback!["客廳冷氣"].ir_temperature, 24);
+  assert.equal((await evaluate({ config: { ...config, enabled: false } })).evaluation.status, "disabled");
+  const offline = createSimulator(createDemoState("offline"));
+  const result = await (await offline.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config, evaluate_now: true }))).json();
+  assert.equal(result.evaluation.status, "sensor_stale");
+});
+
 test("todo and food CRUD change data; readonly entries reject edits", async () => {
   const sim = createSimulator();
   await sim.handle(request("/api/todos", "POST", { item: "測試事項", date: "2026-10-01" }));

@@ -42,13 +42,18 @@ function FeedbackSettings({ device }: { device: DeviceData }) {
   const offset = live.ir_temperature !== null && live.target_temperature !== null
     ? live.ir_temperature - live.target_temperature : null;
   async function save() {
+    if (saving) return;
     setSaving(true); setNotice("");
     try {
       const response = await fetch("/api/ac/feedback", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ device_name: device.name, config: cfg }) });
+        body: JSON.stringify({ device_name: device.name, ...(draft ? { config: cfg } : {}), evaluate_now: cfg.enabled }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "設定保存失敗");
-      await refetch(); setDraft(null); setNotice("設定已保存；本次不會發送空調指令。");
+      await refetch(); setDraft(null);
+      const status = result.evaluation?.status;
+      setNotice(status
+        ? `${draft ? "設定已保存；" : ""}${status === "compensating" ? "已送出一次補償調整。" : `已評估：${AC_FEEDBACK_STATUS[status] ?? "結果未確認，請重新讀取"}。`}`
+        : "設定已保存，回饋已停用。");
     } catch (e) {
       setNotice(e instanceof Error ? e.message : "設定未確認，請重新讀取");
       await refetch();
@@ -93,9 +98,10 @@ function FeedbackSettings({ device }: { device: DeviceData }) {
             className="mt-3 min-h-[38px] text-xs font-medium text-cool">恢復進階預設值</button>
           <p className="mt-1 text-xs leading-relaxed text-mute">感測器目前約每 5 分鐘更新；相同讀值時間不會重複調整。達標後保持補償，不立即歸零。</p>
         </details>
-        <button type="submit" disabled={!draft} className="min-h-[38px] w-full rounded-full bg-cool px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
-          {saving ? "保存中…" : draft ? "保存回饋設定" : "設定已保存"}
+        <button type="submit" disabled={!draft && !cfg.enabled} className="min-h-[38px] w-full rounded-full bg-cool px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
+          {saving ? "處理中…" : draft ? cfg.enabled ? "保存並立即評估" : "保存回饋設定" : cfg.enabled ? "立即評估" : "回饋已停用"}
         </button>
+        <p className="text-xs leading-relaxed text-mute">立即評估會使用目前的感測讀值；符合補償條件才送出 IR，仍遵守最短調整間隔。</p>
       </fieldset>
     </form>
     {notice && <p role="status" className="text-xs text-cool">{notice}</p>}

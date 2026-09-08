@@ -36,7 +36,7 @@
 
 ## 系統架構
 
-空調回饋的演算法、Sheet 欄位、失敗處理及 IR 無法讀回實體電源的限制，見[後端補償說明](https://github.com/CZLin-TW/home-butler/blob/main/docs/ac-temperature-feedback.md)。部署先更新後端，再更新 Dashboard；Homebridge 1.1.0 不需更新。保存／停用設定本身不送 IR，停用保留上次 IR 溫度，下一次手動送出才恢復面板目標。
+空調回饋的演算法、Sheet 欄位、失敗處理及 IR 無法讀回實體電源的限制，見[後端補償說明](https://github.com/CZLin-TW/home-butler/blob/main/docs/ac-temperature-feedback.md)。部署先更新後端，再更新 Dashboard；Homebridge 1.1.0 不需更新。啟用時可「保存並立即評估」，保存後可隨時「立即評估」目前設定，符合條件才送 IR；仍遵守最短調整間隔等限制。停用保留上次 IR 溫度，不發指令，下一次手動送出才恢復面板目標。
 
 ```
 使用者（瀏覽器）

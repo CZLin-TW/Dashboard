@@ -40,7 +40,7 @@ export interface DemoState {
   devices: DeviceData[]; todos: TodoData[]; food: (FoodData & { 狀態: string; 新增日: string; 新增者: string })[];
   recurring: RecurringRule[]; schedules: Schedule[]; rules: Record<string, DehumidifierAutoRule>;
   areas: DemoArea[]; lightingRules: Record<string, Row>; theater: TheaterSummary;
-  acFeedback?: Record<string, AcFeedbackState>;
+  acFeedback?: Record<string, AcFeedbackState & { last_sample_at?: number }>;
 }
 
 export function createDemoState(scenario: Scenario = "normal", now = Date.now()): DemoState {

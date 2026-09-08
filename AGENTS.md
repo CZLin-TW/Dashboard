@@ -59,6 +59,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 文件維護
 
+v1.42.1：啟用時按鈕為「保存並立即評估」，無草稿時為「立即評估」；POST 明確傳 `evaluate_now`，無草稿不可傳 config 覆蓋後端。停用僅保存、不評估。顯示後端 `evaluation.status` 的實際結果，不把保存成功說成已發 IR；不可自動重送未知結果。
+
 v1.42.0 空調回饋 UI 位於 `ac-feedback-panel.tsx`，首頁／裝置頁共用。`最後溫度`／`lastTemperature` 仍是舒適目標，IR 下發另讀 `/api/ac/feedback`；不要把补償值寫回面板或 HomeKit 目標。設定 API 必須驗證 Session 並拒絕 kid，後端只接受 owner Key。模擬設定需同步 fixtures、simulator、`tests/demo.test.ts`；保存設定不應觸發 `devices/control`。
 
 先讀 [系統導覽](https://github.com/CZLin-TW/home-butler/blob/main/docs/system-overview.md) 與 [驗證紀錄](docs/verification.md)。修改行為時同步修正 README 原有段落、API 表格與相關註解，不只在文末追加版本說明。歷史實測需附日期／版本；模擬驗證不能寫成實機成功。
