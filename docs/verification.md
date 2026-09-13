@@ -1,11 +1,12 @@
 # 驗證方式與範圍
 
-2026-09-13 候選 v1.45.0：26 項離線測試、lint、Next 建置、最終 TypeScript 檢查通過。
+2026-09-13 v1.45.0 已推送 main：26 項離線測試、lint、Next 建置、最終 TypeScript 檢查通過。
 新增 HA 觀測格式／讀取時效、未知不當 false、匿名與 kid 拒絕的測試。
 模擬家庭瀏覽器檢查正常資料與設備離線；一般寬度及 390×844 檢查新卡片，無橫向截斷。
 修正顯示時計稍早於新讀取時間造成短暫顯示未知的問題，再跑 26 項測試及型別檢查通過。
-這不是 iPhone Safari 或家庭 HA 的實機驗證；目前變更尚未提交／推送，
-後端與 HA Core CI／安裝仍待發布及驗收。
+Dashboard [6316c03 CI](https://github.com/CZLin-TW/Dashboard/actions/runs/34745746323) 通過，
+後端 HA Core 2026.9.2 框架 CI 亦通過。這不是 iPhone Safari 或家庭 HA 的實機驗證；
+Render 專用 key、家中 HA 安裝與 FP2 真實同步仍待設定及驗收。
 
 ## 2026-09-09 一分鐘間隔與感測說明（v1.44.0）
 
