@@ -1,5 +1,8 @@
 # 驗證方式與範圍
 
+2026-09-13 v1.49.0：系統版本更新，新增功能位於後端 repo 的 HA Hub 2 光照整合。
+本次不改 Dashboard UI／API；Hub 2 光照等級不是 lux，不混入現有 FP2 照度通道。
+
 2026-09-13 v1.48.0：HA 電扇遙控按鈕功能位於 home-butler；本 repo 僅更新系統版本與文件。
 原 IR 按鈕 payload 與 UI 不變，後端以 HOME_ASSISTANT_IR_NAMES 將選定電扇切到 HA；
 成功表示 API 接受，非實體狀態回讀。家庭安裝與驗收結果以 home-butler/docs/verification.md 為準。
