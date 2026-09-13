@@ -1,5 +1,7 @@
 # 驗證方式與範圍
 
+2026-09-13 v1.47.0：本 repo 僅更新整體系統版本與文件，UI、API 契約沒有改動。新功能與 HA 框架測試位於 home-butler 的 `homeassistant/custom_components/ac_room_temperature`；HA 實機設定與 Apple Home 驗收進度見後端驗證紀錄。
+
 2026-09-13 v1.46.0 HA 空調：27 項離線測試、lint 與正式建置通過。
 模擬頁面確認 HA 空調 26→27°C 一度步進及保存後同步、取消回饋與排程編輯。
 離線情境顯示未知並拒絕控制；檢查後再移除離線時會誤導的預設溫度／電源面板，lint／型別檢查通過。
