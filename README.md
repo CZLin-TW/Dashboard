@@ -2,6 +2,9 @@ v1.46.0 HA 空調遷移：後端 controlProvider=home_assistant 時，Dashboard 
 
 # Smart Home Dashboard
 
+v1.48.0 可將既有電扇「電源、風速＋、風速－」改由 HA 的本地按鈕發送，Dashboard 操作方式不變。
+先依 [HA IR 按鈕設定](https://github.com/CZLin-TW/home-butler/blob/main/homeassistant/ir-buttons.md) 安裝與逐台切換；不會推測風量百分比或實際開關狀態。
+
 v1.47.0 新增 HA 本機「空調室溫配對」，讓 Apple Home 顯示可自行更換的外部感測器室溫；設定在 HA，Dashboard 控制面板維持原生 HA 空調。詳見[設定與更換感測器](https://github.com/CZLin-TW/home-butler/blob/main/homeassistant/room-temperature.md)。這不是回饋補償，不會依室溫自動控制冷氣。
 
 v1.45.0 新增裝置頁「空間感測」：顯示 HA 共享的區域存在與亮度，失聯或過時顯示未知。

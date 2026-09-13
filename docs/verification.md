@@ -1,5 +1,9 @@
 # 驗證方式與範圍
 
+2026-09-13 v1.48.0：HA 電扇遙控按鈕功能位於 home-butler；本 repo 僅更新系統版本與文件。
+原 IR 按鈕 payload 與 UI 不變，後端以 HOME_ASSISTANT_IR_NAMES 將選定電扇切到 HA；
+成功表示 API 接受，非實體狀態回讀。家庭安裝與驗收結果以 home-butler/docs/verification.md 為準。
+
 2026-09-13 v1.47.1：後端 HA 分流補上 Dashboard 中文模式／風速的正規化；本 repo 只更新系統版本與文件。
 原本相同設定的面板檢查不足以驗證控制送達；真實中文 payload 的回歸測試與端到端驗證記錄以 home-butler/docs/verification.md 為準。
 
