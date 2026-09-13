@@ -20,7 +20,7 @@ function expireOldData() {
 
 function emit(entry: Entry) { entry.listeners.forEach(fn => fn()); statusVersion++; statusListeners.forEach(fn => fn()); }
 export function queryKey(user: string, url: string) { return `cache:${CACHE_SCHEMA}:${encodeURIComponent(user)}:${url}`; }
-function persistent(url: string) { return !/^\/api\/(todos|dashboard|recurring-todos)(?:[/?]|$)/.test(url); }
+function persistent(url: string) { return !/^\/api\/(todos|dashboard|recurring-todos|home-assistant)(?:[/?]|$)/.test(url); }
 function entryFor(key: string, url: string): Entry {
   let entry = entries.get(key);
   if (!entry) {

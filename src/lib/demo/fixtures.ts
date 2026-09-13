@@ -5,10 +5,23 @@ import type { AcDevice } from "../ac";
 import type { DehumDevice } from "../dehumidifier";
 import type { ComputerPC } from "../computer";
 import type { TheaterSummary } from "../theater";
+import type { HaSnapshot } from "../home-assistant";
 import { AC_FEEDBACK_DEFAULTS, type AcFeedbackState } from "../ac-feedback";
 
 export type Scenario = "normal" | "empty" | "offline" | "error";
 export type Row = Record<string, unknown>;
+
+export function haObservations(scenario: Scenario, now = Date.now()): HaSnapshot {
+  const online = scenario !== "offline";
+  return { configured: true, connected: online, online,
+    received_at: (now - (online ? 0 : 180_000)) / 1000, age_seconds: online ? 0 : 180,
+    stale_after_seconds: 90,
+    observations: scenario === "empty" ? [] : [
+      { id: "a".repeat(32), entity_id: "binary_sensor.fp2_sofa", name: "沙發區", area: "客廳", kind: "occupancy", value: online ? true : null, available: online, source_updated_at: now / 1000 },
+      { id: "b".repeat(32), entity_id: "binary_sensor.fp2_dining", name: "餐桌區", area: "餐廳", kind: "occupancy", value: online ? false : null, available: online, source_updated_at: now / 1000 - 3600 },
+      { id: "c".repeat(32), entity_id: "sensor.fp2_light", name: "客廳亮度", area: "客廳", kind: "illuminance", value: online ? 128 : null, available: online, source_updated_at: now / 1000 },
+    ] };
+}
 
 export function dateAt(offset: number, now = Date.now()): string {
   return new Date(now + 8 * 3600_000 + offset * 86400_000).toISOString().slice(0, 10);

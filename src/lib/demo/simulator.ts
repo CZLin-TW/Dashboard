@@ -1,4 +1,4 @@
-import { createDemoState, dateAt, monitoring, OPTIONS, weather, type DemoState, type Row } from "./fixtures";
+import { createDemoState, dateAt, monitoring, haObservations, OPTIONS, weather, type DemoState, type Row } from "./fixtures";
 import { AC_FEEDBACK_DEFAULTS, type AcFeedbackConfig } from "../ac-feedback";
 
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { "Cache-Control": "no-store", "X-Dashboard-Demo": "1" } });
@@ -42,6 +42,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
     if (read) {
       const history = () => monitoring(state);
       switch (path) {
+        case "/api/home-assistant/observations": return json(haObservations(state.scenario));
         case "/api/dashboard": return json(value("include_weather") === "false"
           ? { todos: visibleTodos, food: state.food }
           : { weatherToday: weather(), weatherTomorrow: weather(), todos: visibleTodos, food: state.food });

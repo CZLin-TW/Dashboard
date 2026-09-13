@@ -14,6 +14,28 @@ import { GET as sensorsGET } from "../src/app/api/sensors/status/route";
 import { GET as feedbackGET, POST as feedbackPOST } from "../src/app/api/ac/feedback/route";
 import { AC_FEEDBACK_DEFAULTS } from "../src/lib/ac-feedback";
 import { acAcceptedTemperature, acPendingFromDevice } from "../src/lib/types";
+import { haIsFresh, observationText, type HaSnapshot } from "../src/lib/home-assistant";
+import { GET as haGET } from "../src/app/api/home-assistant/observations/route";
+
+test("HA observations preserve false, unknown and freshness without clock skew", async () => {
+  const live = await (await createSimulator().handle(new Request("http://demo/api/home-assistant/observations"))).json() as HaSnapshot;
+  assert.equal(haIsFresh(live, 1000, 1001, false), true);
+  assert.equal(haIsFresh(live, 1000, 990, false), true); // display timer precedes a just-completed poll
+  assert.equal(observationText(live.observations[0], true), "有人");
+  assert.equal(observationText(live.observations[1], true), "無人");
+  assert.equal(haIsFresh(live, 1000, 92000, false), false);
+  assert.equal(haIsFresh(live, 1000, 1001, true), false);
+  assert.equal(observationText(live.observations[1], false), "未知");
+  const offline = await (await createSimulator(createDemoState("offline")).handle(new Request("http://demo/api/home-assistant/observations"))).json() as HaSnapshot;
+  assert.equal(offline.online, false);
+  assert.ok(offline.observations.every(item => item.value === null && !item.available));
+});
+
+test("HA observation route rejects unauthenticated and kid access", async () => {
+  assert.equal((await haGET(new Request("http://demo/api/home-assistant/observations"))).status, 401);
+  const kid = await new SignJWT({lineUserId:"kid",role:"kid"}).setProtectedHeader({alg:"HS256"}).setExpirationTime("5m").sign(JWT_SECRET);
+  assert.equal((await haGET(new Request("http://demo/api/home-assistant/observations", {headers:{cookie:`dashboard_session=${kid}`}}))).status, 403);
+});
 
 const origin = "http://127.0.0.1:3001";
 function request(path: string, method = "GET", body?: unknown) {

@@ -1,5 +1,10 @@
 # Smart Home Dashboard
 
+v1.45.0 新增裝置頁「空間感測」：顯示 HA 共享的區域存在與亮度，失聯或過時顯示未知。
+一般成員可讀，kid 不開放此新資料；只存記憶體，不把 HA key 送到瀏覽器。
+先部署 home-butler，再依 [HA 安裝說明](https://github.com/CZLin-TW/home-butler/blob/main/homeassistant/README.md) 連接。
+長期責任與遷移順序見 [家庭中樞架構](https://github.com/CZLin-TW/home-butler/blob/main/docs/local-hub-architecture.md)。
+
 > **獨立測試模式**：`npm ci` 後執行 `npm run demo`，開啟 `http://127.0.0.1:3001`，即可用模擬家庭資料查看與操作完整 UI，無須 LINE 配對。支援重設、空資料、離線與 API 失敗情境；不連接真實家電。詳見 [測試模式說明](docs/demo-mode.md)。
 
 新開發者或 AI session 請先讀 [專案開發指引](AGENTS.md) 與[測試模式交接說明](docs/demo-mode.md#新-session-接手)。請在不含正式環境憑證的獨立 checkout 啟動 demo；本機服務與分頁不保證跨 session 保留。

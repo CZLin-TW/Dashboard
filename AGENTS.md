@@ -6,6 +6,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # UI 開發與獨立測試模式
 
+v1.45.0 空間感測：`home-assistant-panel.tsx` 只讀 HA 的選定觀測，一般成員可見、
+kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
+`age_seconds` 加瀏覽器本次讀取後經過時間判斷過期，不比較兩台電腦的絕對時鐘；
+失敗、過期、unavailable 均顯示未知，不能把 false／0 與缺值混淆。
+
 本專案已有可操作的模擬家庭，不需建立測試帳號或取得正式登入憑證。
 新的 session 處理 UI、響應式排版或前端互動時，先讀 [測試模式說明](docs/demo-mode.md)，優先使用此模式驗證。
 
