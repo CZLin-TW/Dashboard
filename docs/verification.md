@@ -1,5 +1,8 @@
 # 驗證方式與範圍
 
+2026-09-14 v1.50.0：本 repo 只更新整體版本。Hub 2 Push 觸發 HA 更新的功能與測試位於 home-butler；
+Dashboard UI／API 契約不變，實機驗證見後端 docs/verification.md。
+
 2026-09-13 v1.49.0：系統版本更新，新增功能位於後端 repo 的 HA Hub 2 光照整合。
 本次不改 Dashboard UI／API；Hub 2 光照等級不是 lux，不混入現有 FP2 照度通道。
 
