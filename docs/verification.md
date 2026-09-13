@@ -1,5 +1,8 @@
 # 驗證方式與範圍
 
+2026-09-13 v1.47.1：後端 HA 分流補上 Dashboard 中文模式／風速的正規化；本 repo 只更新系統版本與文件。
+原本相同設定的面板檢查不足以驗證控制送達；真實中文 payload 的回歸測試與端到端驗證記錄以 home-butler/docs/verification.md 為準。
+
 2026-09-13 v1.47.0：本 repo 僅更新整體系統版本與文件，UI、API 契約沒有改動。新功能與 HA 框架測試位於 home-butler 的 `homeassistant/custom_components/ac_room_temperature`；HA 實機設定與 Apple Home 驗收進度見後端驗證紀錄。
 
 2026-09-13 v1.46.0 HA 空調：27 項離線測試、lint 與正式建置通過。
