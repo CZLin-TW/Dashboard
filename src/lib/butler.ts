@@ -19,7 +19,8 @@ async function butler(method: Method, path: string, body?: unknown, userId?: str
   const init: RequestInit = {
     method,
     headers,
-    signal: AbortSignal.timeout(25_000),
+    // Let the HA command deadline resolve to an explicit unknown result first.
+    signal: AbortSignal.timeout(path === "/api/devices/control/ac" ? 35_000 : 25_000),
   };
   if (method === "GET") {
     init.cache = "no-store";

@@ -55,6 +55,11 @@ export interface DeviceData {
   lastMode?: string;
   lastFanSpeed?: string;
   lastUpdatedAt?: string;
+  controlProvider?: "home_assistant";
+  available?: boolean;
+  stateUncertain?: boolean;
+  stateSource?: string;
+  temperatureStep?: number;
 }
 
 export interface AcPendingState {
@@ -219,9 +224,9 @@ export function acPendingFromDevice(device: DeviceData): AcPendingState {
     typeof raw === "string" && raw.trim() !== "" ? Number(raw) : NaN;
   return {
     power: device.lastPower === "on",
-    temperature: Number.isFinite(tempNum) ? tempNum : 26,
-    mode: device.lastMode || "",
-    fanSpeed: device.lastFanSpeed || "",
+    temperature: Number.isFinite(tempNum) ? (device.controlProvider === "home_assistant" ? Math.round(tempNum) : tempNum) : 26,
+    mode: device.lastMode || (device.controlProvider === "home_assistant" ? "冷氣" : ""),
+    fanSpeed: device.lastFanSpeed || (device.controlProvider === "home_assistant" ? "自動" : ""),
   };
 }
 

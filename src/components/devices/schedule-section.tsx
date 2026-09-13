@@ -77,6 +77,10 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
     (a, b) => (a["觸發時間"] ?? "").localeCompare(b["觸發時間"] ?? ""),
   );
 
+  if (device.controlProvider === "home_assistant") {
+    return <p className="border-t border-line pt-3 text-xs text-mute">空調自動化與排程請在 HA 設定；舊管家排程已停用。</p>;
+  }
+
   return (
     <div className="border-t border-line pt-3.5 flex flex-col gap-2.5">
       <div className="flex items-center justify-between">

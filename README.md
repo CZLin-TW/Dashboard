@@ -1,3 +1,5 @@
+v1.46.0 HA 空調遷移：後端 controlProvider=home_assistant 時，Dashboard 使用整數溫度，隱藏回饋補償與舊排程編輯。HA 是狀態來源，失聯顯示未知並停用控制；命令結果未知不可自動重送。其餘設備行為不變。SwitchBot Cloud 仍走雲端，IR 狀態是最後指令而非實體回讀。
+
 # Smart Home Dashboard
 
 v1.45.0 新增裝置頁「空間感測」：顯示 HA 共享的區域存在與亮度，失聯或過時顯示未知。

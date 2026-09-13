@@ -17,6 +17,26 @@ import { acAcceptedTemperature, acPendingFromDevice } from "../src/lib/types";
 import { haIsFresh, observationText, type HaSnapshot } from "../src/lib/home-assistant";
 import { GET as haGET } from "../src/app/api/home-assistant/observations/route";
 
+test("HA ACs use integer targets, reject feedback and become unavailable offline", async () => {
+  const simulator = createSimulator();
+  const request = (params: object) => new Request("http://demo/api/devices/control", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ deviceName: "HA 測試空調", action: "setAll", params }),
+  });
+  const result = await simulator.handle(request({ power: true, temperature: 26.5, mode: "冷氣", fanSpeed: "自動" }));
+  assert.equal(result.status, 200);
+  assert.equal((await result.json()).state.lastTemperature, 27);
+  const feedback = await simulator.handle(new Request("http://demo/api/ac/feedback", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ device_name: "HA 測試空調", config: { enabled: false } }),
+  }));
+  assert.equal(feedback.status, 422);
+  const offline = createDemoState("offline").devices.find(d => d.name === "HA 測試空調")!;
+  assert.equal(offline.available, false);
+  assert.equal(offline.lastPower, "");
+  assert.equal(acPendingFromDevice({ ...offline, lastTemperature: 26.5 }).temperature, 27);
+});
+
 test("HA observations preserve false, unknown and freshness without clock skew", async () => {
   const live = await (await createSimulator().handle(new Request("http://demo/api/home-assistant/observations"))).json() as HaSnapshot;
   assert.equal(haIsFresh(live, 1000, 1001, false), true);

@@ -79,6 +79,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
     if (path === "/api/ac/feedback" && method === "POST") {
       const device = state.devices.find(d => d.name === b.device_name && d.type === "空調");
       if (!device) return error("找不到模擬空調", 404);
+      if (device.controlProvider === "home_assistant") return error("空調已交由 HA 管理，已取消溫度回饋功能", 422);
       if ((b.evaluate_now !== undefined && typeof b.evaluate_now !== "boolean") || (b.config == null && b.evaluate_now !== true)) return error("請提供設定或要求立即評估", 422);
       const prior = state.acFeedback![device.name];
       const raw = b.config == null ? prior?.config ?? AC_FEEDBACK_DEFAULTS : row(b.config);
@@ -126,9 +127,10 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       if (state.rules[device.name]?.auto_mode) return error("自動模式啟用中，請先關閉自動模式", 409);
       const p = row(b.params);
       if (b.action === "setAll" && device.type === "空調") {
+        if (device.controlProvider === "home_assistant" && !device.available) return error("HA 空調狀態未知", 503);
         const requested = Number(p.temperature);
         if (!Number.isFinite(requested) || requested < 16 || requested > 30 || !Number.isInteger(requested * 2) || typeof p.power !== "boolean") return error("空調設定無效");
-        const temp = state.acFeedback![device.name]?.config.enabled ? requested : Math.floor(requested + 0.5);
+        const temp = device.controlProvider !== "home_assistant" && state.acFeedback![device.name]?.config.enabled ? requested : Math.floor(requested + 0.5);
         if (p.power && state.acFeedback![device.name]) Object.assign(state.acFeedback![device.name], { ir_temperature: Math.floor(temp + 0.5), last_adjusted_at: Date.now() / 1000, last_sample_at: 0 });
         Object.assign(device, { lastPower: p.power ? "on" : "off", lastTemperature: temp, lastMode: str(p.mode), lastFanSpeed: str(p.fanSpeed), lastUpdatedAt: new Date().toISOString() });
         return json({ ok: true, message: "模擬操作完成", state: device });

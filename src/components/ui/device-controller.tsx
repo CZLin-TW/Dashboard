@@ -170,6 +170,10 @@ export function DeviceController({
       if (!res.ok) {
         console.error(`[sendAcCommand] ${device.name} failed: HTTP ${res.status}`);
         setAcAwaiting(false);
+        if (device.controlProvider === "home_assistant") {
+          setAcNotice("HA 指令未確認，請先查看空調狀態；系統不會自動重送。");
+          if (onAcCommandSuccess) await onAcCommandSuccess();
+        }
         flashAcFailed();
         return;
       }
@@ -181,7 +185,7 @@ export function DeviceController({
       if (noticeShown) setAcNotice(message);
       const acceptedTemperature = acAcceptedTemperature(p.temperature, respData?.state);
       if (p.power && acceptedTemperature !== p.temperature) {
-        setAcNotice(`回饋未啟用，目標已四捨五入為 ${acceptedTemperature}°C`);
+        setAcNotice(`目標已調整為 ${acceptedTemperature}°C`);
       }
 
       // AC 是 IR 單向、沒法回讀真實狀態。home-butler 寫回 Sheet 並同步更新
@@ -208,7 +212,7 @@ export function DeviceController({
                 (d.lastMode || "") === p.mode &&
                 (d.lastFanSpeed || "") === p.fanSpeed;
             } else {
-              const isAntimoldFan = d.lastPower === "on" && (d.lastMode || "") === "送風";
+              const isAntimoldFan = device.controlProvider !== "home_assistant" && d.lastPower === "on" && (d.lastMode || "") === "送風";
               matched = d.lastPower === "off" || isAntimoldFan;
               if (isAntimoldFan && !noticeShown) {
                 setAcNotice(message || "已運轉一陣子，先送風防黴，稍後自動關閉 🌬️");
@@ -399,6 +403,12 @@ export function DeviceController({
   // ─── 渲染分派 ───────────────────────────────────────────
 
   if (device.type === "空調") {
+    const haManaged = device.controlProvider === "home_assistant";
+    if (haManaged && device.available !== true) {
+      return <p className="text-sm text-mute">HA 空調狀態未知，暫時無法控制。連線恢復後會重新顯示目前設定。</p>;
+    }
+    const acDisabled = sending || acAwaiting || (haManaged && device.available !== true);
+    const step = haManaged ? 1 : 0.5;
     const p = getAcPending();
     const dirty = isAcDirty();
     const lastTime = device.lastUpdatedAt
@@ -407,6 +417,7 @@ export function DeviceController({
 
     return (
       <>
+        {haManaged && <p className="text-xs text-mute">{!device.available ? "HA 空調狀態未知，暫時無法控制" : device.stateUncertain ? "上次指令結果未知，請先確認空調；可重新指定完整設定。" : "由 HA 管理 · 狀態為最後下達的設定"}</p>}
         {device.lastPower || acAwaiting ? (
           <StatusLine
             tone={acAwaiting ? "waiting" : device.lastPower === "on" ? "running" : "off"}
@@ -433,23 +444,23 @@ export function DeviceController({
 
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-surface-2 p-3 md:p-4">
           <Field label="電源">
-            <Toggle2 value={p.power} onChange={(v) => updateAcPending({ power: v })} disabled={sending || acAwaiting} />
+            <Toggle2 value={p.power} onChange={(v) => updateAcPending({ power: v })} disabled={acDisabled} />
           </Field>
           <Field label="設定溫度">
           <Stepper
             value={p.temperature}
-            onMinus={() => updateAcPending({ temperature: Math.max(options.ac.temperature.min, p.temperature - 0.5) })}
-            onPlus={() => updateAcPending({ temperature: Math.min(options.ac.temperature.max, p.temperature + 0.5) })}
+            onMinus={() => updateAcPending({ temperature: Math.max(options.ac.temperature.min, p.temperature - step) })}
+            onPlus={() => updateAcPending({ temperature: Math.min(options.ac.temperature.max, p.temperature + step) })}
             min={options.ac.temperature.min}
             max={options.ac.temperature.max}
-            disabled={sending || acAwaiting}
+            disabled={acDisabled}
           />
           </Field>
         </div>
 
         <ControlDetails title="模式與風速" summary={[p.mode, p.fanSpeed].filter(Boolean).join(" · ")}>
         <Field label="模式">
-          <Segment options={options.ac.modes} value={p.mode} onSelect={(v) => updateAcPending({ mode: v })} disabled={sending || acAwaiting} />
+          <Segment options={options.ac.modes} value={p.mode} onSelect={(v) => updateAcPending({ mode: v })} disabled={acDisabled} />
         </Field>
 
         <Field label="風速">
@@ -457,7 +468,7 @@ export function DeviceController({
             options={options.ac.fan_speeds}
             value={p.fanSpeed}
             onSelect={(v) => updateAcPending({ fanSpeed: v })}
-            disabled={sending || acAwaiting}
+            disabled={acDisabled}
           />
         </Field>
         </ControlDetails>
@@ -465,7 +476,7 @@ export function DeviceController({
         <button
           type="button"
           onClick={sendAcCommand}
-          disabled={sending || acAwaiting}
+          disabled={acDisabled}
           className={`inline-flex min-h-[38px] w-full items-center justify-center rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
             acFailed
               ? "border-transparent bg-warm text-white animate-pulse"
@@ -486,10 +497,10 @@ export function DeviceController({
             ? "送出設定"
             : "未變更"}
         </button>
-        <AcFeedbackPanel device={device} onSettingsSaved={async () => {
+        {!haManaged && <AcFeedbackPanel device={device} onSettingsSaved={async () => {
           if (onAcCommandSuccess) await onAcCommandSuccess();
           setPending(null);
-        }} />
+        }} />}
       </>
     );
   }

@@ -59,6 +59,10 @@ export interface DemoState {
 export function createDemoState(scenario: Scenario = "normal", now = Date.now()): DemoState {
   const devices: DeviceData[] = [
     { name: "客廳冷氣", type: "空調", location: "客廳", lastPower: "on", lastTemperature: 26, lastMode: "冷氣", lastFanSpeed: "自動" },
+    { name: "HA 測試空調", type: "空調", location: "書房", controlProvider: "home_assistant", temperatureStep: 1,
+      available: scenario !== "offline", stateUncertain: scenario === "offline", stateSource: "ha_last_command",
+      lastPower: scenario === "offline" ? "" : "on", lastTemperature: scenario === "offline" ? "" : 26,
+      lastMode: scenario === "offline" ? "" : "冷氣", lastFanSpeed: scenario === "offline" ? "" : "自動" },
     { name: "客廳除濕機", type: "除濕機", brand: "Panasonic", location: "客廳", power: true, mode: "連續除濕", targetHumidity: "55" },
     { name: "臥室除濕機", type: "除濕機", brand: "LG", location: "臥室", power: false, mode: "智慧除濕", targetHumidity: "60" },
     { name: "循環扇", type: "IR", location: "客廳", buttons: "電源,風速+,風速-,擺頭" },
