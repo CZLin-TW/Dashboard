@@ -247,8 +247,12 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         const target = state.schedules[index];
         if (automatic) {
           const params = row(JSON.parse(target.參數));
-          target.參數 = JSON.stringify({...Object.fromEntries(Object.entries(params).filter(([k]) => !k.startsWith("_auto_"))),
-            ...Object.fromEntries(Object.entries(metadata).filter(([k]) => k.startsWith("_auto_"))), _auto_edited:true});
+          const deviceParams = Object.fromEntries(Object.entries(params).filter(([k]) => !k.startsWith("_auto_")));
+          if (metadata._auto_closed) {
+            target.來源 = "使用者（HA）";
+            target.參數 = JSON.stringify(deviceParams);
+          } else target.參數 = JSON.stringify({...deviceParams,
+              ...Object.fromEntries(Object.entries(metadata).filter(([k]) => k.startsWith("_auto_"))), _auto_edited:true});
         }
         else if (target.動作 === "control_ac" && state.devices.some(d => d.name === target.設備名稱 && d.controlProvider === "home_assistant")) target.來源 = "使用者（HA）";
         else if (target.來源 === "使用者（HA）") target.來源 = "使用者";
