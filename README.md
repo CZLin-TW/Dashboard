@@ -1,47 +1,40 @@
-v1.46.0 HA 空調遷移：後端 controlProvider=home_assistant 時，Dashboard 使用整數溫度，隱藏回饋補償與舊排程編輯。HA 是狀態來源，失聯顯示未知並停用控制；命令結果未知不可自動重送。其餘設備行為不變。SwitchBot Cloud 仍走雲端，IR 狀態是最後指令而非實體回讀。
-
 # Smart Home Dashboard
 
-v1.51.0：照明可顯示 Home Assistant 控制來源，Hub 光照保留 1–20 級並標示 HA 同步時間。
-感測即時資料可改由 HA 提供，原歷史圖表保留；需要先完成[後端與 HA 切換](https://github.com/CZLin-TW/home-butler/blob/main/homeassistant/sensors-and-hue.md)。
+[HomeButler](https://github.com/CZLin-TW/home-butler) 的家庭操作介面，提供家電、照明、環境、待辦與庫存管理。
+Dashboard 負責畫面、配對登入、Session 與 API 代理；設備控制來源及業務規則由後端與 HA 決定。
+使用 Next.js、TypeScript 與 Tailwind CSS，由使用者規劃需求、透過 AI 協作開發。
 
-v1.48.0 可將既有電扇「電源、風速＋、風速－」改由 HA 的本地按鈕發送，Dashboard 操作方式不變。
-先依 [HA IR 按鈕設定](https://github.com/CZLin-TW/home-butler/blob/main/homeassistant/ir-buttons.md) 安裝與逐台切換；不會推測風量百分比或實際開關狀態。
+## 開始使用與版本選擇
 
-v1.47.0 新增 HA 本機「空調室溫配對」，讓 Apple Home 顯示可自行更換的外部感測器室溫；設定在 HA，Dashboard 控制面板維持原生 HA 空調。詳見[設定與更換感測器](https://github.com/CZLin-TW/home-butler/blob/main/homeassistant/room-temperature.md)。這不是回饋補償，不會依室溫自動控制冷氣。
+- **先看介面：** `npm ci` 後執行 `npm run demo`，開啟 `http://127.0.0.1:3001`。
+  使用合成家庭資料、不需 LINE 配對或真實家電；請在無正式憑證的獨立 checkout 使用。
+  [Demo 與新 Session 接手](docs/demo-mode.md)
+- **正式使用：** 先部署 HomeButler，再依本頁「環境變數」「建置與部署」「登入設定」連接自己的後端。
+- **使用 HA：** 由後端設定逐台空調／電扇／感測器與 Hue 來源，Dashboard 不直接連 HA 或持有 HA 金鑰。
+  [HA 安裝與切換](https://github.com/CZLin-TW/home-butler/blob/main/homeassistant/README.md)
+- **不使用 HA：** 目前 main 仍相容後端未啟用 HA 的路徑；並非一定要使用舊版。
+- **要完整 HA 前架構：** 最後快照為 **v1.44.0**，Dashboard `2c31431d0588e4cfbe8323384234f64d092dfd9d` 搭配
+  HomeButler `5c0b681f149741236d16d100bf96b734d1b1f767`。請成套固定，不要只退前端。
+  [下載此 Dashboard ZIP](https://github.com/CZLin-TW/Dashboard/archive/2c31431d0588e4cfbe8323384234f64d092dfd9d.zip) ·
+  [兩個 repo 的版本索引與 Git 指令](https://github.com/CZLin-TW/home-butler/blob/main/docs/version-selection.md)
 
-v1.45.0 新增裝置頁「空間感測」：顯示 HA 共享的區域存在與亮度，失聯或過時顯示未知。
-一般成員可讀，kid 不開放此新資料；只存記憶體，不把 HA key 送到瀏覽器。
-先部署 home-butler，再依 [HA 安裝說明](https://github.com/CZLin-TW/home-butler/blob/main/homeassistant/README.md) 連接。
-長期責任與遷移順序見 [家庭中樞架構](https://github.com/CZLin-TW/home-butler/blob/main/docs/local-hub-architecture.md)。
+系統顯示版本來自本 repo `package.json`；專案沒有同名 Git tag／Release，下載舊版使用 commit SHA。
+新開發者先讀 [AGENTS.md](AGENTS.md)、[驗證紀錄](docs/verification.md) 與
+[多 repo 系統導覽](https://github.com/CZLin-TW/home-butler/blob/main/docs/system-overview.md)。
 
-> **獨立測試模式**：`npm ci` 後執行 `npm run demo`，開啟 `http://127.0.0.1:3001`，即可用模擬家庭資料查看與操作完整 UI，無須 LINE 配對。支援重設、空資料、離線與 API 失敗情境；不連接真實家電。詳見 [測試模式說明](docs/demo-mode.md)。
-
-新開發者或 AI session 請先讀 [專案開發指引](AGENTS.md) 與[測試模式交接說明](docs/demo-mode.md#新-session-接手)。請在不含正式環境憑證的獨立 checkout 啟動 demo；本機服務與分頁不保證跨 session 保留。
-
-家庭智慧中控面板，[家庭 AI 管家系統](https://github.com/CZLin-TW/home-butler)的網頁版操作介面。使用 Next.js + TypeScript + Tailwind CSS 建置。
-
-本專案 100% 由 AI 協作完成，包含架構設計、所有程式碼、文件撰寫。
-
-核心理念：
-- **視覺化操作**：LINE Bot 用自然語言，Dashboard 用按鈕和表格，兩者互補
-- **即時控制**：家電開關、溫度調整、排程設定，一鍵完成
-- **行動優先**：響應式設計，手機和桌機都好用
-- **前端與登入邊界**：Dashboard 提供 UI、Session 驗證與 API 代理；家庭資料寫入及設備規則由 home-butler／本機 agent 執行。
-
-### 功能一覽
+## 功能一覽
 
 | 功能 | 說明 |
 |------|------|
 | 首頁總覽 | 天氣、室內溫濕度、釘選設備快速控制、未來 5 天 / 已過期的待辦與食品 |
 | 設備控制 | 空調（電源/溫度/模式/風速 + 送出後輪詢確認）、除濕機（模式/濕度 + 條件式自動模式 toggle + 即時可調的目標濕度門檻）、IR 設備（自訂按鈕）；環境感測器（溫度/濕度即時值，含 SwitchBot Meter Pro CO2 三合一） |
 | 設備釘選 | 常用設備（最多 4 個）+ 一個感測器釘選到首頁，快速存取 |
-| 空調溫度回饋 | 空調控制區展開「溫度回饋補償」，選同房間感測器後啟用；顯示室溫、舒適目標及 IR 下發溫度。進階設定提供評估間隔、容許溫差、調整步幅、最短間隔與補償上限。預設關閉，只在已開機冷／暖房時補償；Apple Home 仍顯示舒適目標。kid 帳號無此設定權限。 |
+| 空調控制來源 | HA 管理空調採整數溫度、顯示 HA 狀態並隱藏舊回饋／排程面板。只有未遷移設備保留半度舒適目標與回饋設定；IR 仍沒有真實狀態回讀 |
 | 待辦事項 | 新增、修改、完成、查看；支援週期任務（每天/每週/每月/間隔天的重複待辦，由模板自動生成當次待辦並以 🔁 標記）；隱私邏輯只顯示「自己負責 + 公開」項目；過期/今日提醒 highlight；有時間的待辦可勾選 Hue 燈光提醒並指定照明區域 |
 | 庫存 | 食品的新增、修改、刪除；過期/今日項目整 row 警示底色 |
-| 排程管理 | 完整 CRUD（新增 / 編輯 / 刪除）；直接內嵌在每張裝置卡片下方，過期排程也保留顯示 |
+| 排程管理 | HB 管理的設備支援內嵌排程；HA 管理空調請到 HA 建立自動化。本頁不能編輯 HA 自動化 |
 | 照明 | 列出 Hue 房間/區域，每區一張卡：套用 Hue App 場景、套用通知動作、套用支援燈效、電源 On/Off、亮度（slider + 數字輸入雙向）、可改 Dashboard 顯示名稱；只顯示 room/zone（隱藏「全家」與未分區燈群） |
-| 自動夜燈 | 每張照明卡片下方的設定區塊：光感應器（SwitchBot Hub 2）、亮度門檻 1–20（附「偵測亮度」鈕實測當下值＋資料年齡）、觸發場景、開燈亮度、啟用時段（可跨午夜）。時段內亮度 ≤ 門檻且燈關著自動套場景、> 門檻自動關燈、時段結束關燈；規則由 home-butler 後端執行（SwitchBot webhook 秒級 + 5min 輪詢兜底），網頁關閉仍運作 |
+| 自動夜燈 | 每張照明卡片下方的設定區塊：光感應器（SwitchBot Hub 2）、亮度門檻 1–20（附「偵測亮度」鈕實測當下值＋資料年齡）、觸發場景、開燈亮度、啟用時段（可跨午夜）。時段內亮度 ≤ 門檻且燈關著自動套場景、> 門檻自動關燈、時段結束關燈；規則由 home-butler 後端執行（HA 感測快照變化或未遷移 Webhook 觸發，另有 5 分鐘工作），網頁關閉仍運作 |
 | PC 監控 | 家中 PC 跑 agent 推指標到後端，Dashboard 顯示當下值（CPU/GPU 用量+溫度）+ 24h 折線圖（CPU/GPU/RAM 用量、CPU/GPU 溫度） |
 | 劇院 agent 監控 | PC 卡片提供三個自動化開關：KEF 喇叭連動、電視畫面自動關閉、AVR 隨電視開啟；顯示兩程序版本、Apple TV 健康、設備過時提示與兩份 log。寫入期間鎖定所有開關，完成後重讀確認；失敗不以反向值假裝回復。資料經 home-butler → PC agent → 同機 theater-agent 轉送。 |
 | 裝置配對登入 | 登入頁顯示 6 位驗證碼，在 LINE Bot 輸入「登入 <6位數字>」核准後前端輪詢取得 session，全程不離開 PWA 容器；僅限家庭成員使用 |
@@ -51,19 +44,24 @@ v1.45.0 新增裝置頁「空間感測」：顯示 HA 共享的區域存在與�
 
 ## 系統架構
 
-空調回饋的演算法、Sheet 欄位、失敗處理及 IR 無法讀回實體電源的限制，見[後端補償說明](https://github.com/CZLin-TW/home-butler/blob/main/docs/ac-temperature-feedback.md)。部署先更新後端，再更新 Dashboard；Apple Home 的半度調整需更新 Homebridge 插件至 1.2.0，保留既有配對。啟用時可「保存並立即評估」，保存後可隨時「立即評估」目前設定，符合條件才送 IR；仍遵守最短調整間隔等限制。Dashboard 以 0.5°C 調整；HomeKit 路徑也接受半度，但使用者實測 Apple Home 按鈕仍為 1°C，Siri 半度控制與畫面顯示正常。啟用回饋時保留半度舒適目標，IR 仍為整數；未啟用時由後端四捨五入（26.5→27），兩前端同步後端接受的目標。停用會把既有目標四捨五入，但保留上次 IR 溫度、不發指令，下一次手動送出才套用目標。
-
-```
-使用者（瀏覽器）
-    ↓
-Next.js（前端 + API Routes）
-    ↓
-home-butler（FastAPI 後端）
-    ↓
-Google Sheets / SwitchBot / Panasonic / 氣象署
+```text
+瀏覽器 → Dashboard（Session／API 代理）→ HomeButler
+                                      ├→ HA → Hue／SwitchBot／選定設備
+                                      ├→ Google Sheets／除濕機 API／天氣
+                                      └→ PC Agent → Theater Agent
+HA 選定感測與狀態 → HomeButler → Dashboard
+Apple Home／Siri → HA HomeKit Bridge → HA 裝置
 ```
 
-家庭資料與設備操作主要轉交 home-butler。Dashboard 的 API Routes 同時負責登入配對、JWT Session、私人端點身分驗證與錯誤轉換；`/api/version` 在本地回應。劇院與 Hue 控制再由 home-butler 經 PC agent 轉送到區網。
+未啟用 HA 的設備仍由 HB 直接 API 控制，Hue 可走 PC Agent。
+HA Hue 啟用後照明頁標示 Home Assistant，場景、燈效與提醒使用 HA 原生 Hue 連線；
+SwitchBot Cloud 仍經雲端，並非全部裝置都已本地化。HA 失聯不會自動改走舊路徑。
+詳細架構與驗收界線見 [後端 README](https://github.com/CZLin-TW/home-butler)。
+
+空調依後端 `controlProvider` 顯示對應操作：HA 採整数目標，不提供舊半度回饋、防黴或 HB 空調排程；
+外部室溫來源在 [HA 室溫配對整合](https://github.com/CZLin-TW/home-butler/blob/main/homeassistant/room-temperature.md) 設定。
+未遷移設備才保留 [舊回饋功能](https://github.com/CZLin-TW/home-butler/blob/main/docs/ac-temperature-feedback.md)。
+部署先後端、再前端；回復順序相反。
 
 ### 首頁資料載入
 
@@ -105,11 +103,11 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 ### 設備 `/devices`
 
-分為三段。**裝置控制排在最前面**：家電控制是這頁的主要用途，感測圖表與 PC 監控是輔助資訊，不該擋在它前面。
+包括裝置控制、HA 空間感測、環境感測與電腦監控。**裝置控制排在最前面**：家電控制是這頁的主要用途，感測圖表與 PC 監控是輔助資訊，不該擋在它前面。
 
 **裝置控制**（H1）
 - 按房間分群顯示所有可控設備
-- 空調：ON/OFF + 溫度 ±1°C（範圍由後端 options 定）+ 模式 + 風速 + 送出設定按鈕（dirty 才亮）
+- 空調：ON/OFF + 溫度調整（HA 步幅 1°C，未遷移路徑可輸入 0.5°C；範圍依後端 options）+ 模式 + 風速 + 送出設定按鈕（dirty 才亮）
 - 除濕機：
   - 手動：電源 toggle / 模式 / 目標濕度（操作後每秒輪詢單台雲端狀態，最多 30 秒）
   - 自動模式：toggle 啟用後 UI 自動把模式切到「連續除濕」(避開機體內部達標停機問題)，並依綁定感測器 + 持續時間 + 自訂門檻（45-65%）做條件式 ON/OFF；門檻是規則內部的判斷值、不下發給機器（避免 Panasonic 韌體把 mode flip 回「目標濕度」）
@@ -144,7 +142,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 - 週期任務（重複待辦）：新增表單可勾「重複（週期任務）」，選頻率「每天 / 每週（可多選星期）/ 每月（指定幾號）/ 間隔天（每隔 N 天）」+ 選填結束日期；模板存進「週期待辦模板」分頁，由 home-butler 依排程自動生成當次待辦（受後端 `RECURRING_TODO_ENABLED` 開關控制）
 - 週期模板生成的當次待辦在列表以 🔁 標記；底部「週期提醒」Card 列出啟用中的模板，可永久停止整個週期（已生成的當次待辦不受影響）
 - 修改（inline edit form：標題 / 日期 / 時間 / 類型 / 燈光提醒 / 提醒區域）
-- 有燈光提醒的待辦在首頁卡片與待辦列表顯示燈泡 icon；實際到期呼吸燈由 home-butler 的 PC agent 執行
+- 有燈光提醒的待辦在首頁卡片與待辦列表顯示燈泡 icon；實際到期呼吸燈由 HB 按設定交 HA／PC Agent 執行，HA Hue 啟用後舊 PC 提醒清單回空避免重複
 - 勾選完成（樂觀更新動畫，refetch 後一次消失，不閃爍）
 - 唯讀項目（來自 Notion 等外部來源）顯示鎖頭，無法修改
 
@@ -158,7 +156,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 ### 照明 `/lighting`
 
-- 透過 home-butler WebSocket 通道請家中 PC agent 向 Hue Bridge 讀取 rooms / zones / grouped_light（含各區當下 on/brightness、該區一般 scene / 全天 smart_scene、通知動作、可用燈效）
+- 由 HomeButler 按設定經 HA／PC Agent 讀取 Hue 區域、狀態、一般／全天場景、通知與燈效；HA 路徑僅包含本機明確選定區域，頁面顯示控制來源
 - **只列出房間 / 區域**（room / zone）；隱藏「全家」(bridge_home) 與沒掛在任何房間/區域的獨立燈群 (grouped_light)
 - 每個區域一張卡片：
   - **顯示名稱**：輸入框 + 右側儲存鈕（只有改過才亮，Enter 也能存），寫回 Sheet「Hue 照明區域」
@@ -210,7 +208,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/dehumidifier/auto-rule | GET / POST | 除濕機條件式自動規則的讀寫；等待選項為立即、5、10、15、20、25、30 分鐘，POST 設定 toggle ON 時後端會立即評估 sensor 當下值決定 fire ON/OFF |
 | /api/lighting/areas | GET | 列出 Hue rooms / zones 對應的 grouped_light 區域，含 Dashboard 顯示名稱、各區當下 on/brightness、一般場景 / 全天場景、通知動作與可用燈效 |
 | /api/lighting/areas/[id] | PATCH | 更新 Hue 區域顯示名稱 |
-| /api/lighting/areas/[id]/state | PATCH | 控制該區 grouped_light 的電源 (on) 與亮度 (brightness)，經 home-butler → PC agent 下發 |
+| /api/lighting/areas/[id]/state | PATCH | 控制該區 grouped_light 的電源 (on) 與亮度 (brightness)，由 HomeButler 按設定交 HA／PC Agent 下發 |
 | /api/lighting/scenes/[id]/recall | POST | 套用 Hue App 內已建立的一般場景或全天場景 |
 | /api/lighting/areas/[id]/notification | POST | 套用區域層級通知動作，例如 `alert:breathe` 呼吸燈 |
 | /api/lighting/areas/[id]/effect | POST | 套用區域內支援的 Hue effect，部分支援時只套用支援的燈 |
@@ -462,4 +460,4 @@ Dashboard 是 home-butler 的**視覺化前端**，兩者共用同一套後端 A
 - 三個 repo 的責任、部署與回復順序：[系統導覽](https://github.com/CZLin-TW/home-butler/blob/main/docs/system-overview.md)。
 - 測試方式與已驗證範圍：[驗證紀錄](docs/verification.md)；新 session 先讀 [AGENTS.md](AGENTS.md) 與 [demo 說明](docs/demo-mode.md)。
 
-空調回饋 v1.44.0：評估間隔最低 1 分鐘（上限 30）、最短調整間隔最低 1 分鐘（上限 60）。預設仍 5／10 分鐘，既有設定不變；回饋使用中的感測器約每分鐘取得最新讀值，歷史記錄仍約每 5 分鐘；同一顆感測器共用查詢，相同讀取樣本不重複調整。
+僅未遷移 HA 的空調回饋 v1.44.0：評估間隔最低 1 分鐘（上限 30）、最短調整間隔最低 1 分鐘（上限 60）。預設仍 5／10 分鐘，既有設定不變；回饋使用中的感測器約每分鐘取得最新讀值，歷史記錄仍約每 5 分鐘；同一顆感測器共用查詢，相同讀取樣本不重複調整。
