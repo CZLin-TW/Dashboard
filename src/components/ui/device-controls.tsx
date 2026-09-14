@@ -208,6 +208,7 @@ export function Dropdown<T extends string | number>({
   onSelect,
   disabled,
   placeholder = "請選擇",
+  ariaLabel,
   className = "",
 }: {
   options: { value: T; label: string }[];
@@ -215,12 +216,14 @@ export function Dropdown<T extends string | number>({
   onSelect: (v: T) => void;
   disabled?: boolean;
   placeholder?: string;
+  ariaLabel?: string;
   className?: string;
 }) {
   // 用 String() 在原生 select 上 round-trip — 還原時用 options 找回原型別
   const selectedStr = value !== undefined && value !== null ? String(value) : "";
   return (
     <select
+      aria-label={ariaLabel}
       value={selectedStr}
       onChange={(e) => {
         const opt = options.find((o) => String(o.value) === e.target.value);

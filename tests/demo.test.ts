@@ -262,8 +262,9 @@ test("lighting, auto-rule, theater and schedule writes read back", async () => {
   assert.equal(sim.snapshot().areas[0].on, false);
   await sim.handle(request("/api/lighting/scenes/demo-scene-0-night/recall", "POST", {}));
   assert.equal(sim.snapshot().areas[0].brightness, 20);
-  await sim.handle(request("/api/lighting/auto/rules/demo-living", "PATCH", { enabled: true, threshold: 5 }));
-  assert.equal(sim.snapshot().lightingRules["demo-living"].threshold, 5);
+  const retired = await sim.handle(request("/api/lighting/auto/rules/demo-living", "PATCH", { enabled: true, threshold: 5 }));
+  assert.equal(retired.status, 410);
+  assert.equal(sim.snapshot().lightingRules["demo-living"], undefined);
   await sim.handle(request("/api/theater/flags", "POST", { kef_link: false }));
   assert.equal(sim.snapshot().theater.flags.kef_link, false);
   assert.equal(sim.snapshot().theater.health?.appletv?.stale, false);

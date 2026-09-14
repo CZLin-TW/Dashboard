@@ -250,7 +250,7 @@ export default function DevicesPage() {
             <h2 className="border-b border-line pb-1.5 text-xs font-semibold uppercase tracking-wider text-mute">
               {location}
             </h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {devs.map((device) => {
                 const TypeIcon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
                 const pinned = pin.isDevicePinned(device.name);
@@ -329,7 +329,7 @@ export default function DevicesPage() {
         </div>
 
         {sensors.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {sensors.map((s) => {
               const pinned = pin.isSensorPinned(s.name);
               const SensorIcon = DEVICE_ICONS["感應器"] ?? DEVICE_ICON_FALLBACK;

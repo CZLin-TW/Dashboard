@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { butlerDelete, butlerPatch } from "@/lib/butler";
+import { RequestError } from "@/lib/request-user";
 
 export async function PATCH(
   request: Request,
@@ -12,7 +13,7 @@ export async function PATCH(
     return NextResponse.json(data);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: err instanceof RequestError ? err.status : 500 });
   }
 }
 
@@ -26,6 +27,6 @@ export async function DELETE(
     return NextResponse.json(data);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: err instanceof RequestError ? err.status : 500 });
   }
 }

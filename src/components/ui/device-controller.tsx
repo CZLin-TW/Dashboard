@@ -559,8 +559,8 @@ export function DeviceController({
             }
           />
         )}
-        {/* Row 1: 兩個定寬開關 + 監控時間，同一列皆高 38px。 */}
-        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2">
+        {/* 常用開關保留在外層，監控參數與手動模式預設收合。 */}
+        <div className="flex flex-wrap items-start gap-5">
           <Field label="電源">
             <Toggle2
               value={!!device.power}
@@ -575,6 +575,9 @@ export function DeviceController({
               disabled={autoRulePending}
             />
           </Field>
+        </div>
+        {phaseText && <StatusLine tone="waiting" text={phaseText} />}
+        <ControlDetails title="自動模式設定" summary={`${dehumRule?.duration_min ?? 30} 分 · ${dehumRule?.sensor_name || "未選感測器"}`}>
           <Field label="監控時間" className="min-w-0">
             <Dropdown
               options={DURATION_OPTIONS}
@@ -584,7 +587,6 @@ export function DeviceController({
               className="w-full"
             />
           </Field>
-        </div>
         {/* Row 2: 監控感測器與目標濕度等寬，不依原生選項字長決定欄位大小。
             目標濕度 / 監控時間在 auto ON 時都可即時修改：後端只在 auto_mode 翻轉時
             reset runtime state，改門檻 / 時間不會清計時器，_evaluate_steady 下個 tick
@@ -629,9 +631,8 @@ export function DeviceController({
             </div>
           )}
         </div>
-        {phaseText && (
-          <StatusLine tone="waiting" text={phaseText} />
-        )}
+        </ControlDetails>
+        <ControlDetails title="手動模式與濕度" summary={autoOn ? "自動模式控制中" : device.mode || "尚無狀態"}>
         <Field label="模式">
           <Segment
             options={dh.modes}
@@ -662,6 +663,7 @@ export function DeviceController({
             />
           </Field>
         )}
+        </ControlDetails>
         {autoOn && dehumRule && (
           <ControlDetails title="濕度趨勢" summary="過去 24 小時">
           {loadHistoryOnExpand ? <DehumidifierHistory key={dehumRule.sensor_name} deviceName={device.name} rule={dehumRule} /> : <AutoModeChart

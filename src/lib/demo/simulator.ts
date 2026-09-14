@@ -68,7 +68,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         case "/api/schedules": return json(state.schedules);
         case "/api/recurring-todos": return json(state.recurring.filter(r => r.狀態 === "啟用" && visibleTodo(r)));
         case "/api/lighting/areas": return json({ agent_id: "home_assistant", areas: state.areas });
-        case "/api/lighting/auto/rules": return json({ rules: state.lightingRules });
+        case "/api/lighting/auto/rules": return json({ rules: {}, retired: true });
         case "/api/lighting/auto/sensors": return json({ sensors: state.devices.filter(d => d.type === "感應器").map(d => ({ name: d.name, location: d.location, device_id: `demo-${d.name}` })) });
         case "/api/theater/summary": return json(state.theater);
         case "/api/weather": return json(weather());
@@ -255,8 +255,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
     }
     const ruleMatch = path.match(/^\/api\/lighting\/auto\/rules\/([^/]+)$/);
     if (ruleMatch && state.areas.some(a => a.id === ruleMatch[1])) {
-      if (method === "PATCH") { state.lightingRules[ruleMatch[1]] = structuredClone(b); return json({ rule: b }); }
-      if (method === "DELETE") { delete state.lightingRules[ruleMatch[1]]; return success(); }
+      if (method === "PATCH" || method === "DELETE") return error("HB 自動夜燈已停用，請在 Home Assistant 設定自動化", 410);
     }
     if (path === "/api/theater/flags" && method === "POST") {
       for (const key of ["kef_link", "tv_screen_auto", "tv_avr_sync"] as const) if (typeof b[key] === "boolean") state.theater.flags[key] = b[key];

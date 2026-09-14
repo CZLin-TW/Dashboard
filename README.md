@@ -34,7 +34,7 @@ Dashboard 負責畫面、配對登入、Session 與 API 代理；設備控制來
 | 庫存 | 食品的新增、修改、刪除；過期/今日項目整 row 警示底色 |
 | 排程管理 | HB 管理的設備支援內嵌排程；HA 管理空調請到 HA 建立自動化。本頁不能編輯 HA 自動化 |
 | 照明 | 列出 Hue 房間/區域，每區一張卡：套用 Hue App 場景、套用通知動作、套用支援燈效、電源 On/Off、亮度（slider + 數字輸入雙向）、可改 Dashboard 顯示名稱；只顯示 room/zone（隱藏「全家」與未分區燈群） |
-| 自動夜燈 | 每張照明卡片下方的設定區塊：光感應器（SwitchBot Hub 2）、亮度門檻 1–20（附「偵測亮度」鈕實測當下值＋資料年齡）、觸發場景、開燈亮度、啟用時段（可跨午夜）。時段內亮度 ≤ 門檻且燈關著自動套場景、> 門檻自動關燈、時段結束關燈；規則由 home-butler 後端執行（HA 感測快照變化或未遷移 Webhook 觸發，另有 5 分鐘工作），網頁關閉仍運作 |
+| 照明自動化 | HB 自動夜燈已退役；夜燈在 HA 設定，待辦燈光提醒仍由 HB 決定、經 HA 執行 |
 | PC 監控 | 家中 PC 跑 agent 推指標到後端，Dashboard 顯示當下值（CPU/GPU 用量+溫度）+ 24h 折線圖（CPU/GPU/RAM 用量、CPU/GPU 溫度） |
 | 劇院 agent 監控 | PC 卡片提供三個自動化開關：KEF 喇叭連動、電視畫面自動關閉、AVR 隨電視開啟；顯示兩程序版本、Apple TV 健康、設備過時提示與兩份 log。寫入期間鎖定所有開關，完成後重讀確認；失敗不以反向值假裝回復。資料經 home-butler → PC agent → 同機 theater-agent 轉送。 |
 | 裝置配對登入 | 登入頁顯示 6 位驗證碼，在 LINE Bot 輸入「登入 <6位數字>」核准後前端輪詢取得 session，全程不離開 PWA 容器；僅限家庭成員使用 |
@@ -54,6 +54,7 @@ Apple Home／Siri → HA HomeKit Bridge → HA 裝置
 ```
 
 未啟用 HA 的設備仍由 HB 直接 API 控制，Hue 可走 PC Agent。
+除濕機控制與自動模式依使用者規劃完整保留 HB；這次只調整卡片收合。
 HA Hue 啟用後照明頁標示 Home Assistant，場景、燈效與提醒使用 HA 原生 Hue 連線；
 SwitchBot Cloud 仍經雲端，並非全部裝置都已本地化。HA 失聯不會自動改走舊路徑。
 詳細架構與驗收界線見 [後端 README](https://github.com/CZLin-TW/home-butler)。
@@ -97,7 +98,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 一頁式總覽，快速掌握家庭狀態：
 - **環境摘要**：室外天氣與室內感測器並列，突出溫度、濕度與 CO₂；點擊室內數值可在下方展開全寬 24h 趨勢
 - **裝置快捷**：釘選設備 tile 網格（手機 2 欄、桌機 4 欄），直接顯示狀態與主要數值，點擊展開控制面板；冷氣數值註明「上次設定」，一般紅外線遙控器不推測電源狀態
-- **分層控制**：冷氣電源與溫度優先顯示，模式與風速可展開；除濕機濕度趨勢按需展開
+- **分層控制**：冷氣電源與溫度優先顯示，模式與風速可展開；除濕機電源／自動模式常駐，監控參數、手動模式與濕度趨勢按需展開
 - **今日待辦**：未來 5 天內 + 已過期的「自己 + 公開」項目（最多 5 筆），可勾選完成
 - **食品到期提醒**：5 天內 + 已過期項目，全列出
 
@@ -162,12 +163,11 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
   - **顯示名稱**：輸入框 + 右側儲存鈕（只有改過才亮，Enter 也能存），寫回 Sheet「Hue 照明區域」
   - **場景**：Dropdown 列該區 Hue App 內已建立的一般場景與全天場景，選好後按「套用」；全天場景以 `· 全天` 標示
   - **通知**：Dropdown 列區域層級通知動作，固定提供 `呼吸燈`；若 Bridge 回傳 signaling 支援值也會列出
-  - **效果**：Dropdown 列該區內燈具支援的 effect unique 結果；`*` 代表只有部分燈具支援，套用時只下發到支援的燈
+  - **效果**：Dropdown 列該區內燈具支援的 effect unique 結果；`部分燈具` 代表只有部分燈具支援，套用時只下發到支援的燈
   - **亮度**：slider + 數字輸入雙向綁定（1–100），拖曳放開 / 失焦或 Enter 才送；調亮度視為順便開燈
   - **電源**：On/Off Toggle 讀寫該區 grouped_light 的真實 on 狀態
-  - **自動夜燈**：卡片底部獨立區塊——啟用開關、光感應器（SwitchBot Hub 2）、亮度門檻 1–20、觸發場景、開燈亮度、啟用時段（可跨午夜）。所有改動是草稿，按「儲存」才生效（啟用且當下在時段內，後端會立即評估一次）；底部顯示最近觸發事件（已自動開燈/關燈、時段結束關燈）
-  - **偵測亮度鈕**（門檻列右側）：顯示系統當下可得的最新 lightLevel 與資料年齡——webhook 快取標「目前 X・N 分前」、status 雲端快取標「目前 X・雲端值」、該感應器不回報亮度則標「無亮度數值」。調門檻以這個數字為準（規則引擎看的就是同一份數據），SwitchBot APP 的直讀值官方雲端 API 拿不到，低亮度區間可能差 ±1~2 級
-- 控制都走樂觀更新，失敗才背景重抓對齊真實狀態
+  - **分層控制**：電源、亮度與場景常駐；效果／通知及改名預設收合。沿用家電共用控制元件；HB 夜燈 UI 與背景引擎已移除。
+- 電源與亮度送出期間鎖定控制，完成後回讀狀態；錯誤獨立顯示，不以樂觀 ON 宣稱成功，也不自動重送。
 
 ### 登入 `/login`
 
@@ -213,10 +213,10 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/lighting/areas/[id]/notification | POST | 套用區域層級通知動作，例如 `alert:breathe` 呼吸燈 |
 | /api/lighting/areas/[id]/effect | POST | 套用區域內支援的 Hue effect，部分支援時只套用支援的燈 |
 | /api/lighting/breathe | POST | 對指定 Hue grouped_light 觸發 breathe（後端仍保留；照明頁使用較泛用的 notification route） |
-| /api/lighting/auto/rules | GET | 自動夜燈：列出所有區域規則 + runtime state（時段旗標、最後亮度值與時間） |
-| /api/lighting/auto/rules/[areaId] | PATCH / DELETE | 自動夜燈：設定該區域規則（光感應器、門檻、場景、開燈亮度、時段、啟用開關）/ 刪除規則 |
-| /api/lighting/auto/sensors | GET | 自動夜燈：光感應器候選清單（home-butler「智能居家」啟用中的感應器） |
-| /api/lighting/auto/sensors/[deviceId]/light-level | GET | 自動夜燈：感應器當下亮度（webhook 快取優先附 `age_seconds`，否則 status 雲端值） |
+| /api/lighting/auto/rules | GET | 已退役：空 rules 與 retired=true，頁面不再呼叫 |
+| /api/lighting/auto/rules/[areaId] | PATCH / DELETE | 已退役：後端回 410，原 Sheet 資料保留 |
+| /api/lighting/auto/sensors | GET | 相容舊客戶端的唯讀感測清單，新照明頁不呼叫 |
+| /api/lighting/auto/sensors/[deviceId]/light-level | GET | 唯讀光照：HA 快照或未遷移的 SwitchBot status，新照明頁不呼叫 |
 | /api/todos | GET | 列出登入者負責的私人待辦及公開項目 |
 | /api/todos | POST | 新增待辦（含選用 `light_notify` / `light_area_id`，由 home-butler 寫入 `燈光提醒` 與 `燈光區域ID`） |
 | /api/todos | PATCH | 依 `todo_id` 修改可操作的待辦（含選用 `light_notify` / `light_area_id`） |
