@@ -9,9 +9,11 @@ import {
   THEATER_TV_STATE_LABELS,
 } from "@/lib/theater";
 
-// PC 卡片底部的「劇院 agent」區塊。只有 hostname 對上 theater summary agent_id
-// 的那張卡會收到 summary（目前 = XEON-1230V2）。資料流：
+// 「劇院 agent」區塊。掛在哪裡取決於 summary 的 agent_id：對上某台 PC 的 hostname
+// 就接在那張卡底部，否則（agent_id = home_assistant）獨立成一張卡。資料流兩條：
 //   Dashboard /api/theater/* → home-butler → PC agent WebSocket → theater_agent.py :8080
+//   Dashboard /api/theater/* → home-butler → HA 中繼（THEATER_VIA_HA=true）→ 同上
+// 後端二選一，不會 fallback；UI 只認 agent_id，不需要知道走的是哪條。
 
 interface Props {
   summary: TheaterSummary;
@@ -21,6 +23,8 @@ interface Props {
   saving?: boolean;
   stale?: boolean;
   saveError?: string | null;
+  /** 掛在 PC 卡底部時用分隔線接續上方內容；獨立成卡時（劇院不經 PC agent）不需要。 */
+  standalone?: boolean;
   onRefresh: () => void;
   onFlagChange: (key: TheaterFlagKey, value: boolean) => void;
 }
@@ -107,9 +111,9 @@ function StatusRow({ monitor }: { monitor?: TheaterSummary["monitor"] }) {
   );
 }
 
-export function TheaterSection({ summary, offline, refreshing, saving, stale, saveError, onRefresh, onFlagChange }: Props) {
+export function TheaterSection({ summary, offline, refreshing, saving, stale, saveError, standalone, onRefresh, onFlagChange }: Props) {
   return (
-    <div className="space-y-2.5 border-t border-line pt-3">
+    <div className={`space-y-2.5 ${standalone ? "" : "border-t border-line pt-3"}`}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 px-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-mute">
           <Clapperboard className="h-4 w-4" strokeWidth={1.8} />

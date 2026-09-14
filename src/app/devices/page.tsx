@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { LayoutGrid, Activity, Cpu } from "lucide-react";
+import { LayoutGrid, Activity, Cpu, Clapperboard } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/device-controls";
 import { DeviceController } from "@/components/ui/device-controller";
 import { ComputerCard } from "@/components/devices/computer-card";
+import { TheaterSection } from "@/components/devices/theater-section";
+import { Card } from "@/components/ui/card";
 import { HomeAssistantPanel } from "@/components/devices/home-assistant-panel";
 import { SensorChart } from "@/components/devices/lazy-charts";
 import { ScheduleSection } from "@/components/devices/schedule-section";
@@ -378,6 +380,29 @@ export default function DevicesPage() {
           <p className="px-1 text-sm text-mute">未偵測到感測器</p>
         )}
       </section>
+
+      {/* ── 劇院（agent_id 對不上任何一台 PC 時獨立成卡：走 HA 中繼，或 PC agent 已移除） ── */}
+      {theater && !computers.some((c) => c.hostname === theater.agent_id) && (
+        <section className="space-y-3">
+          <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
+            <Clapperboard className="h-4 w-4" strokeWidth={2} />
+            劇院
+          </h1>
+          <Card>
+            <TheaterSection
+              summary={theater}
+              offline={theaterOffline}
+              refreshing={theaterRefreshing}
+              saving={theaterSaving}
+              stale={theaterStale}
+              saveError={theaterSaveError}
+              standalone
+              onRefresh={refetchTheater}
+              onFlagChange={setTheaterFlag}
+            />
+          </Card>
+        </section>
+      )}
 
       {/* ── 電腦 ── */}
       <section className="space-y-3">
