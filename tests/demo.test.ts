@@ -11,9 +11,7 @@ import { proxy } from "../src/proxy";
 import { butlerGet, butlerPost } from "../src/lib/butler";
 import { GET as dashboardGET } from "../src/app/api/dashboard/route";
 import { GET as sensorsGET } from "../src/app/api/sensors/status/route";
-import { GET as feedbackGET, POST as feedbackPOST } from "../src/app/api/ac/feedback/route";
-import { AC_FEEDBACK_DEFAULTS } from "../src/lib/ac-feedback";
-import { acAcceptedTemperature, acPendingFromDevice } from "../src/lib/types";
+import { acPendingFromDevice } from "../src/lib/types";
 import { haIsFresh, observationText, type HaSnapshot } from "../src/lib/home-assistant";
 import { GET as haGET } from "../src/app/api/home-assistant/observations/route";
 
@@ -31,7 +29,7 @@ test("lighting exposes the HA provider and keeps Hub level separate from lux", a
   assert.ok(offline.history.length > 0);
 });
 
-test("HA ACs use integer targets, reject feedback and become unavailable offline", async () => {
+test("HA ACs use integer targets and become unavailable offline", async () => {
   const simulator = createSimulator();
   const request = (params: object) => new Request("http://demo/api/devices/control", {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -40,11 +38,6 @@ test("HA ACs use integer targets, reject feedback and become unavailable offline
   const result = await simulator.handle(request({ power: true, temperature: 26.5, mode: "冷氣", fanSpeed: "自動" }));
   assert.equal(result.status, 200);
   assert.equal((await result.json()).state.lastTemperature, 27);
-  const feedback = await simulator.handle(new Request("http://demo/api/ac/feedback", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ device_name: "HA 測試空調", config: { enabled: false } }),
-  }));
-  assert.equal(feedback.status, 422);
   const offline = createDemoState("offline").devices.find(d => d.name === "HA 測試空調")!;
   assert.equal(offline.available, false);
   assert.equal(offline.lastPower, "");
@@ -151,93 +144,6 @@ test("AC writes are confirmed by status polling, survive reload, and isolate ses
   assert.equal(other.snapshot().devices[0].lastTemperature, 26);
   assert.equal((await sim.handle(request("/api/devices/control", "POST", { ...body, params: { ...body.params, temperature: 100 } }))).status, 400);
   assert.equal((await sim.handle(request("/api/devices/control", "POST", { deviceName: "客廳除濕機", action: "dehumidifier", params: { power: false } }))).status, 409);
-});
-
-test("feedback settings persist without operating AC or changing comfort target and schedules", async () => {
-  let saved = createDemoState();
-  const sim = createSimulator(saved, state => { saved = state; });
-  const before = sim.snapshot();
-  const config = { ...AC_FEEDBACK_DEFAULTS, enabled: true, sensor_name: "客廳感測器", interval_min: 1, min_adjust_min: 1 };
-  assert.equal((await sim.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config }))).status, 200);
-  assert.deepEqual(sim.snapshot().devices, before.devices);
-  assert.deepEqual(sim.snapshot().schedules, before.schedules);
-  const reloaded = createSimulator(JSON.parse(JSON.stringify(saved)));
-  const read = async () => (await (await reloaded.handle(request("/api/ac/feedback"))).json()).devices["客廳冷氣"];
-  assert.equal((await read()).config.interval_min, 1);
-  assert.equal((await read()).config.min_adjust_min, 1);
-  assert.equal((await read()).target_temperature, 26);
-  assert.equal((await read()).ir_temperature, 25);
-  await reloaded.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config: { ...config, enabled: false } }));
-  assert.equal((await read()).ir_temperature, 25);
-  await reloaded.handle(request("/api/devices/control", "POST", { deviceName: "客廳冷氣", action: "setAll", params: { power: true, temperature: 27, mode: "冷氣", fanSpeed: "低" } }));
-  assert.equal((await read()).target_temperature, 27);
-  assert.equal((await read()).ir_temperature, 27);
-  for (const invalid of [{ step: 3 }, { interval_min: 0 }, { min_adjust_min: 0 }, { interval_min: 0.5 }, { min_adjust_min: 0.5 }, { interval_min: 31 }, { min_adjust_min: 61 }, { tolerance: null }, { sensor_name: "主臥感測器" }, { enabled: "true" }, { power: "on" }]) {
-    assert.equal((await sim.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config: { ...config, ...invalid } }))).status, 422);
-  }
-});
-
-test("feedback routes reject anonymous and kid sessions before contacting backend", async () => {
-  const original = globalThis.fetch;
-  let calls = 0;
-  globalThis.fetch = async () => { calls++; return Response.json({ devices: {}, sensors: [] }); };
-  try {
-    assert.equal((await feedbackGET(request("/api/ac/feedback"))).status, 401);
-    assert.equal((await feedbackPOST(request("/api/ac/feedback", "POST", {}))).status, 401);
-    const kid = await new SignJWT({ lineUserId: "kid-id", role: "kid" }).setProtectedHeader({ alg: "HS256" }).setExpirationTime("5m").sign(JWT_SECRET);
-    for (const handler of [feedbackGET, feedbackPOST]) {
-      assert.equal((await handler(new Request(origin + "/api/ac/feedback", { headers: { cookie: `dashboard_session=${kid}` } }))).status, 403);
-    }
-    assert.equal(calls, 0);
-    const member = await new SignJWT({ lineUserId: "member-id", role: "member" }).setProtectedHeader({ alg: "HS256" }).setExpirationTime("5m").sign(JWT_SECRET);
-    assert.equal((await feedbackGET(new Request(origin + "/api/ac/feedback", { headers: { cookie: `dashboard_session=${member}` } }))).status, 200);
-    assert.equal(calls, 1);
-  } finally { globalThis.fetch = original; }
-});
-
-test("explicit feedback evaluation adjusts only IR once and reports skipped conditions", async () => {
-  const initial = createDemoState();
-  initial.devices.find(d => d.name === "客廳感測器")!.temperature = 28;
-  const sim = createSimulator(initial);
-  const config = { ...AC_FEEDBACK_DEFAULTS, enabled: true, sensor_name: "客廳感測器" };
-  const evaluate = async (body: object) => (await (await sim.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", evaluate_now: true, ...body }))).json());
-  assert.equal((await evaluate({ config })).evaluation.status, "compensating");
-  assert.equal(sim.snapshot().acFeedback!["客廳冷氣"].ir_temperature, 24);
-  assert.deepEqual(sim.snapshot().devices, initial.devices);
-  assert.deepEqual(sim.snapshot().schedules, initial.schedules);
-  const repeated = await evaluate({});
-  assert.equal(repeated.evaluation.status, "waiting_sample");
-  assert.equal(repeated.config, undefined);
-  assert.equal(sim.snapshot().acFeedback!["客廳冷氣"].ir_temperature, 24);
-  assert.equal((await evaluate({ config: { ...config, enabled: false } })).evaluation.status, "disabled");
-  const offline = createSimulator(createDemoState("offline"));
-  const result = await (await offline.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config, evaluate_now: true }))).json();
-  assert.equal(result.evaluation.status, "sensor_stale");
-});
-
-test("half-degree targets round only without feedback and disabling preserves the IR setting", async () => {
-  const sim = createSimulator();
-  const send = async (temperature: number) => sim.handle(request("/api/devices/control", "POST", {
-    deviceName: "客廳冷氣", action: "setAll", params: { power: true, temperature, mode: "冷氣", fanSpeed: "低" },
-  }));
-  const rounded = await (await send(26.5)).json();
-  assert.equal(rounded.state.lastTemperature, 27);
-  assert.equal(acAcceptedTemperature(26.5, rounded.state), 27);
-  const config = { ...AC_FEEDBACK_DEFAULTS, enabled: true, sensor_name: "客廳感測器" };
-  await sim.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config }));
-  const precise = await (await send(26.5)).json();
-  assert.equal(precise.state.lastTemperature, 26.5);
-  assert.equal(acAcceptedTemperature(26.5, precise.state), 26.5);
-  assert.equal(acPendingFromDevice({ ...precise.state, lastTemperature: "26.5" }).temperature, 26.5);
-  assert.equal(sim.snapshot().acFeedback!["客廳冷氣"].ir_temperature, 27);
-  const before = sim.snapshot();
-  await sim.handle(request("/api/ac/feedback", "POST", { device_name: "客廳冷氣", config: { ...config, enabled: false } }));
-  assert.equal(sim.snapshot().devices[0].lastTemperature, 27);
-  assert.equal(sim.snapshot().acFeedback!["客廳冷氣"].ir_temperature, before.acFeedback!["客廳冷氣"].ir_temperature);
-  assert.equal(sim.snapshot().devices[0].lastPower, before.devices[0].lastPower);
-  assert.deepEqual(sim.snapshot().schedules, before.schedules);
-  assert.equal((await send(26.2)).status, 400);
-  assert.equal(acAcceptedTemperature(26.5), 26.5); // Old server: no guessed normalization.
 });
 
 test("todo and food CRUD change data; readonly entries reject edits", async () => {

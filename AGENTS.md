@@ -15,9 +15,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # 目前的空調控制與排程（系統 v1.57.0）
 
-後端 `controlProvider=home_assistant` 時，Dashboard 使用整數溫度、隱藏回饋補償，
+空調目標一律整數 16–30°C（v1.58.0 起）。半度舒適目標、室溫回饋補償與防黴送風已從後端移除，不是停用——Dashboard 沒有對應面板，simulator 也不再模擬。
 以 HA 為狀態來源；失聯顯示未知並停用控制，命令結果未知**不可自動重送**。
-只有未遷移設備保留半度舒適目標與回饋設定。SwitchBot Cloud 仍走雲端，IR 狀態是最後指令而非實體回讀。
+SwitchBot Cloud 仍走雲端，IR 狀態是最後指令而非實體回讀。
 
 排程分三種來源，別讀成「HA 空調沒有排程」：
 
@@ -25,9 +25,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | --- | --- | --- |
 | 使用者（HA） | v1.55.0 起，使用者新增或明確編輯的一次性排程 | 新增、改時間／參數、刪除 |
 | 自動（HA） | v1.57.0，HB 依 Sheet「自動關機小時數」在空調開機後產生 | 改時間／同一台空調的參數或刪除；未知／失敗結果不可編輯 |
-| 自動、防黴（舊來源） | 舊 HB 機制，**不對 HA 空調執行** | 不可編輯，simulator 會拒絕 |
+| 自動、防黴（舊來源） | v1.58.0 已從後端移除；Sheet 殘留列到期標成已過期 | 不可編輯，simulator 會拒絕 |
 
-**「舊自動排程停用」指的是舊來源「自動」「防黴」不再對 HA 空調執行**，
+**「舊自動排程停用」指的是舊來源「自動」「防黴」已經移除**，
 不是說 HA 空調沒有自動關機——新來源「自動（HA）」是啟用的。兩者不要混為一談。
 時數只在 Sheet 管理，Dashboard 沒有時數設定面板。這不會建立或修改 HA 自動化。
 

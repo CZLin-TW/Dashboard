@@ -17,7 +17,6 @@ import { Toggle2, Stepper, Segment, Dropdown, Field, StatusLine, ControlDetails 
 // 不該為了預設看不到的圖表等 recharts 下載完才能互動（見 lazy-charts.tsx）。
 import { AutoModeChart, HumidityCurveChart } from "@/components/devices/lazy-charts";
 import { DehumidifierHistory } from "@/components/home/history-charts";
-import { AcFeedbackPanel } from "@/components/devices/ac-feedback-panel";
 
 const DURATION_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: "立即" },
@@ -408,7 +407,7 @@ export function DeviceController({
       return <p className="text-sm text-mute">HA 空調狀態未知，暫時無法控制。連線恢復後會重新顯示目前設定。</p>;
     }
     const acDisabled = sending || acAwaiting || (haManaged && device.available !== true);
-    const step = haManaged ? 1 : 0.5;
+    const step = 1;
     const p = getAcPending();
     const dirty = isAcDirty();
     const lastTime = device.lastUpdatedAt
@@ -497,10 +496,6 @@ export function DeviceController({
             ? "送出設定"
             : "未變更"}
         </button>
-        {!haManaged && <AcFeedbackPanel device={device} onSettingsSaved={async () => {
-          if (onAcCommandSuccess) await onAcCommandSuccess();
-          setPending(null);
-        }} />}
       </>
     );
   }
