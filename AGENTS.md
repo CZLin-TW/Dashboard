@@ -1,3 +1,13 @@
+# v1.55.0 HA 空調手動排程與控制樣式
+
+Dashboard 空調可新增／修改／取消指定日期時間的一次性排程，由 HB 每 60 秒檢查、經 HA 控制。
+新建或明確編輯的 HA 手動排程使用來源「使用者（HA）」；舊列不自動升級，自動／防黴列不能轉換。
+執行時重驗來源與目前 provider；切換不一致則取消，不能 fallback 直接 IR。未知結果維持待確認、不重送。
+HB 舊自動關機、防黴與回饋仍不對 HA 空調執行；這不是 HA 自動化的編輯器，也不是每日重複排程。
+排程共用 Dropdown／38px 控制項與收合卡片；keepMounted 保留草稿，其他延遲載入面板仍按原設定卸載。
+html 預留 scrollbar-gutter: stable，舊瀏覽器以 overflow-y: scroll 備援，避免色盤展開引起左右位移。
+部署先 HB 再 Dashboard；不需更新 HA 整合或 Sheets 欄位。
+
 # v1.54.0 照明光色控制
 
 照明卡保留電源／亮度，加入白光色溫與可展開的 HSV 二維色盤；特效／場景直接顯示。
@@ -25,7 +35,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # UI 開發與獨立測試模式
 
-v1.46.0 HA 空調遷移：後端 controlProvider=home_assistant 時，Dashboard 使用整數溫度，隱藏回饋補償與舊排程編輯。HA 是狀態來源，失聯顯示未知並停用控制；命令結果未知不可自動重送。其餘設備行為不變。SwitchBot Cloud 仍走雲端，IR 狀態是最後指令而非實體回讀。
+v1.46.0 HA 空調遷移：後端 controlProvider=home_assistant 時，Dashboard 使用整數溫度，隱藏回饋補償；v1.55.0 恢復明確手動排程，舊自動排程仍停用。HA 是狀態來源，失聯顯示未知並停用控制；命令結果未知不可自動重送。其餘設備行為不變。SwitchBot Cloud 仍走雲端，IR 狀態是最後指令而非實體回讀。
 
 
 v1.45.0 空間感測：`home-assistant-panel.tsx` 只讀 HA 的選定觀測，一般成員可見、

@@ -449,11 +449,13 @@ export function IconActionButton({
   icon,
   title,
   tone = "neutral",
+  disabled,
 }: {
   onClick: () => void;
   icon: React.ReactNode;
   title: string;
   tone?: "neutral" | "danger";
+  disabled?: boolean;
 }) {
   const hoverCls =
     tone === "danger"
@@ -465,7 +467,8 @@ export function IconActionButton({
       onClick={onClick}
       title={title}
       aria-label={title}
-      className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-mute transition-colors ${hoverCls}`}
+      disabled={disabled}
+      className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-mute transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${hoverCls}`}
     >
       {icon}
     </button>
@@ -473,7 +476,7 @@ export function IconActionButton({
 }
 
 /** Mount expensive charts only when opened; button remains keyboard accessible. */
-export function ControlDetails({ title, summary, children }: { title: string; summary?: string; children: React.ReactNode }) {
+export function ControlDetails({ title, summary, children, keepMounted = false }: { title: string; summary?: string; children: React.ReactNode; keepMounted?: boolean }) {
   const [open, setOpen] = useState(false);
   const id = useId();
   return <div className="border-t border-line/80 pt-1">
@@ -481,6 +484,6 @@ export function ControlDetails({ title, summary, children }: { title: string; su
       <span className="font-medium text-soft">{title}</span>
       <span className="flex min-w-0 items-center gap-2 text-xs text-mute"><span className="truncate">{summary}</span><ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} /></span>
     </button>
-    <div id={id} hidden={!open}>{open && <div className="space-y-4 pb-2 pt-3">{children}</div>}</div>
+    <div id={id} hidden={!open}>{(open || keepMounted) && <div className="space-y-4 pb-2 pt-3">{children}</div>}</div>
   </div>;
 }

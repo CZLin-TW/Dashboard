@@ -219,7 +219,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
     if (path === "/api/schedules") {
       if (method === "POST") {
         if (!b.device_name || !b.trigger_time) return error("設備與時間必填");
-        state.schedules.push({ 設備名稱: str(b.device_name), 觸發時間: str(b.trigger_time), 動作: str(b.target_action), 參數: JSON.stringify(b.params ?? {}), 建立者: "測試成員", 狀態: "待執行", 來源: "使用者" });
+        state.schedules.push({ 設備名稱: str(b.device_name), 觸發時間: str(b.trigger_time), 動作: str(b.target_action), 參數: JSON.stringify(b.params ?? {}), 建立者: "測試成員", 狀態: "待執行", 來源: state.devices.some(d => d.name === b.device_name && d.type === "空調" && d.controlProvider === "home_assistant") ? "使用者（HA）" : "使用者" });
         return success();
       }
       const executionId = method === "DELETE" ? value("execution_id") : "";
@@ -228,8 +228,16 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       if (index < 0) return error("找不到排程", 404);
       if (method === "DELETE") { state.schedules.splice(index, 1); return success(); }
       if (method === "PATCH") {
+        const original = state.schedules[index];
+        const finalAction = str(b.target_action_new, original.動作);
+        const finalName = str(b.device_name_new, original.設備名稱);
+        if (finalAction === "control_ac" && state.devices.some(d => d.name === finalName && d.controlProvider === "home_assistant")
+          && !["使用者", "使用者（HA）"].includes(original.來源 ?? "")) return error("舊自動關機／防黴排程已停用，請另外新增手動排程");
         for (const [key, field] of Object.entries({ device_name_new: "設備名稱", trigger_time_new: "觸發時間", target_action_new: "動作" })) if (b[key] !== undefined) state.schedules[index][field] = str(b[key]);
         if (b.params_new !== undefined) state.schedules[index].參數 = JSON.stringify(b.params_new);
+        const target = state.schedules[index];
+        if (target.動作 === "control_ac" && state.devices.some(d => d.name === target.設備名稱 && d.controlProvider === "home_assistant")) target.來源 = "使用者（HA）";
+        else if (target.來源 === "使用者（HA）") target.來源 = "使用者";
         return success();
       }
     }

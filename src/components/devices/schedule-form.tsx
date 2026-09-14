@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Toggle2,
   Stepper,
-  Segment,
+  Dropdown,
   Field,
 } from "@/components/ui/device-controls";
 
@@ -78,8 +78,8 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
 
   const [acPower, setAcPower] = useState(initial?.ac?.power ?? true);
   const [acTemp, setAcTemp] = useState(initial?.ac?.temperature ?? 26);
-  const [acMode, setAcMode] = useState(initial?.ac?.mode ?? "");
-  const [acFan, setAcFan] = useState(initial?.ac?.fanSpeed ?? "");
+  const [acMode, setAcMode] = useState(initial?.ac?.mode || options?.ac.modes[0]?.value || "");
+  const [acFan, setAcFan] = useState(initial?.ac?.fanSpeed || options?.ac.fan_speeds[0]?.value || "");
 
   const [dhPower, setDhPower] = useState(initial?.dehumidifier?.power ?? true);
   const [dhMode, setDhMode] = useState(initial?.dehumidifier?.mode ?? "");
@@ -88,6 +88,7 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
   const [irButton, setIrButton] = useState(initial?.ir?.button ?? "");
 
   const [submitting, setSubmitting] = useState(false);
+  const inFlight = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedDeviceData = controllable.find((d) => d.name === selectedDevice);
@@ -105,8 +106,8 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
     setSelectedDevice(name);
     setAcPower(true);
     setAcTemp(26);
-    setAcMode("");
-    setAcFan("");
+    setAcMode(options?.ac.modes[0]?.value || "");
+    setAcFan(options?.ac.fan_speeds[0]?.value || "");
     setDhPower(true);
     setDhMode("");
     setDhHumidity(undefined);
@@ -147,7 +148,8 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
 
   async function handleSubmit() {
     const payload = buildPayload();
-    if (!payload) return;
+    if (!payload || inFlight.current) return;
+    inFlight.current = true;
     setSubmitting(true);
     setError(null);
     try {
@@ -155,6 +157,7 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
     } catch (e) {
       setError(e instanceof Error ? e.message : "送出失敗");
     } finally {
+      inFlight.current = false;
       setSubmitting(false);
     }
   }
@@ -163,24 +166,16 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
   const submitLabel = mode === "edit" ? (submitting ? "儲存中..." : "儲存變更") : (submitting ? "新增中..." : "新增排程");
 
   return (
-    <div className="space-y-4">
+    <fieldset disabled={submitting} className="min-w-0 space-y-4 border-0 p-0">
       {!lockedDevice && (
         <Field label="裝置">
-          <select
-            value={selectedDevice}
-            onChange={(e) => handleDeviceChange(e.target.value)}
-            className="field-select w-full rounded-[10px] border border-line bg-elevated px-3 py-2 text-sm text-foreground focus:border-cool focus:outline-none"
-          >
-            <option value="">選擇裝置...</option>
-            {controllable.map((d) => (
-              <option key={d.name} value={d.name}>{d.name}（{d.type}）</option>
-            ))}
-          </select>
+          <Dropdown ariaLabel="排程裝置" options={controllable.map(d => ({value:d.name,label:`${d.name}（${d.type}）`}))}
+            value={selectedDevice || undefined} onSelect={handleDeviceChange} placeholder="選擇裝置" className="w-full" />
         </Field>
       )}
 
       {selectedType === "空調" && options && (
-        <div className="space-y-3.5 rounded-[14px] bg-elevated/50 p-3.5">
+        <div className="space-y-3">
           <Field label="電源">
             <Toggle2 value={acPower} onChange={setAcPower} />
           </Field>
@@ -194,10 +189,10 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
                 />
               </Field>
               <Field label="模式">
-                <Segment options={options.ac.modes} value={acMode || undefined} onSelect={setAcMode} />
+                <Dropdown ariaLabel="排程空調模式" className="w-full" options={options.ac.modes} value={acMode || undefined} onSelect={setAcMode} />
               </Field>
               <Field label="風速">
-                <Segment options={options.ac.fan_speeds} value={acFan || undefined} onSelect={setAcFan} />
+                <Dropdown ariaLabel="排程空調風速" className="w-full" options={options.ac.fan_speeds} value={acFan || undefined} onSelect={setAcFan} />
               </Field>
             </>
           )}
@@ -205,17 +200,18 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
       )}
 
       {selectedType === "除濕機" && options && (
-        <div className="space-y-3.5 rounded-[14px] bg-elevated/50 p-3.5">
+        <div className="space-y-3">
           <Field label="電源">
             <Toggle2 value={dhPower} onChange={setDhPower} />
           </Field>
           {dhPower && (
             <>
               <Field label="模式">
-                <Segment options={dhOptions.modes} value={dhMode || undefined} onSelect={setDhMode} />
+                <Dropdown ariaLabel="排程除濕模式" className="w-full" options={dhOptions.modes} value={dhMode || undefined} onSelect={setDhMode} />
               </Field>
               <Field label="目標濕度">
-                <Segment
+                <Dropdown
+                  ariaLabel="排程目標濕度" className="w-full"
                   options={dhOptions.humidity.map((h) => ({ value: h, label: `${h}%` }))}
                   value={dhHumidity}
                   onSelect={setDhHumidity}
@@ -227,9 +223,10 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
       )}
 
       {selectedType === "IR" && selectedDeviceData && irButtons.length > 0 && (
-        <div className="rounded-[14px] bg-elevated/50 p-3.5">
+        <div className="space-y-3">
           <Field label="按鈕">
-            <Segment
+            <Dropdown
+              ariaLabel="排程電扇按鈕" className="w-full"
               options={irButtons.map((b) => ({ value: b, label: b }))}
               value={irButton || undefined}
               onSelect={setIrButton}
@@ -243,17 +240,19 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
           <Field label="日期 *">
             <input
               type="date"
+              aria-label="排程日期"
               value={triggerDate}
               onChange={(e) => setTriggerDate(e.target.value)}
-              className="w-full rounded-[10px] border border-line bg-elevated px-4 py-2.5 text-sm text-foreground focus:border-cool focus:outline-none appearance-none"
+              className="block h-[38px] min-w-0 w-full max-w-full appearance-none rounded-full border border-line/70 bg-elevated px-3 text-base text-soft"
             />
           </Field>
           <Field label="時間 *">
             <input
               type="time"
+              aria-label="排程時間"
               value={triggerTime}
               onChange={(e) => setTriggerTime(e.target.value)}
-              className="w-full rounded-[10px] border border-line bg-elevated px-4 py-2.5 text-sm text-foreground focus:border-cool focus:outline-none appearance-none"
+              className="block h-[38px] min-w-0 w-full max-w-full appearance-none rounded-full border border-line/70 bg-elevated px-3 text-base text-soft"
             />
           </Field>
         </div>
@@ -267,18 +266,18 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="flex-1 rounded-full bg-cool px-5 py-2.5 text-sm font-semibold text-white hover:bg-cool/85 disabled:bg-elevated disabled:text-mute transition-colors"
+          className="h-[38px] min-w-0 flex-1 rounded-full bg-cool px-3 text-[13px] font-medium text-white hover:bg-cool/85 disabled:bg-elevated disabled:text-mute transition-colors"
         >
           {submitLabel}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-full border border-line bg-surface px-5 py-2.5 text-sm font-medium text-soft hover:bg-elevated transition-colors"
+          className="h-[38px] shrink-0 rounded-full border border-line bg-surface px-3 text-[13px] font-medium text-soft hover:bg-elevated transition-colors"
         >
           取消
         </button>
       </div>
-    </div>
+    </fieldset>
   );
 }

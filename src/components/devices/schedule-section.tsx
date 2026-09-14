@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Pencil, X, Clock } from "lucide-react";
+import { useRef, useState } from "react";
+import { Plus, Pencil, X } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
-import { IconActionButton, FIELD_LABEL } from "@/components/ui/device-controls";
+import { IconActionButton, ControlDetails } from "@/components/ui/device-controls";
 import { ScheduleForm, type ScheduleFormState } from "@/components/devices/schedule-form";
 import {
   type Schedule,
@@ -36,6 +36,8 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
   const { currentUser } = useUser();
   const [showAdd, setShowAdd] = useState(false);
   const [editKey, setEditKey] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const deleteInFlight = useRef(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function openAdd() {
@@ -63,6 +65,9 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
   }
 
   async function handleDelete(schedule: Schedule) {
+    if (deleteInFlight.current) return;
+    deleteInFlight.current = true;
+    setDeleting(true);
     setDeleteError(null);
     try {
       const attention = ["執行失敗", "待確認"].includes(schedule["狀態"]);
@@ -70,6 +75,9 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
       onSchedulesChange();
     } catch {
       setDeleteError("未能移除排程，請稍後重試。");
+    } finally {
+      deleteInFlight.current = false;
+      setDeleting(false);
     }
   }
 
@@ -77,31 +85,19 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
     (a, b) => (a["觸發時間"] ?? "").localeCompare(b["觸發時間"] ?? ""),
   );
 
-  if (device.controlProvider === "home_assistant") {
-    return <p className="border-t border-line pt-3 text-xs text-mute">空調自動化與排程請在 HA 設定；舊管家排程已停用。</p>;
-  }
-
+  const attentionCount = sorted.filter(s => ["執行失敗", "待確認"].includes(s["狀態"])).length;
   return (
-    <div className="border-t border-line pt-3.5 flex flex-col gap-2.5">
-      <div className="flex items-center justify-between">
-        <span className={`flex items-center gap-1.5 ${FIELD_LABEL}`}>
-          <Clock className="h-3 w-3" strokeWidth={2} />
-          排程
-          {sorted.length > 0 && (
-            <span className="num text-mute">({sorted.length})</span>
-          )}
-        </span>
-        {!showAdd && (
-          <IconActionButton
-            onClick={openAdd}
-            title="新增排程"
-            icon={<Plus className="h-3.5 w-3.5" strokeWidth={2} />}
-          />
-        )}
+    <ControlDetails title="排程" keepMounted summary={attentionCount ? `${attentionCount} 筆待確認` : sorted.length ? `${sorted.length} 筆` : "尚未設定"}>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <p className="text-xs text-mute">指定時間執行一次</p>
+        {!showAdd && <button type="button" disabled={deleting} onClick={openAdd}
+          className="inline-flex h-[38px] shrink-0 items-center gap-1 rounded-full bg-cool px-3 text-[13px] font-medium text-white hover:bg-cool/85 disabled:opacity-50">
+          <Plus className="h-3.5 w-3.5" />新增排程
+        </button>}
       </div>
 
       {showAdd && (
-        <div className="rounded-[12px] bg-elevated/50 px-3 py-3">
+        <div className="min-w-0 rounded-[14px] border border-line/70 bg-surface-2 p-3">
           <ScheduleForm
             mode="add"
             devices={allDevices}
@@ -114,7 +110,7 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
       )}
 
       {sorted.length > 0 && (
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-2">
           {sorted.map((s, idx) => {
             const trigger = s["觸發時間"] ?? "";
             const params = s["參數"] ?? "";
@@ -128,7 +124,7 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
 
             if (isEditing) {
               return (
-                <div key={idx} className="rounded-[12px] bg-elevated/50 px-3 py-3">
+                <div key={idx} className="min-w-0 rounded-[14px] border border-line/70 bg-surface-2 p-3">
                   <ScheduleForm
                     key={rowKey}
                     mode="edit"
@@ -146,29 +142,31 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
             return (
               <div
                 key={idx}
-                className="flex items-center gap-2 rounded-[10px] px-2.5 py-2 hover:bg-elevated/40 transition-colors"
+                className="flex min-w-0 flex-wrap items-center gap-2 rounded-[14px] border border-line/70 bg-surface-2 p-3"
               >
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 w-full">
                   <p className="text-[13px] text-foreground">
                     {parsed.display}
                   </p>
-                  <p className="num text-[11px] text-mute">
+                  <p className="num text-xs text-mute">
                     {trigger}
                     {creator && <span className="ml-2">· {creator}</span>}
                   </p>
                   {attention && <p className="mt-1 text-xs leading-relaxed text-mute">{s["執行結果"] || "請先確認設備狀態。"}</p>}
                 </div>
-                <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${status === "執行失敗" ? "bg-warm-bg text-warm" : "bg-amber-bg text-amber"}`}>
+                <span className={`mr-auto flex-shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${status === "執行失敗" ? "bg-warm-bg text-warm" : "bg-amber-bg text-amber"}`}>
                   {attention ? status : past ? "即將執行" : "待執行"}
                 </span>
                 {!attention && <IconActionButton
                   onClick={() => openEdit(rowKey)}
                   title="編輯"
+                  disabled={deleting}
                   icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
                 />}
                 <IconActionButton
                   onClick={() => void handleDelete(s)}
                   tone="danger"
+                  disabled={deleting}
                   title={attention ? "移除紀錄" : "刪除"}
                   icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
                 />
@@ -179,6 +177,6 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
       )}
       {sorted.some(s => ["執行失敗", "待確認"].includes(s["狀態"])) && <p className="text-xs leading-relaxed text-mute">失敗或待確認的指令不會自動重送。請先確認設備狀態，再新增排程；移除紀錄不會撤回已送出的指令。</p>}
       {deleteError && <p role="alert" className="text-xs text-warm">{deleteError}</p>}
-    </div>
+    </ControlDetails>
   );
 }

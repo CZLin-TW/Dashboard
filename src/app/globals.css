@@ -41,6 +41,16 @@
   --font-num: var(--font-inter), system-ui, -apple-system, sans-serif;
 }
 
+/* Reserve the document scrollbar before a card expands. Overlay scrollbars
+   (mobile/macOS) don't consume a gutter. Older browsers keep a stable track. */
+html {
+  scrollbar-gutter: stable;
+}
+
+@supports not (scrollbar-gutter: stable) {
+  html { overflow-y: scroll; }
+}
+
 body {
   background: var(--color-background);
   color: var(--color-foreground);
