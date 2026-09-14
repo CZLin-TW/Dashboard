@@ -11,6 +11,8 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
+import { LightColorControl } from "@/components/light-color-control";
+import type { LightColorState, LightStateCommand } from "@/lib/light-color";
 import { Toggle2, Dropdown, Field, StatusLine, ControlDetails, PANEL_BASE } from "@/components/ui/device-controls";
 
 interface LightingScene {
@@ -57,6 +59,7 @@ interface LightingArea {
   scenes?: LightingScene[];
   notifications?: LightingNotification[];
   effects?: LightingEffect[];
+  color_control?: LightColorState;
 }
 
 interface LightingPayload {
@@ -94,7 +97,6 @@ export default function LightingPage() {
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
   const [draftBri, setDraftBri] = useState<Record<string, number>>({});
   const [selectedScenes, setSelectedScenes] = useState<Record<string, string>>({});
-  const [selectedNotifications, setSelectedNotifications] = useState<Record<string, string>>({});
   const [selectedEffects, setSelectedEffects] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -131,19 +133,6 @@ export default function LightingPage() {
           }
         }
         return nextScenes;
-      });
-      setSelectedNotifications((prev) => {
-        const nextNotifications: Record<string, string> = {};
-        for (const area of data.areas ?? []) {
-          const notifications = Array.isArray(area.notifications) ? area.notifications : [];
-          const current = prev[area.id];
-          if (current && notifications.some((notification: LightingNotification) => notification.key === current)) {
-            nextNotifications[area.id] = current;
-          } else if (notifications[0]?.key) {
-            nextNotifications[area.id] = notifications[0].key;
-          }
-        }
-        return nextNotifications;
       });
       setSelectedEffects((prev) => {
         const nextEffects: Record<string, string> = {};
@@ -217,7 +206,7 @@ export default function LightingPage() {
   }
 
   // Read confirmed state after each command; never display an optimistic ON as success.
-  async function sendState(area: LightingArea, body: { on?: boolean; brightness?: number }) {
+  async function sendState(area: LightingArea, body: LightStateCommand) {
     if (commandInFlight.current) return;
     commandInFlight.current = true;
     setApplyingKey(`state:${area.id}`);
@@ -299,34 +288,6 @@ export default function LightingPage() {
     }
   }
 
-  async function applyNotification(area: LightingArea) {
-    if (commandInFlight.current) return;
-    const notificationKey = selectedNotifications[area.id];
-    if (!notificationKey) return;
-    commandInFlight.current = true;
-    setActionError("");
-    setApplyingKey(`notification:${area.id}`);
-    setNotice("");
-    try {
-      const res = await fetch(`/api/lighting/areas/${encodeURIComponent(area.id)}/notification`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          notification: notificationKey,
-          resource_type: area.resource_type || "grouped_light",
-        }),
-      });
-      if (!res.ok) throw new Error(await readError(res));
-      const notificationName = (area.notifications ?? []).find((item) => item.key === notificationKey)?.label || "通知";
-      setNotice(`${notificationName} 已套用`);
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setApplyingKey("");
-      commandInFlight.current = false;
-    }
-  }
-
   function brightnessValue(area: LightingArea) {
     const draft = draftBri[area.id];
     if (draft !== undefined) return draft;
@@ -384,7 +345,6 @@ export default function LightingPage() {
             const draft = draftNames[area.id] ?? name;
             const bri = brightnessValue(area);
             const scenes = area.scenes ?? [];
-            const notifications = area.notifications ?? [];
             const effects = area.effects ?? [];
             const known = typeof area.on === "boolean" && !error;
             const disabled = busy || !known;
@@ -417,6 +377,16 @@ export default function LightingPage() {
                   onPointerUp={() => commitBrightness(area)}
                   onKeyUp={(e) => { if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(e.key)) commitBrightness(area); }}
                   className="h-5 w-full min-w-0 cursor-pointer accent-cool disabled:opacity-40" />
+                {area.color_control && <LightColorControl name={name} value={area.color_control}
+                  total={area.light_count ?? 0} disabled={disabled} onSend={body => sendState(area, body)} />}
+                  <Field label="特效">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Dropdown ariaLabel={`${name}效果`} options={effects.map(effect => ({ value: effect.key, label: `${effect.label}${effect.partial ? " · 部分燈具" : ""}` }))}
+                        value={selectedEffects[area.id]} onSelect={value => setSelectedEffects(prev => ({ ...prev, [area.id]: value }))}
+                        disabled={disabled || !effects.length} placeholder="無效果" className="min-w-0 flex-1" />
+                      <button type="button" className={ACTION_BUTTON} disabled={disabled || !selectedEffects[area.id]} onClick={() => applyEffect(area)}>套用</button>
+                    </div>
+                  </Field>
                 <Field label="場景">
                   <div className="flex min-w-0 items-center gap-2">
                     <Dropdown ariaLabel={`${name}場景`} options={scenes.map(scene => ({ value: scene.id, label: `${scene.name || scene.id}${scene.resource_type === "smart_scene" ? " · 全天" : ""}` }))}
@@ -427,25 +397,6 @@ export default function LightingPage() {
                     </button>
                   </div>
                 </Field>
-                <ControlDetails title="效果與通知" summary="燈效 · 閃燈">
-                  <Field label="效果">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Dropdown ariaLabel={`${name}效果`} options={effects.map(effect => ({ value: effect.key, label: `${effect.label}${effect.partial ? " · 部分燈具" : ""}` }))}
-                        value={selectedEffects[area.id]} onSelect={value => setSelectedEffects(prev => ({ ...prev, [area.id]: value }))}
-                        disabled={disabled || !effects.length} placeholder="無效果" className="min-w-0 flex-1" />
-                      <button type="button" className={ACTION_BUTTON} disabled={disabled || !selectedEffects[area.id]} onClick={() => applyEffect(area)}>套用</button>
-                    </div>
-                  </Field>
-                  <Field label="通知">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Dropdown ariaLabel={`${name}通知`} options={notifications.map(item => ({ value: item.key, label: item.label }))}
-                        value={selectedNotifications[area.id]} onSelect={value => setSelectedNotifications(prev => ({ ...prev, [area.id]: value }))}
-                        disabled={disabled || !notifications.length} placeholder="無通知" className="min-w-0 flex-1" />
-                      <button type="button" className={ACTION_BUTTON} disabled={disabled || !selectedNotifications[area.id]} onClick={() => applyNotification(area)}>發送</button>
-                    </div>
-                  </Field>
-                  {applyingKey.endsWith(`:${area.id}`) && <StatusLine tone="waiting" text="正在送出指令" />}
-                </ControlDetails>
                 <ControlDetails title="區域設定" summary="名稱">
                   <Field label="顯示名稱">
                     <div className="flex min-w-0 items-center gap-2">

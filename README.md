@@ -22,6 +22,16 @@ Dashboard 負責畫面、配對登入、Session 與 API 代理；設備控制來
 新開發者先讀 [AGENTS.md](AGENTS.md)、[驗證紀錄](docs/verification.md) 與
 [多 repo 系統導覽](https://github.com/CZLin-TW/home-butler/blob/main/docs/system-overview.md)。
 
+## 照明光色（v1.54.0）
+
+照明卡提供電源、亮度、白光／彩色切換、特效與場景。
+白光使用色溫滑桿，彩色點色塊展開二維色盤（色相＋飽和度），附鍵盤可操作滑桿。
+不支援的控制隱藏，混合燈組標示部分燈具及混合光色；調整後重新讀取 Bridge 設定。
+調色不自動開燈；切換白光／彩色按鈕先選擇工具，拖動放開才送出。
+新控制需後端配合 HA `home_butler` **1.5.0**；舊整合保持既有亮度／場景能力。
+通知改由待辦用途管理，目前原有 ToDo 呼吸提醒仍保留，未新增通知效果編輯器。
+區域統一與除濕機區域對應尚未在這版實作，既有命名與控制路徑保持。
+
 ## 功能一覽
 
 | 功能 | 說明 |
@@ -33,7 +43,7 @@ Dashboard 負責畫面、配對登入、Session 與 API 代理；設備控制來
 | 待辦事項 | 新增、修改、完成、查看；支援週期任務（每天/每週/每月/間隔天的重複待辦，由模板自動生成當次待辦並以 🔁 標記）；隱私邏輯只顯示「自己負責 + 公開」項目；過期/今日提醒 highlight；有時間的待辦可勾選 Hue 燈光提醒並指定照明區域 |
 | 庫存 | 食品的新增、修改、刪除；過期/今日項目整 row 警示底色 |
 | 排程管理 | HB 管理的設備支援內嵌排程；HA 管理空調請到 HA 建立自動化。本頁不能編輯 HA 自動化 |
-| 照明 | 列出 Hue 房間/區域，每區一張卡：套用 Hue App 場景、套用通知動作、套用支援燈效、電源 On/Off、亮度（slider + 數字輸入雙向）、可改 Dashboard 顯示名稱；只顯示 room/zone（隱藏「全家」與未分區燈群） |
+| 照明 | Hue 房間/區域卡：電源、亮度、白光色溫、可展開彩色色盤、特效與場景；依燈具能力提供控制。顯示名稱可收合編輯，區域統一另階段處理 |
 | 照明自動化 | HB 自動夜燈已退役；夜燈在 HA 設定，待辦燈光提醒仍由 HB 決定、經 HA 執行 |
 | PC 監控 | 家中 PC 跑 agent 推指標到後端，Dashboard 顯示當下值（CPU/GPU 用量+溫度）+ 24h 折線圖（CPU/GPU/RAM 用量、CPU/GPU 溫度） |
 | 劇院 agent 監控 | PC 卡片提供三個自動化開關：KEF 喇叭連動、電視畫面自動關閉、AVR 隨電視開啟；顯示兩程序版本、Apple TV 健康、設備過時提示與兩份 log。寫入期間鎖定所有開關，完成後重讀確認；失敗不以反向值假裝回復。資料經 home-butler → PC agent → 同機 theater-agent 轉送。 |
@@ -162,11 +172,11 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 - 每個區域一張卡片：
   - **顯示名稱**：輸入框 + 右側儲存鈕（只有改過才亮，Enter 也能存），寫回 Sheet「Hue 照明區域」
   - **場景**：Dropdown 列該區 Hue App 內已建立的一般場景與全天場景，選好後按「套用」；全天場景以 `· 全天` 標示
-  - **通知**：Dropdown 列區域層級通知動作，固定提供 `呼吸燈`；若 Bridge 回傳 signaling 支援值也會列出
+  - **光色**：白光顯示色溫滑桿；彩色展開二維色盤與鍵盤操作滑桿，讀回混合光色時不假設單一顏色。需要 HA Home Butler 1.5.0
   - **效果**：Dropdown 列該區內燈具支援的 effect unique 結果；`部分燈具` 代表只有部分燈具支援，套用時只下發到支援的燈
-  - **亮度**：slider + 數字輸入雙向綁定（1–100），拖曳放開 / 失焦或 Enter 才送；調亮度視為順便開燈
+  - **亮度**：slider + 數字輸入雙向綁定（1–100），拖曳放開 / 失焦或 Enter 才送；HA 路徑不附帶開燈
   - **電源**：On/Off Toggle 讀寫該區 grouped_light 的真實 on 狀態
-  - **分層控制**：電源、亮度與場景常駐；效果／通知及改名預設收合。沿用家電共用控制元件；HB 夜燈 UI 與背景引擎已移除。
+  - **分層控制**：電源、亮度、光色工具、特效與場景常駐；色盤與改名預設收合。通知操作移出照明卡，既有待辦呼吸提醒保留。HB 夜燈引擎已移除。
 - 電源與亮度送出期間鎖定控制，完成後回讀狀態；錯誤獨立顯示，不以樂觀 ON 宣稱成功，也不自動重送。
 
 ### 登入 `/login`
@@ -208,11 +218,11 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/dehumidifier/auto-rule | GET / POST | 除濕機條件式自動規則的讀寫；等待選項為立即、5、10、15、20、25、30 分鐘，POST 設定 toggle ON 時後端會立即評估 sensor 當下值決定 fire ON/OFF |
 | /api/lighting/areas | GET | 列出 Hue rooms / zones 對應的 grouped_light 區域，含 Dashboard 顯示名稱、各區當下 on/brightness、一般場景 / 全天場景、通知動作與可用燈效 |
 | /api/lighting/areas/[id] | PATCH | 更新 Hue 區域顯示名稱 |
-| /api/lighting/areas/[id]/state | PATCH | 控制該區 grouped_light 的電源 (on) 與亮度 (brightness)，由 HomeButler 按設定交 HA／PC Agent 下發 |
+| /api/lighting/areas/[id]/state | PATCH | 電源 on／亮度 brightness；HA 1.5.0 另支援互斥 hs_color 或 color_temp_kelvin，只有支援的燈具會套用 |
 | /api/lighting/scenes/[id]/recall | POST | 套用 Hue App 內已建立的一般場景或全天場景 |
 | /api/lighting/areas/[id]/notification | POST | 套用區域層級通知動作，例如 `alert:breathe` 呼吸燈 |
 | /api/lighting/areas/[id]/effect | POST | 套用區域內支援的 Hue effect，部分支援時只套用支援的燈 |
-| /api/lighting/breathe | POST | 對指定 Hue grouped_light 觸發 breathe（後端仍保留；照明頁使用較泛用的 notification route） |
+| /api/lighting/breathe | POST | 對指定 Hue grouped_light 觸發 breathe（保留相容入口；日常照明頁不呼叫） |
 | /api/lighting/auto/rules | GET | 已退役：空 rules 與 retired=true，頁面不再呼叫 |
 | /api/lighting/auto/rules/[areaId] | PATCH / DELETE | 已退役：後端回 410，原 Sheet 資料保留 |
 | /api/lighting/auto/sensors | GET | 相容舊客戶端的唯讀感測清單，新照明頁不呼叫 |

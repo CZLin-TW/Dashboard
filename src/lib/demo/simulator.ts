@@ -240,8 +240,17 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       if (!a) return error("找不到照明區域", 404);
       if (!areaMatch[2] && method === "PATCH") { a.display_name = str(b.display_name) || a.hue_name; return success(); }
       if (areaMatch[2] === "state" && method === "PATCH") {
+        const c = a.color_control;
+        const hs = b.hs_color, kelvin = b.color_temp_kelvin;
+        if (hs !== undefined && kelvin !== undefined) return error("請選擇彩色或白光", 422);
+        if (hs !== undefined && (!c?.color_count || !Array.isArray(hs) || hs.length !== 2 ||
+          !hs.every(v => typeof v === "number" && Number.isFinite(v)) || hs[0] < 0 || hs[0] > 360 || hs[1] < 0 || hs[1] > 100)) return error("不支援的顏色", 422);
+        if (kelvin !== undefined && (!c?.temperature_count || typeof kelvin !== "number" || !Number.isInteger(kelvin) ||
+          c.min_kelvin === null || c.max_kelvin === null || kelvin < c.min_kelvin || kelvin > c.max_kelvin)) return error("不支援的色溫", 422);
         if (typeof b.on === "boolean") a.on = b.on;
-        if (typeof b.brightness === "number") { a.brightness = Math.max(1, Math.min(100, b.brightness)); a.on = true; }
+        if (typeof b.brightness === "number") a.brightness = Math.max(1, Math.min(100, b.brightness));
+        if (c && Array.isArray(hs)) { c.mode = "color"; c.hs = [hs[0], hs[1]]; c.kelvin = null; }
+        if (c && typeof kelvin === "number") { c.mode = "temperature"; c.kelvin = Math.round(1000000 / Math.round(1000000 / kelvin)); c.hs = null; }
         return success();
       }
       if (["effect", "notification"].includes(areaMatch[2]) && method === "POST") { a.last_action = str(b.effect ?? b.notification); return success(); }
@@ -250,7 +259,8 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
     if (sceneMatch && method === "POST") {
       const a = state.areas.find(a => a.scenes.some(s => s.id === sceneMatch[1]));
       if (!a) return error("找不到場景", 404);
-      a.on = true; a.brightness = sceneMatch[1].endsWith("night") ? 20 : 80; a.last_action = sceneMatch[1];
+      a.on = true; a.brightness = sceneMatch[1].endsWith("night") ? 20 : 80;
+      if (a.color_control) { a.color_control.mode = "temperature"; a.color_control.kelvin = sceneMatch[1].endsWith("night") ? 2200 : 4000; a.color_control.hs = null; } a.last_action = sceneMatch[1];
       return success();
     }
     const ruleMatch = path.match(/^\/api\/lighting\/auto\/rules\/([^/]+)$/);

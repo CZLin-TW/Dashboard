@@ -1,3 +1,4 @@
+import type { LightColorState } from "../light-color";
 import type { DeviceData, DeviceOptions, TodoData, FoodData, RecurringRule, DehumidifierAutoRule, WeatherData } from "../types";
 import type { Schedule } from "../schedule";
 import type { Sensor } from "../sensor";
@@ -45,6 +46,7 @@ export interface DemoArea {
   scenes: { id: string; name: string; resource_type: string }[];
   notifications: { key: string; label: string; kind: string; action: string }[];
   effects: { key: string; label: string; supported_count: number; total_count: number }[];
+  color_control?: LightColorState;
   last_action?: string;
 }
 
@@ -101,9 +103,11 @@ export function createDemoState(scenario: Scenario = "normal", now = Date.now())
     areas: scenario === "empty" ? [] : ["客廳", "臥室"].map((name, i) => ({
       id: i === 0 ? "demo-living" : "demo-bedroom", resource_type: "grouped_light", hue_resource_id: `demo-room-${i}`, hue_resource_type: "room",
       hue_name: name, kind: "房間", display_name: name, on: i === 0, brightness: i === 0 ? 65 : 30, light_count: 3,
+      color_control: { color_count: i === 0 ? 3 : 0, temperature_count: 3, min_kelvin: 2000, max_kelvin: 6500,
+        mode: "temperature" as const, hs: null, kelvin: 3000 },
       scenes: [{ id: `demo-scene-${i}-day`, name: "日常照明", resource_type: "scene" }, { id: `demo-scene-${i}-night`, name: "柔和夜燈", resource_type: "scene" }],
       notifications: [{ key: "alert:breathe", label: "呼吸燈", kind: "alert", action: "breathe" }],
-      effects: [{ key: "candle", label: "燭光", supported_count: 3, total_count: 3 }],
+      effects: [{ key: "no_effect", label: "停止特效", supported_count: 3, total_count: 3 }, { key: "candle", label: "燭光", supported_count: 3, total_count: 3 }],
     })),
     lightingRules: {},
     theater: { health: { api: "ok", appletv: { sha: "demo", stale: false, updated_at: Date.now() / 1000, restore_pending: null }, update: { status: "up_to_date" } }, agent_id: "DEMO-PC", flags: { kef_link: true, tv_screen_auto: true, tv_avr_sync: false }, monitor: { last_avr_state: "on", last_tv_state: "active", auto_update: true }, devices: { marantz: { power: "on", source: "Apple TV", volume: 35 }, ls60: { power: "on" }, lsx2: { power: "off" } }, logs: { theater: ["[DEMO] 劇院服務已連線", "[DEMO] 此處為模擬紀錄"], appletv: ["[DEMO] Apple TV 待命"] } },
