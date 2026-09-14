@@ -67,13 +67,13 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         case "/api/food": return json(state.food);
         case "/api/schedules": return json(state.schedules);
         case "/api/recurring-todos": return json(state.recurring.filter(r => r.狀態 === "啟用" && visibleTodo(r)));
-        case "/api/lighting/areas": return json({ agent_id: "DEMO-PC", areas: state.areas });
+        case "/api/lighting/areas": return json({ agent_id: "home_assistant", areas: state.areas });
         case "/api/lighting/auto/rules": return json({ rules: state.lightingRules });
         case "/api/lighting/auto/sensors": return json({ sensors: state.devices.filter(d => d.type === "感應器").map(d => ({ name: d.name, location: d.location, device_id: `demo-${d.name}` })) });
         case "/api/theater/summary": return json(state.theater);
         case "/api/weather": return json(weather());
       }
-      if (/^\/api\/lighting\/auto\/sensors\/[^/]+\/light-level$/.test(path)) return json({ light_level: 4, source: "webhook", age_seconds: 5 });
+      if (/^\/api\/lighting\/auto\/sensors\/[^/]+\/light-level$/.test(path)) return json({ light_level: 4, source: "home_assistant", age_seconds: 5 });
     }
 
     if (path === "/api/ac/feedback" && method === "POST") {

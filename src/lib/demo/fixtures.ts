@@ -119,7 +119,7 @@ export function monitoring(state: DemoState, now = Date.now()) {
   for (const d of state.devices) {
     if (d.type === "感應器") {
       const history = Array.from({ length: 289 }, (_, i) => ({ t: t - (288 - i) * 300, temp: Math.round(((d.temperature ?? 26) + Math.sin(i / 24)) * 10) / 10, humidity: Math.round((d.humidity ?? 55) + Math.sin(i / 18) * 5), co2: d.location === "客廳" ? Math.round(680 + Math.sin(i / 20) * 150) : null }));
-      sensors[d.name] = { device_name: d.name, location: d.location, current: history[288], history, online: state.scenario !== "offline", last_polled_at: state.scenario === "offline" ? t - 3600 : t };
+      sensors[d.name] = { device_name: d.name, location: d.location, source: "home_assistant", current: state.scenario === "offline" ? { t, temp: null, humidity: null, co2: null } : history[288], history, online: state.scenario !== "offline", last_polled_at: state.scenario === "offline" ? t - 3600 : t };
     }
     if (d.type === "空調") {
       const current = { t, power: d.lastPower ?? "off", temperature: Number(d.lastTemperature), mode: d.lastMode ?? "冷氣", fan_speed: d.lastFanSpeed ?? "自動" };

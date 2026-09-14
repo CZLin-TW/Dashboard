@@ -97,7 +97,7 @@ interface AutoSensor {
   device_id: string;
 }
 
-// 偵測按鈕回傳：webhook 快取（有資料年齡）或 status 雲端快取（樣本時間未知）
+// 偵測按鈕回傳：HA 同步值、legacy webhook 或 status 雲端快取；年齡不代表物理量測時間。
 interface ProbeResult {
   light_level: number | null;
   source?: string;
@@ -538,7 +538,7 @@ export default function LightingPage() {
               ) : (
                 <WifiOff className="h-3.5 w-3.5 text-mute" strokeWidth={2} />
               )}
-              {payload.agent_id || "等待 agent"}
+              {payload.agent_id === "home_assistant" ? "Home Assistant" : payload.agent_id || "等待照明連線"}
             </span>
             <span className="rounded-full border border-line bg-surface px-2.5 py-1">
               {areas.length} 個區域
@@ -612,6 +612,8 @@ export default function LightingPage() {
             if (probed) {
               if (probed.light_level === null) {
                 probeLabel = "無亮度數值";
+              } else if (probed.source === "home_assistant") {
+                probeLabel = `目前 ${probed.light_level} 級・HA${typeof probed.age_seconds === "number" ? ` 同步於${formatAge(probed.age_seconds)}` : ""}`;
               } else if (probed.source === "webhook" && typeof probed.age_seconds === "number") {
                 probeLabel = `目前 ${probed.light_level}・${formatAge(probed.age_seconds)}`;
               } else {

@@ -2,6 +2,9 @@ v1.46.0 HA 空調遷移：後端 controlProvider=home_assistant 時，Dashboard 
 
 # Smart Home Dashboard
 
+v1.51.0：照明可顯示 Home Assistant 控制來源，Hub 光照保留 1–20 級並標示 HA 同步時間。
+感測即時資料可改由 HA 提供，原歷史圖表保留；需要先完成[後端與 HA 切換](https://github.com/CZLin-TW/home-butler/blob/main/homeassistant/sensors-and-hue.md)。
+
 v1.48.0 可將既有電扇「電源、風速＋、風速－」改由 HA 的本地按鈕發送，Dashboard 操作方式不變。
 先依 [HA IR 按鈕設定](https://github.com/CZLin-TW/home-butler/blob/main/homeassistant/ir-buttons.md) 安裝與逐台切換；不會推測風量百分比或實際開關狀態。
 

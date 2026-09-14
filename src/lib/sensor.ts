@@ -1,4 +1,4 @@
-// SwitchBot 感測器 monitoring 的 backend payload 型別 + chart transform。
+// 感測器 monitoring 的 backend payload 型別 + chart transform；HA 即時值與原歷史共用。
 // backend 來源：home-butler/sensor_state.py snapshot()。
 
 export interface SensorHistoryRaw {
@@ -17,6 +17,7 @@ export interface Sensor {
   history: SensorHistoryRaw[];
   last_polled_at: number;
   online: boolean;
+  source?: "home_assistant";
 }
 
 // Chart 點：時間用 ms（跟 PC 監控 chart 一致，方便共用 X axis logic）。

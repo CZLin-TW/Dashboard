@@ -1,5 +1,10 @@
 # 驗證方式與範圍
 
+2026-09-14 v1.51.0：照明來源辨識 Home Assistant，Hub 光照顯示「級」及 HA 同步年齡。
+demo 感測即時值採 HA 契約，失聯時 null、歷史保留。28 項 test:demo、lint、隔離 demo production build 通過；
+瀏覽器實際操作亮度偵測顯示「目前 4 級・HA 同步於剛剛」，版面正常。未控制家中燈具。
+後端／HA 通道及家庭啟用狀態見 home-butler 的驗證文件，demo 成功不代表 HA 已切換。
+
 2026-09-14 v1.50.0：本 repo 只更新整體版本。Hub 2 Push 觸發 HA 更新的功能與測試位於 home-butler；
 Dashboard UI／API 契約不變，實機驗證見後端 docs/verification.md。
 

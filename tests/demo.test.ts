@@ -17,6 +17,20 @@ import { acAcceptedTemperature, acPendingFromDevice } from "../src/lib/types";
 import { haIsFresh, observationText, type HaSnapshot } from "../src/lib/home-assistant";
 import { GET as haGET } from "../src/app/api/home-assistant/observations/route";
 
+test("lighting exposes the HA provider and keeps Hub level separate from lux", async () => {
+  const simulator = createSimulator();
+  const areas = await simulator.handle(new Request("http://demo/api/lighting/areas"));
+  assert.equal((await areas.json()).agent_id, "home_assistant");
+  const level = await simulator.handle(new Request("http://demo/api/lighting/auto/sensors/demo/light-level"));
+  assert.deepEqual(await level.json(), { light_level: 4, source: "home_assistant", age_seconds: 5 });
+  const normal = monitoring(createDemoState()).sensors["客廳感測器"];
+  const offline = monitoring(createDemoState("offline")).sensors["客廳感測器"];
+  assert.equal(normal.source, "home_assistant");
+  assert.equal(offline.current.temp, null);
+  assert.equal(offline.online, false);
+  assert.ok(offline.history.length > 0);
+});
+
 test("HA ACs use integer targets, reject feedback and become unavailable offline", async () => {
   const simulator = createSimulator();
   const request = (params: object) => new Request("http://demo/api/devices/control", {

@@ -27,6 +27,10 @@ kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
 
 # 版本管理
 
+v1.51.0：照明 API `agent_id=home_assistant` 顯示 Home Assistant；Hub `light_level` 為 1–20 級，
+`source=home_assistant` 的 age_seconds 是 HA 同步年齡，不是設備量測時間。原感測歷史維持五分鐘，
+HA 失聯 current 數值 null、history 保留。不得由 demo 通過推定家庭已啟用後端切換旗標。
+
 v1.44.0：空調回饋 interval_min 可設整數 1–30、min_adjust_min 可設整數 1–60；預設仍 5／10 分鐘。後端 valid_config、Dashboard 進階欄位與 simulator 必須一致。回饋啟用且冷暖房開機時，其感測器約每分鐘取值；其他背景讀取及歷史仍每 300 秒。sensor_polling 共用每 ID 的鎖與每個 60 秒時段內的讀取結果，sensor_state.update_current 不寫歷史。1 分鐘查詢不等於設備有新測量，保留樣本去重、冷卻等待、關機／未知結果限制。
 
 `package.json:version` 是整個系統（Dashboard + home-butler）的**使用者體感版本** source of truth。
