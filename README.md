@@ -22,6 +22,15 @@ Dashboard 負責畫面、配對登入、Session 與 API 代理；設備控制來
 新開發者先讀 [AGENTS.md](AGENTS.md)、[驗證紀錄](docs/verification.md) 與
 [多 repo 系統導覽](https://github.com/CZLin-TW/home-butler/blob/main/docs/system-overview.md)。
 
+## 空調自動關機（v1.56.0）
+
+空調卡展開「自動關機」，設定開機後幾小時關閉；0 表示停用，可設 1–168 整數小時。
+設定保存於 HB 的既有 Sheet「自動關機小時數」欄位。HA 空調由 HB 計時、到期經 HA 下令，不建立 HA 自動化。
+調溫／模式不重置，手動關機排程優先。開機中更改時數從保存後重新計時；相同時數保存不重置。
+展開可查看計時狀態與預計關機時間；HA 離線時仍能停用。需 HB 運行與 HA 連線，不是真實 IR 電源回讀。
+首次接手已開機空調從觀察時開始，狀態每分鐘評估；詳細限制見後端 docs/ac-auto-off.md。
+成人／一般成員可設定，kid 不顯示此面板；demo 僅模擬設定保存，沒有背景計時或家電操作。
+
 ## 手動排程與版面（v1.55.0）
 
 家電卡展開「排程 → 新增排程」，選擇日期、時間與動作，可管理一次性排程。
@@ -77,7 +86,7 @@ HA Hue 啟用後照明頁標示 Home Assistant，場景、燈效與提醒使用 
 SwitchBot Cloud 仍經雲端，並非全部裝置都已本地化。HA 失聯不會自動改走舊路徑。
 詳細架構與驗收界線見 [後端 README](https://github.com/CZLin-TW/home-butler)。
 
-空調依後端 `controlProvider` 顯示對應操作：HA 採整数目標，不提供舊半度回饋、防黴與自動關機；手動排程由 HB 經 HA 執行；
+空調依後端 `controlProvider` 顯示對應操作：HA 採整数目標，不提供舊半度回饋、防黴；手動排程與自動關機由 HB 經 HA 執行；
 外部室溫來源在 [HA 室溫配對整合](https://github.com/CZLin-TW/home-butler/blob/main/homeassistant/room-temperature.md) 設定。
 未遷移設備才保留 [舊回饋功能](https://github.com/CZLin-TW/home-butler/blob/main/docs/ac-temperature-feedback.md)。
 部署先後端、再前端；回復順序相反。

@@ -11,6 +11,7 @@ const success = () => json({ ok: true, message: "模擬操作完成" });
 export function createSimulator(initial = createDemoState(), persist: (state: DemoState) => void = () => {}) {
   const state = structuredClone(initial);
   state.acFeedback ??= {};
+  state.acAutoOff ??= {};
   let sequence = 0;
 
   async function dispatch(request: Request): Promise<Response> {
@@ -53,6 +54,10 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
           .filter(([name]) => !value("name") || name === value("name"))
           .map(([name, sensor]) => [name, value("include_history") === "false" ? { ...sensor, history: [] } : sensor])));
         case "/api/ac/status": return json(history().acs);
+        case "/api/ac/auto-off": return json({ devices: Object.fromEntries(state.devices.filter(d => d.type === "空調").map(d => {
+          const saved = state.acAutoOff![d.name] ?? { hours: 0, status: "disabled", scheduled_at: null };
+          return [d.name, { ...saved, status: saved.hours && state.scenario === "offline" ? "unavailable" : saved.status }];
+        })) });
         case "/api/ac/feedback": return json({ devices: Object.fromEntries(state.devices.filter(d => d.type === "空調").map(d => {
           const saved = state.acFeedback![d.name] ?? { config: AC_FEEDBACK_DEFAULTS, ir_temperature: Number(d.lastTemperature) };
           const sensor = state.devices.find(s => s.name === saved.config.sensor_name);
@@ -76,6 +81,18 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       if (/^\/api\/lighting\/auto\/sensors\/[^/]+\/light-level$/.test(path)) return json({ light_level: 4, source: "home_assistant", age_seconds: 5 });
     }
 
+    if (path === "/api/ac/auto-off" && method === "POST") {
+      const device = state.devices.find(d => d.name === b.device_name && d.type === "空調");
+      if (!device || !Number.isInteger(b.hours) || Number(b.hours) < 0 || Number(b.hours) > 168) return error("空調或時數無效", 422);
+      const hours = Number(b.hours);
+      const old = state.acAutoOff![device.name];
+      if (old?.hours === hours) return json(old);
+      const counting = hours > 0 && state.scenario !== "offline" && device.lastPower === "on";
+      const saved = { hours, status: !hours ? "disabled" : state.scenario === "offline" ? "unavailable" : counting ? "counting" : "waiting_power",
+        scheduled_at: counting ? new Date(Date.now() + (hours + 8) * 3600_000).toISOString().slice(0,16).replace("T", " ") : null };
+      state.acAutoOff![device.name] = saved;
+      return json(saved);
+    }
     if (path === "/api/ac/feedback" && method === "POST") {
       const device = state.devices.find(d => d.name === b.device_name && d.type === "空調");
       if (!device) return error("找不到模擬空調", 404);
@@ -226,6 +243,11 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       const index = state.schedules.findIndex(s => s.設備名稱 === value("device_name") && s.觸發時間 === value("trigger_time")
         && (executionId ? ["執行失敗", "待確認"].includes(s.狀態) && s.執行識別碼 === executionId : s.狀態 === "待執行"));
       if (index < 0) return error("找不到排程", 404);
+      if (state.schedules[index].來源 === "自動（HA）") {
+        let closed = false;
+        try { closed = JSON.parse(state.schedules[index].參數)._auto_closed === true; } catch { /* Fail closed. */ }
+        if (!closed) return error("請在空調的自動關機設定調整時數或停用");
+      }
       if (method === "DELETE") { state.schedules.splice(index, 1); return success(); }
       if (method === "PATCH") {
         const original = state.schedules[index];

@@ -121,6 +121,7 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
             const past = isPastTrigger(trigger);
             const status = s["狀態"] || "待執行";
             const attention = status === "執行失敗" || status === "待確認";
+            const automatic = s["來源"] === "自動（HA）";
 
             if (isEditing) {
               return (
@@ -146,7 +147,7 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
               >
                 <div className="min-w-0 w-full">
                   <p className="text-[13px] text-foreground">
-                    {parsed.display}
+                    {automatic ? "自動關機" : parsed.display}
                   </p>
                   <p className="num text-xs text-mute">
                     {trigger}
@@ -157,19 +158,19 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
                 <span className={`mr-auto flex-shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${status === "執行失敗" ? "bg-warm-bg text-warm" : "bg-amber-bg text-amber"}`}>
                   {attention ? status : past ? "即將執行" : "待執行"}
                 </span>
-                {!attention && <IconActionButton
+                {!attention && !automatic && <IconActionButton
                   onClick={() => openEdit(rowKey)}
                   title="編輯"
                   disabled={deleting}
                   icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
                 />}
-                <IconActionButton
+                {automatic && !parsed.autoClosed ? <span className="text-xs text-mute">由自動關機設定管理</span> : <IconActionButton
                   onClick={() => void handleDelete(s)}
                   tone="danger"
                   disabled={deleting}
                   title={attention ? "移除紀錄" : "刪除"}
                   icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
-                />
+                />}
               </div>
             );
           })}

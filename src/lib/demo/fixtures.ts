@@ -56,6 +56,7 @@ export interface DemoState {
   recurring: RecurringRule[]; schedules: Schedule[]; rules: Record<string, DehumidifierAutoRule>;
   areas: DemoArea[]; lightingRules: Record<string, Row>; theater: TheaterSummary;
   acFeedback?: Record<string, AcFeedbackState & { last_sample_at?: number }>;
+  acAutoOff?: Record<string, import("../ac-auto-off").AcAutoOffState>;
 }
 
 export function createDemoState(scenario: Scenario = "normal", now = Date.now()): DemoState {

@@ -18,6 +18,7 @@ import { Toggle2, Stepper, Segment, Dropdown, Field, StatusLine, ControlDetails 
 import { AutoModeChart, HumidityCurveChart } from "@/components/devices/lazy-charts";
 import { DehumidifierHistory } from "@/components/home/history-charts";
 import { AcFeedbackPanel } from "@/components/devices/ac-feedback-panel";
+import { AcAutoOffPanel } from "@/components/devices/ac-auto-off-panel";
 
 const DURATION_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: "立即" },
@@ -405,7 +406,7 @@ export function DeviceController({
   if (device.type === "空調") {
     const haManaged = device.controlProvider === "home_assistant";
     if (haManaged && device.available !== true) {
-      return <p className="text-sm text-mute">HA 空調狀態未知，暫時無法控制。連線恢復後會重新顯示目前設定。</p>;
+      return <><p className="text-sm text-mute">HA 空調狀態未知，暫時無法控制。連線恢復後會重新顯示目前設定。</p><AcAutoOffPanel name={device.name} /></>;
     }
     const acDisabled = sending || acAwaiting || (haManaged && device.available !== true);
     const step = haManaged ? 1 : 0.5;
@@ -497,6 +498,7 @@ export function DeviceController({
             ? "送出設定"
             : "未變更"}
         </button>
+        <AcAutoOffPanel name={device.name} />
         {!haManaged && <AcFeedbackPanel device={device} onSettingsSaved={async () => {
           if (onAcCommandSuccess) await onAcCommandSuccess();
           setPending(null);
