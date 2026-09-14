@@ -96,4 +96,11 @@ kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
 
 - 劇院 summary 已使用共用 query store；保留上次資料、顯示過時／離線，不再另建版本專用快取。開關写入期間鎖定，完成後替換讀取以免舊輪詢蓋回設定；不以反向值假裝回復。
 - `health` 與設備 `stale` / `updated_at` 等都是可選欄位，需相容舊版 theater-agent。區分 API 離線、設備狀態過時、Apple TV 心跳與畫面恢復重試。
+- **劇院卡掛在哪由 `agent_id` 決定**：對上某台 PC 的 hostname 就接在那張電腦卡底部（走 PC agent），
+  否則獨立成一張「劇院」卡（`agent_id = home_assistant`，即 `THEATER_VIA_HA=true`，或 PC agent 已移除）。
+  UI 只認 `agent_id`，不需要知道後端走哪條。**不要把劇院區塊改回只掛在電腦卡上**——
+  PC agent 一拿掉劇院控制就會整組消失，v1.58.1 修的就是這個。
+- **讀不到又沒有快取時仍然要畫出這張卡**，內容換成錯誤訊息與重新整理鈕。靜靜不渲染會讓
+  「中繼壞掉」和「這個家沒有劇院」長得一模一樣；實際發生過，症狀是切換 `THEATER_VIA_HA`
+  之後整個區塊消失、畫面上沒有任何線索。
 - Theater Agent 的 T1–T7 與現有八項架構清單分開。它在私人 repo，勿把其金鑰、配對或設備設定複製到 Dashboard。

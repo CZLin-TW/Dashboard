@@ -173,6 +173,11 @@ test("lighting, auto-rule, theater and schedule writes read back", async () => {
   assert.equal(sim.snapshot().lightingRules["demo-living"], undefined);
   await sim.handle(request("/api/theater/flags", "POST", { kef_link: false }));
   assert.equal(sim.snapshot().theater.flags.kef_link, false);
+  // Relayed through HA, so agent_id matches no PC hostname and the devices page
+  // must render the theater card on its own instead of inside a computer card.
+  assert.equal(sim.snapshot().theater.agent_id, "home_assistant");
+  const pcs = await (await sim.handle(request("/api/computers/status"))).json();
+  assert.ok(!Object.values(pcs as Record<string, { hostname: string }>).some((pc) => pc.hostname === "home_assistant"));
   assert.equal(sim.snapshot().theater.health?.appletv?.stale, false);
   await sim.handle(request("/api/dehumidifier/auto-rule", "POST", { device_name: "客廳除濕機", auto_mode: false }));
   assert.equal((await sim.handle(request("/api/devices/control", "POST", { deviceName: "客廳除濕機", action: "dehumidifier", params: { power: false } }))).status, 200);

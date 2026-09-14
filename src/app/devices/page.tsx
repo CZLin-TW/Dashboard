@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { LayoutGrid, Activity, Cpu, Clapperboard } from "lucide-react";
+import { LayoutGrid, Activity, Cpu, Clapperboard, RefreshCw } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
@@ -381,26 +381,55 @@ export default function DevicesPage() {
         )}
       </section>
 
-      {/* ── 劇院（agent_id 對不上任何一台 PC 時獨立成卡：走 HA 中繼，或 PC agent 已移除） ── */}
-      {theater && !computers.some((c) => c.hostname === theater.agent_id) && (
+      {/* ── 劇院 ──
+          有 summary 且 agent_id 對不上任何一台 PC（走 HA 中繼，或 PC agent 已移除）→ 獨立成卡。
+          完全讀不到又沒有快取 → 仍然出現這張卡，只是內容換成錯誤訊息：靜靜不渲染會讓
+          「中繼壞掉」跟「這個家沒有劇院」長得一模一樣，那正是 v1.58.1 查了很久的症狀。 */}
+      {(theater ? !computers.some((c) => c.hostname === theater.agent_id) : theaterOffline) && (
         <section className="space-y-3">
           <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
             <Clapperboard className="h-4 w-4" strokeWidth={2} />
             劇院
           </h1>
-          <Card>
-            <TheaterSection
-              summary={theater}
-              offline={theaterOffline}
-              refreshing={theaterRefreshing}
-              saving={theaterSaving}
-              stale={theaterStale}
-              saveError={theaterSaveError}
-              standalone
-              onRefresh={refetchTheater}
-              onFlagChange={setTheaterFlag}
-            />
-          </Card>
+          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              {theater ? (
+                <TheaterSection
+                  summary={theater}
+                  offline={theaterOffline}
+                  refreshing={theaterRefreshing}
+                  saving={theaterSaving}
+                  stale={theaterStale}
+                  saveError={theaterSaveError}
+                  standalone
+                  onRefresh={refetchTheater}
+                  onFlagChange={setTheaterFlag}
+                />
+              ) : (
+                <div className="space-y-2.5">
+                  <h3 className="flex items-center gap-2 px-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-mute">
+                    <Clapperboard className="h-4 w-4" strokeWidth={1.8} />
+                    劇院 Agent
+                    <span className="rounded-full bg-mute/20 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-mute">
+                      離線
+                    </span>
+                  </h3>
+                  <p role="alert" className="px-1 text-xs text-amber-500">
+                    劇院狀態讀取失敗，控制暫停。設備本身不受影響。
+                  </p>
+                  <button
+                    type="button"
+                    onClick={refetchTheater}
+                    disabled={theaterRefreshing}
+                    className="flex items-center gap-1.5 rounded-[10px] bg-elevated/40 px-3 py-1.5 text-[13px] text-foreground transition-colors hover:bg-elevated/60 disabled:opacity-40"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${theaterRefreshing ? "animate-spin" : ""}`} strokeWidth={1.8} />
+                    重新整理
+                  </button>
+                </div>
+              )}
+            </Card>
+          </div>
         </section>
       )}
 
@@ -413,7 +442,7 @@ export default function DevicesPage() {
         {computers.length === 0 ? (
           <p className="px-1 text-sm text-mute">目前沒有電腦在線（agent 啟動後會自動出現）</p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {computers.map((c) => (
               <ComputerCard
                 key={c.ip}
