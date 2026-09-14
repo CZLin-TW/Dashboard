@@ -56,7 +56,6 @@ export interface DemoState {
   recurring: RecurringRule[]; schedules: Schedule[]; rules: Record<string, DehumidifierAutoRule>;
   areas: DemoArea[]; lightingRules: Record<string, Row>; theater: TheaterSummary;
   acFeedback?: Record<string, AcFeedbackState & { last_sample_at?: number }>;
-  acAutoOff?: Record<string, import("../ac-auto-off").AcAutoOffState>;
 }
 
 export function createDemoState(scenario: Scenario = "normal", now = Date.now()): DemoState {
@@ -93,6 +92,7 @@ export function createDemoState(scenario: Scenario = "normal", now = Date.now())
     ],
     recurring: scenario === "empty" ? [] : [{ 規則ID: "demo-daily", 事項: "倒垃圾", 重複類型: "每天", 時間: "20:00", 負責人: "測試成員", 類型: "公開", 狀態: "啟用", 摘要: "每天 20:00" }],
     schedules: scenario === "empty" ? [] : [
+      { 設備名稱: "HA 測試空調", 動作: "control_ac", 參數: '{"power":"off","_auto_hours":9}', 觸發時間: `${dateAt(1, now)} 07:00`, 建立者: "系統", 狀態: "待執行", 來源: "自動（HA）" },
       { 設備名稱: "客廳冷氣", 動作: "control_ac", 參數: '{"power":"off"}', 觸發時間: `${dateAt(1, now)} 23:00`, 建立者: "測試成員", 狀態: "待執行", 來源: "使用者" },
       { 設備名稱: "客廳冷氣", 動作: "control_ac", 參數: '{"power":"on"}', 觸發時間: `${dateAt(-1, now)} 18:00`, 建立者: "測試成員", 狀態: "執行失敗", 來源: "使用者", 執行識別碼: "demo-failed-ac", 執行結果: "設備服務拒絕指令，請確認設備連線後再新增排程。" },
       { 設備名稱: "循環扇", 動作: "control_ir", 參數: '{"button":"電源"}', 觸發時間: `${dateAt(-1, now)} 19:00`, 建立者: "測試成員", 狀態: "待確認", 來源: "使用者", 執行識別碼: "demo-unknown-ir", 執行結果: "指令回應中斷，請先確認循環扇目前的電源狀態。" },

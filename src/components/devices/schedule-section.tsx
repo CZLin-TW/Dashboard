@@ -147,7 +147,7 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
               >
                 <div className="min-w-0 w-full">
                   <p className="text-[13px] text-foreground">
-                    {automatic ? "自動關機" : parsed.display}
+                    {parsed.display}{automatic && <span className="ml-2 text-xs text-mute">· 自動產生</span>}
                   </p>
                   <p className="num text-xs text-mute">
                     {trigger}
@@ -158,13 +158,13 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
                 <span className={`mr-auto flex-shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${status === "執行失敗" ? "bg-warm-bg text-warm" : "bg-amber-bg text-amber"}`}>
                   {attention ? status : past ? "即將執行" : "待執行"}
                 </span>
-                {!attention && !automatic && <IconActionButton
+                {!attention && <IconActionButton
                   onClick={() => openEdit(rowKey)}
                   title="編輯"
                   disabled={deleting}
                   icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
                 />}
-                {automatic && !parsed.autoClosed ? <span className="text-xs text-mute">由自動關機設定管理</span> : <IconActionButton
+                {<IconActionButton
                   onClick={() => void handleDelete(s)}
                   tone="danger"
                   disabled={deleting}

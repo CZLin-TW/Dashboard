@@ -274,7 +274,7 @@ test("lighting, auto-rule, theater and schedule writes read back", async () => {
   await sim.handle(request("/api/schedules", "PATCH", { device_name: "循環扇", trigger_time: "2026-10-01 20:00", trigger_time_new: "2026-10-01 21:00" }));
   assert.ok(sim.snapshot().schedules.some(s => s.觸發時間 === "2026-10-01 21:00"));
   await sim.handle(request("/api/schedules", "DELETE", { device_name: "循環扇", trigger_time: "2026-10-01 21:00" }));
-  assert.equal(sim.snapshot().schedules.length, 3);
+  assert.deepEqual(sim.snapshot().schedules, createDemoState().schedules);
 });
 
 test("attention records stay visible and removal targets only the specified attempt", async () => {

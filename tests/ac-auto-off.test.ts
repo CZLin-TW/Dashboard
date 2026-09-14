@@ -4,35 +4,41 @@ import { createDemoState } from "../src/lib/demo/fixtures";
 import { createSimulator } from "../src/lib/demo/simulator";
 import { parseScheduleParams } from "../src/lib/schedule";
 
-test("auto-off saves integer hours, preserves same-setting deadline and disables without controlling AC", async () => {
+test("generated shutdown is editable and preserves internal provenance", async () => {
   const sim = createSimulator(createDemoState());
-  const before = sim.snapshot().devices;
-  const name = before.find(d => d.controlProvider === "home_assistant")!.name;
-  const set = (hours: unknown) => sim.handle(new Request("http://demo/api/ac/auto-off", { method: "POST", body: JSON.stringify({device_name:name, hours}) }));
-  const saved = await (await set(3)).json();
-  assert.equal(saved.status,"counting");
-  assert.ok(saved.scheduled_at);
-  assert.deepEqual(await (await set(3)).json(), saved);
-  assert.equal((await set(1.5)).status,422);
-  assert.equal((await (await set(0)).json()).status,"disabled");
-  assert.deepEqual(sim.snapshot().devices,before);
+  const original = sim.snapshot().schedules.find(s => s.來源 === "自動（HA）")!;
+  const response = await sim.handle(new Request("http://demo/api/schedules", {method:"PATCH", body:JSON.stringify({
+    device_name:original.設備名稱,trigger_time:original.觸發時間,trigger_time_new:"2026-12-01 08:00",
+    params_new:{power:"off",_auto_closed:true,_auto_hours:1},person:"測試成員"})}));
+  assert.equal(response.status,200);
+  const changed = sim.snapshot().schedules.find(s => s.來源 === "自動（HA）")!;
+  assert.equal(changed.觸發時間,"2026-12-01 08:00");
+  assert.equal(JSON.parse(changed.參數)._auto_hours,9);
+  assert.equal(JSON.parse(changed.參數)._auto_closed,undefined);
+  assert.equal(parseScheduleParams(changed.參數).display,"關機");
 });
 
-test("offline HA can save or disable auto-off settings without pretending to start a timer", async () => {
-  const sim = createSimulator(createDemoState("offline"));
-  const name = sim.snapshot().devices.find(d => d.controlProvider === "home_assistant")!.name;
-  const res = await sim.handle(new Request("http://demo/api/ac/auto-off", {method:"POST",body:JSON.stringify({device_name:name,hours:3})}));
-  assert.deepEqual(await res.json(),{hours:3,status:"unavailable",scheduled_at:null});
+test("deleted cycle stays hidden across reload and leaves unrelated schedules intact", async () => {
+  const sim = createSimulator(createDemoState());
+  const before = sim.snapshot();
+  const original = before.schedules.find(s => s.來源 === "自動（HA）")!;
+  assert.equal((await sim.handle(new Request("http://demo/api/schedules",{method:"DELETE",body:JSON.stringify({
+    device_name:original.設備名稱,trigger_time:original.觸發時間})}))).status,200);
+  const after = createSimulator(sim.snapshot());
+  const visible = await (await after.handle(new Request("http://demo/api/schedules"))).json();
+  assert.deepEqual(visible,before.schedules.filter(s => s.來源 !== "自動（HA）"));
+  assert.deepEqual(after.snapshot().devices,before.devices);
+  assert.equal(after.snapshot().schedules.find(s => s.來源 === "自動（HA）")!.狀態,"已取消");
 });
 
-test("active timer records cannot be deleted; closed attention records can be removed", async () => {
+test("unknown automatic outcome cannot be edited but can be removed", async () => {
   const state = createDemoState();
-  const name = state.devices.find(d => d.controlProvider === "home_assistant")!.name;
-  const record = {設備名稱:name, 動作:"control_ac", 參數:JSON.stringify({power:"off",_auto_hours:3}), 狀態:"待確認", 來源:"自動（HA）",觸發時間:"2026-12-01 03:00",執行識別碼:"auto-test"};
-  state.schedules.push(record);
-  const remove = (sim: ReturnType<typeof createSimulator>) => sim.handle(new Request("http://demo/api/schedules",{method:"DELETE",body:JSON.stringify({device_name:name,trigger_time:record.觸發時間,execution_id:record.執行識別碼})}));
-  assert.equal((await remove(createSimulator(state))).status,400);
-  record.參數 = JSON.stringify({power:"off",_auto_hours:3,_auto_closed:true});
-  assert.equal(parseScheduleParams(record.參數).autoClosed,true);
-  assert.equal((await remove(createSimulator(state))).status,200);
+  const original = state.schedules.find(s => s.來源 === "自動（HA）")!;
+  original.狀態="待確認"; original.執行識別碼="unknown-auto";
+  const sim = createSimulator(state);
+  const body = {device_name:original.設備名稱,trigger_time:original.觸發時間};
+  assert.equal((await sim.handle(new Request("http://demo/api/schedules",{method:"PATCH",body:JSON.stringify({...body,trigger_time_new:"2026-12-01 08:00"})}))).status,404);
+  assert.equal((await sim.handle(new Request("http://demo/api/schedules",{method:"DELETE",body:JSON.stringify({...body,execution_id:original.執行識別碼})}))).status,200);
+  const visible = await (await sim.handle(new Request("http://demo/api/schedules"))).json();
+  assert.ok(!visible.some((s: {來源:string}) => s.來源 === "自動（HA）"));
 });

@@ -11,7 +11,6 @@ const success = () => json({ ok: true, message: "模擬操作完成" });
 export function createSimulator(initial = createDemoState(), persist: (state: DemoState) => void = () => {}) {
   const state = structuredClone(initial);
   state.acFeedback ??= {};
-  state.acAutoOff ??= {};
   let sequence = 0;
 
   async function dispatch(request: Request): Promise<Response> {
@@ -54,10 +53,6 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
           .filter(([name]) => !value("name") || name === value("name"))
           .map(([name, sensor]) => [name, value("include_history") === "false" ? { ...sensor, history: [] } : sensor])));
         case "/api/ac/status": return json(history().acs);
-        case "/api/ac/auto-off": return json({ devices: Object.fromEntries(state.devices.filter(d => d.type === "空調").map(d => {
-          const saved = state.acAutoOff![d.name] ?? { hours: 0, status: "disabled", scheduled_at: null };
-          return [d.name, { ...saved, status: saved.hours && state.scenario === "offline" ? "unavailable" : saved.status }];
-        })) });
         case "/api/ac/feedback": return json({ devices: Object.fromEntries(state.devices.filter(d => d.type === "空調").map(d => {
           const saved = state.acFeedback![d.name] ?? { config: AC_FEEDBACK_DEFAULTS, ir_temperature: Number(d.lastTemperature) };
           const sensor = state.devices.find(s => s.name === saved.config.sensor_name);
@@ -70,7 +65,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         case "/api/dehumidifier/auto-rule": return json(state.rules);
         case "/api/todos": return json(visibleTodos);
         case "/api/food": return json(state.food);
-        case "/api/schedules": return json(state.schedules);
+        case "/api/schedules": return json(state.schedules.filter(s => ["待執行", "待確認", "執行失敗"].includes(s.狀態)));
         case "/api/recurring-todos": return json(state.recurring.filter(r => r.狀態 === "啟用" && visibleTodo(r)));
         case "/api/lighting/areas": return json({ agent_id: "home_assistant", areas: state.areas });
         case "/api/lighting/auto/rules": return json({ rules: {}, retired: true });
@@ -81,18 +76,6 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       if (/^\/api\/lighting\/auto\/sensors\/[^/]+\/light-level$/.test(path)) return json({ light_level: 4, source: "home_assistant", age_seconds: 5 });
     }
 
-    if (path === "/api/ac/auto-off" && method === "POST") {
-      const device = state.devices.find(d => d.name === b.device_name && d.type === "空調");
-      if (!device || !Number.isInteger(b.hours) || Number(b.hours) < 0 || Number(b.hours) > 168) return error("空調或時數無效", 422);
-      const hours = Number(b.hours);
-      const old = state.acAutoOff![device.name];
-      if (old?.hours === hours) return json(old);
-      const counting = hours > 0 && state.scenario !== "offline" && device.lastPower === "on";
-      const saved = { hours, status: !hours ? "disabled" : state.scenario === "offline" ? "unavailable" : counting ? "counting" : "waiting_power",
-        scheduled_at: counting ? new Date(Date.now() + (hours + 8) * 3600_000).toISOString().slice(0,16).replace("T", " ") : null };
-      state.acAutoOff![device.name] = saved;
-      return json(saved);
-    }
     if (path === "/api/ac/feedback" && method === "POST") {
       const device = state.devices.find(d => d.name === b.device_name && d.type === "空調");
       if (!device) return error("找不到模擬空調", 404);
@@ -243,22 +226,31 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       const index = state.schedules.findIndex(s => s.設備名稱 === value("device_name") && s.觸發時間 === value("trigger_time")
         && (executionId ? ["執行失敗", "待確認"].includes(s.狀態) && s.執行識別碼 === executionId : s.狀態 === "待執行"));
       if (index < 0) return error("找不到排程", 404);
-      if (state.schedules[index].來源 === "自動（HA）") {
-        let closed = false;
-        try { closed = JSON.parse(state.schedules[index].參數)._auto_closed === true; } catch { /* Fail closed. */ }
-        if (!closed) return error("請在空調的自動關機設定調整時數或停用");
+      const automatic = state.schedules[index].來源 === "自動（HA）";
+      const metadata = row(JSON.parse(state.schedules[index].參數 || "{}"));
+      if (method === "DELETE") {
+        if (automatic && !metadata._auto_closed) {
+          state.schedules[index].狀態 = "已取消";
+          state.schedules[index].參數 = JSON.stringify({...metadata, _auto_deleted:true, _auto_paused:false});
+        } else state.schedules.splice(index, 1);
+        return success();
       }
-      if (method === "DELETE") { state.schedules.splice(index, 1); return success(); }
       if (method === "PATCH") {
         const original = state.schedules[index];
         const finalAction = str(b.target_action_new, original.動作);
         const finalName = str(b.device_name_new, original.設備名稱);
         if (finalAction === "control_ac" && state.devices.some(d => d.name === finalName && d.controlProvider === "home_assistant")
-          && !["使用者", "使用者（HA）"].includes(original.來源 ?? "")) return error("舊自動關機／防黴排程已停用，請另外新增手動排程");
+          && !["使用者", "使用者（HA）", "自動（HA）"].includes(original.來源 ?? "")) return error("舊自動關機／防黴排程已停用，請另外新增手動排程");
+        if (automatic && (finalAction !== "control_ac" || finalName !== original.設備名稱)) return error("本輪自動排程只能編輯原空調");
         for (const [key, field] of Object.entries({ device_name_new: "設備名稱", trigger_time_new: "觸發時間", target_action_new: "動作" })) if (b[key] !== undefined) state.schedules[index][field] = str(b[key]);
         if (b.params_new !== undefined) state.schedules[index].參數 = JSON.stringify(b.params_new);
         const target = state.schedules[index];
-        if (target.動作 === "control_ac" && state.devices.some(d => d.name === target.設備名稱 && d.controlProvider === "home_assistant")) target.來源 = "使用者（HA）";
+        if (automatic) {
+          const params = row(JSON.parse(target.參數));
+          target.參數 = JSON.stringify({...Object.fromEntries(Object.entries(params).filter(([k]) => !k.startsWith("_auto_"))),
+            ...Object.fromEntries(Object.entries(metadata).filter(([k]) => k.startsWith("_auto_"))), _auto_edited:true});
+        }
+        else if (target.動作 === "control_ac" && state.devices.some(d => d.name === target.設備名稱 && d.controlProvider === "home_assistant")) target.來源 = "使用者（HA）";
         else if (target.來源 === "使用者（HA）") target.來源 = "使用者";
         return success();
       }

@@ -20,7 +20,6 @@ export interface ParsedParams {
   fanSpeed?: string;
   humidity?: number;
   button?: string;
-  autoClosed?: boolean;
   display: string;
 }
 
@@ -34,7 +33,6 @@ export function parseScheduleParams(rawJson: string): ParsedParams {
     if (typeof p.fan_speed === "string") parsed.fanSpeed = p.fan_speed;
     if (typeof p.humidity === "number") parsed.humidity = p.humidity;
     if (typeof p.button === "string") parsed.button = p.button;
-    parsed.autoClosed = p._auto_closed === true;
 
     const parts: string[] = [];
     if (parsed.power) parts.push(parsed.power === "off" ? "關機" : "開機");
