@@ -57,7 +57,7 @@ HA 空調也支援開關、整數目標溫度、模式與風速，執行路徑�
 | 設備控制 | 空調（電源/溫度/模式/風速 + 送出後輪詢確認）、除濕機（模式/濕度 + 條件式自動模式 toggle + 即時可調的目標濕度門檻）、IR 設備（自訂按鈕）；環境感測器（溫度/濕度即時值，含 SwitchBot Meter Pro CO2 三合一） |
 | 設備釘選 | 常用設備（最多 4 個）+ 一個感測器釘選到首頁，快速存取 |
 | 空調控制來源 | 目標一律整數 16–30°C；HA 管理空調顯示 HA 狀態，支援經 HA 執行的手動排程與自動關機。半度目標與室溫回饋補償已於 v1.58.0 移除；IR 仍沒有真實狀態回讀 |
-| 待辦事項 | 新增、修改、完成、查看；支援週期任務（每天/每週/每月/間隔天的重複待辦，由模板自動生成當次待辦並以 🔁 標記）；隱私邏輯只顯示「自己負責 + 公開」項目；過期/今日提醒 highlight；有時間的待辦可勾選 Hue 燈光提醒並指定照明區域 |
+| 待辦事項 | 新增、修改、完成、查看；支援週期任務（每天/每週/每月/間隔天的重複待辦，由模板自動生成當次待辦並以 🔁 標記）；隱私邏輯只顯示「自己負責 + 公開」項目；過期/今日提醒 highlight；有時間的待辦可勾選 Hue 燈光提醒並複選照明區域 |
 | 庫存 | 食品的新增、修改、刪除；過期/今日項目整 row 警示底色 |
 | 排程管理 | HB 設備與 HA 空調支援內嵌一次性手動排程；本頁不能編輯 HA 自動化 |
 | 照明 | Hue 房間/區域卡：電源、亮度、白光色溫、可展開彩色色盤、特效與場景；依燈具能力提供控制。顯示名稱可收合編輯，區域統一另階段處理 |
@@ -165,11 +165,11 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 - 永遠只顯示登入者的「自己負責 + 公開」項目（隱私）
 - 列出時間排序，過期/今日 row 自動 highlight（warm-bg + 左邊 inset bar）
 - 日期顯示帶相對描述：`2026-05-04 (明天)`、`2026-05-03 (過期 1 天)`等
-- 新增（事項、日期、選用時間、私人/公開；有時間時可勾選燈光提醒並用下拉選擇照明區域）
+- 新增（事項、日期、選用時間、私人/公開；有時間時可勾選燈光提醒並勾選一或多個照明區域）
 - 週期任務（重複待辦）：新增表單可勾「重複（週期任務）」，選頻率「每天 / 每週（可多選星期）/ 每月（指定幾號）/ 間隔天（每隔 N 天）」+ 選填結束日期；模板存進「週期待辦模板」分頁，由 home-butler 依排程自動生成當次待辦（受後端 `RECURRING_TODO_ENABLED` 開關控制）
 - 週期模板生成的當次待辦在列表以 🔁 標記；底部「週期提醒」Card 列出啟用中的模板，可永久停止整個週期（已生成的當次待辦不受影響）
 - 修改（inline edit form：標題 / 日期 / 時間 / 類型 / 燈光提醒 / 提醒區域）
-- 有燈光提醒的待辦在首頁卡片與待辦列表顯示燈泡 icon；實際到期呼吸燈由 HB 按設定交 HA／PC Agent 執行，HA Hue 啟用後舊 PC 提醒清單回空避免重複
+- 有燈光提醒的待辦在首頁卡片與待辦列表顯示燈泡 icon；實際到期呼吸燈由 HB 按設定交 HA／PC Agent 執行，每個選取區域每分鐘最多一次；完成或關閉提醒後停止。HA Hue 啟用後舊 PC 提醒清單回空避免重複
 - 勾選完成（樂觀更新動畫，refetch 後一次消失，不閃爍）
 - 唯讀項目（來自 Notion 等外部來源）顯示鎖頭，無法修改
 
@@ -244,8 +244,8 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/lighting/auto/sensors | GET | 相容舊客戶端的唯讀感測清單，新照明頁不呼叫 |
 | /api/lighting/auto/sensors/[deviceId]/light-level | GET | 唯讀光照：HA 快照或未遷移的 SwitchBot status，新照明頁不呼叫 |
 | /api/todos | GET | 列出登入者負責的私人待辦及公開項目 |
-| /api/todos | POST | 新增待辦（含選用 `light_notify` / `light_area_id`，由 home-butler 寫入 `燈光提醒` 與 `燈光區域ID`） |
-| /api/todos | PATCH | 依 `todo_id` 修改可操作的待辦（含選用 `light_notify` / `light_area_id`） |
+| /api/todos | POST | 新增待辦（含選用 `light_notify` / `light_area_ids`（舊 `light_area_id` 相容），由 home-butler 寫入 `燈光提醒` 與 `燈光區域ID`） |
+| /api/todos | PATCH | 依 `todo_id` 修改可操作的待辦（含選用 `light_notify` / `light_area_ids`（舊 `light_area_id` 相容）） |
 | /api/todos | DELETE | 依 `todo_id` 完成可操作的待辦；Notion 項目保留完成記號 |
 | /api/recurring-todos | GET | 列出登入者可見且啟用中的週期待辦模板（home-butler「週期待辦模板」分頁，附後端算好的「摘要」） |
 | /api/recurring-todos | POST | 新增週期模板（`recur_type` 每天/每週/每月/間隔天 + `weekdays` / `month_day` / `interval_days` / `end_date` 等） |
