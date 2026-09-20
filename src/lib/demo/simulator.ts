@@ -1,3 +1,4 @@
+import { encodeLightAreaIds } from "../todo-light-areas";
 import { createDemoState, dateAt, monitoring, haObservations, OPTIONS, weather, type DemoState, type Row } from "./fixtures";
 
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { "Cache-Control": "no-store", "X-Dashboard-Demo": "1" } });
@@ -128,10 +129,16 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         return success();
       }
     }
+    if (["/api/todos", "/api/recurring-todos"].includes(path) && ["POST", "PATCH"].includes(method) && b.light_area_ids !== undefined && b.light_notify !== false) {
+      if (!Array.isArray(b.light_area_ids) || !b.light_area_ids.length || b.light_area_ids.length > 32 ||
+          b.light_area_ids.some(id => typeof id !== "string" || !state.areas.some(area => area.id === id.trim() && area.enabled !== false))) {
+        return error("請選擇有效的提醒區域");
+      }
+    }
     if (path === "/api/todos") {
       if (method === "POST") {
         if (!str(b.item).trim() || !b.date) return error("事項與日期必填");
-        state.todos.push({ 待辦ID: `demo-created-${Date.now()}-${sequence++}`, 事項: str(b.item).trim(), 日期: str(b.date), 時間: str(b.time), 負責人: "測試成員", 狀態: "待辦", 類型: str(b.type, "私人"), 來源: "本地", 屬性: "讀寫", 燈光提醒: b.light_notify === true, 燈光區域ID: str(b.light_area_id) });
+        state.todos.push({ 待辦ID: `demo-created-${Date.now()}-${sequence++}`, 事項: str(b.item).trim(), 日期: str(b.date), 時間: str(b.time), 負責人: "測試成員", 狀態: "待辦", 類型: str(b.type, "私人"), 來源: "本地", 屬性: "讀寫", 燈光提醒: b.light_notify === true, 燈光區域ID: Array.isArray(b.light_area_ids) ? encodeLightAreaIds(b.light_area_ids as string[]) : str(b.light_area_id) });
         return success();
       }
       const index = state.todos.findIndex(t => t.狀態 === "待辦" && visibleTodo(t) && (value("todo_id")
@@ -145,13 +152,15 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       if (method === "PATCH") {
         for (const [key, field] of Object.entries({ item_new: "事項", date: "日期", time: "時間", type: "類型", light_area_id: "燈光區域ID" })) if (b[key] !== undefined) Object.assign(t, { [field]: str(b[key]) });
         if (b.light_notify !== undefined) t.燈光提醒 = b.light_notify === true;
+        if (Array.isArray(b.light_area_ids)) t.燈光區域ID = encodeLightAreaIds(b.light_area_ids as string[]);
+        if (b.light_notify === false) t.燈光區域ID = "";
         return success();
       }
     }
     if (path === "/api/recurring-todos") {
       if (method === "POST") {
         if (!b.item || !b.recur_type) return error("事項與週期必填");
-        state.recurring.push({ 規則ID: `demo-rule-${Date.now()}-${sequence++}`, 事項: str(b.item), 重複類型: str(b.recur_type), 星期: Array.isArray(b.weekdays) ? b.weekdays.join(",") : "", 月日: str(b.month_day), 間隔天數: str(b.interval_days), 時間: str(b.time), 負責人: "測試成員", 類型: str(b.type, "私人"), 起始日期: str(b.start_date, dateAt(0)), 結束日期: str(b.end_date), 狀態: "啟用", 摘要: `${str(b.recur_type)} ${str(b.time)}（模擬模板，不自動生成）` });
+        state.recurring.push({ 規則ID: `demo-rule-${Date.now()}-${sequence++}`, 事項: str(b.item), 重複類型: str(b.recur_type), 星期: Array.isArray(b.weekdays) ? b.weekdays.join(",") : "", 月日: str(b.month_day), 間隔天數: str(b.interval_days), 時間: str(b.time), 負責人: "測試成員", 類型: str(b.type, "私人"), 燈光提醒: b.light_notify === true, 燈光區域ID: Array.isArray(b.light_area_ids) ? encodeLightAreaIds(b.light_area_ids as string[]) : str(b.light_area_id), 起始日期: str(b.start_date, dateAt(0)), 結束日期: str(b.end_date), 狀態: "啟用", 摘要: `${str(b.recur_type)} ${str(b.time)}（模擬模板，不自動生成）` });
         return success();
       }
       if (method === "DELETE") {

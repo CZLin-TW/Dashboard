@@ -40,6 +40,7 @@ export const OPTIONS: DeviceOptions = {
 };
 
 export interface DemoArea {
+  enabled?: boolean;
   id: string; resource_type: string; hue_resource_id: string; hue_resource_type: string;
   hue_name: string; kind: string; display_name: string; on: boolean; brightness: number; light_count: number;
   scenes: { id: string; name: string; resource_type: string }[];
@@ -75,7 +76,7 @@ export function createDemoState(scenario: Scenario = "normal", now = Date.now())
   return {
     schema: 2, scenario, createdAt: now, devices: scenario === "empty" ? [] : devices,
     todos: scenario === "empty" ? [] : [
-      todo("清洗冷氣濾網", -1), todo("倒垃圾", 0, { 時間: "20:00", 類型: "公開", 燈光提醒: true, 燈光區域ID: "demo-living", 規則ID: "demo-daily" }),
+      todo("清洗冷氣濾網", -1, { 時間: "19:00", 燈光提醒: true, 燈光區域ID: JSON.stringify(["demo-living", "demo-bedroom"]) }), todo("倒垃圾", 0, { 時間: "20:00", 類型: "公開", 燈光提醒: true, 燈光區域ID: "demo-living", 規則ID: "demo-daily" }),
       todo("購買洗衣精", 2, { 類型: "公開" }), todo("行事曆範例（唯讀）", 3, { 來源: "Notion", 屬性: "唯讀" }),
       todo("另一位成員的私人事項", 1, { 負責人: "其他成員" }),
     ],
