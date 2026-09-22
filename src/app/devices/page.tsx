@@ -168,6 +168,8 @@ export default function DevicesPage() {
     data: schedules,
     refetch: refetchSchedules,
   } = useCachedFetch<Schedule[]>("/api/schedules", []);
+  // Pick up background-created or cancelled schedules without reloading the page.
+  useAutoRefresh(refetchSchedules, 15_000, 0);
   const schedulesByDevice = (() => {
     const map: Record<string, Schedule[]> = {};
     for (const s of schedules) {

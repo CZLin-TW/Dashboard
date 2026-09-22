@@ -72,6 +72,8 @@ export default function HomePage() {
   const { data: schedules, loading: schedulesLoading, error: schedulesError, refetch: refetchSchedules } = useCachedFetch<Schedule[]>(
     "/api/schedules", [], deviceExpanded,
   );
+  // HB creates automatic shutdowns asynchronously; disabled queries remain idle.
+  useAutoRefresh(refetchSchedules, 15_000, 0);
 
   // 首頁只顯示釘選的；裝置頁有完整列表
   const pinnedSensor = pin.pinnedSensor
