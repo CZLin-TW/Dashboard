@@ -52,8 +52,17 @@ export function stableJson(obj: Record<string, unknown>): string {
   return JSON.stringify(sortedKeys.map((k) => [k, obj[k]]));
 }
 
+/** Sheet 的顯示格式可能省略前導零；原生 date/time input 需要補齊。
+ *  只整理牆上時間字串，不經 Date／UTC 換算；API 定位仍使用原始字串。 */
+export function normalizeTriggerTime(trigger: string): string {
+  const match = trigger.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
+  if (!match) return trigger;
+  const [, year, month, day, hour, minute] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")} ${hour.padStart(2, "0")}:${minute}`;
+}
+
 export function toFormInitial(s: Schedule, deviceData: DeviceData | undefined): ScheduleFormInitial {
-  const trigger = s["觸發時間"] ?? "";
+  const trigger = normalizeTriggerTime(s["觸發時間"] ?? "");
   const [date, time] = trigger.split(" ");
   const parsed = parseScheduleParams(s["參數"] ?? "");
   const initial: ScheduleFormInitial = {
@@ -84,7 +93,7 @@ export function toFormInitial(s: Schedule, deviceData: DeviceData | undefined): 
 
 /** "YYYY-MM-DD HH:MM" → epoch ms；parse 失敗回 NaN（caller 用 isFinite 過濾）。 */
 export function triggerTimeToMs(trigger: string): number {
-  const t = new Date(trigger.replace(" ", "T"));
+  const t = new Date(normalizeTriggerTime(trigger).replace(" ", "T"));
   return t.getTime();
 }
 
@@ -126,7 +135,9 @@ export async function updateSchedule(
   };
   if (state.device_name !== originalDevice) body.device_name_new = state.device_name;
   if (state.target_action !== originalAction) body.target_action_new = state.target_action;
-  if (state.trigger_time !== originalTrigger) body.trigger_time_new = state.trigger_time;
+  if (normalizeTriggerTime(state.trigger_time) !== normalizeTriggerTime(originalTrigger)) {
+    body.trigger_time_new = state.trigger_time;
+  }
   let paramsChanged = true;
   try {
     const orig = JSON.parse(originalParamsStr) as Record<string, unknown>;

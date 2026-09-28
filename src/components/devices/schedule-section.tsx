@@ -10,6 +10,7 @@ import {
   parseScheduleParams,
   toFormInitial,
   isPastTrigger,
+  normalizeTriggerTime,
   createSchedule,
   updateSchedule,
   deleteSchedule,
@@ -82,7 +83,7 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
   }
 
   const sorted = [...schedules].sort(
-    (a, b) => (a["觸發時間"] ?? "").localeCompare(b["觸發時間"] ?? ""),
+    (a, b) => normalizeTriggerTime(a["觸發時間"] ?? "").localeCompare(normalizeTriggerTime(b["觸發時間"] ?? "")),
   );
 
   const attentionCount = sorted.filter(s => ["執行失敗", "待確認"].includes(s["狀態"])).length;
@@ -111,12 +112,12 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
 
       {sorted.length > 0 && (
         <div className="flex min-w-0 flex-col gap-2">
-          {sorted.map((s, idx) => {
+          {sorted.map((s) => {
             const trigger = s["觸發時間"] ?? "";
             const params = s["參數"] ?? "";
             const creator = s["建立者"] ?? "";
             const parsed = parseScheduleParams(params);
-            const rowKey = `${device.name}|${trigger}|${s["執行識別碼"] || "pending"}`;
+            const rowKey = `${device.name}|${normalizeTriggerTime(trigger)}|${s["執行識別碼"] || "pending"}`;
             const isEditing = editKey === rowKey;
             const past = isPastTrigger(trigger);
             const status = s["狀態"] || "待執行";
@@ -125,7 +126,7 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
 
             if (isEditing) {
               return (
-                <div key={idx} className="min-w-0 rounded-[14px] border border-line/70 bg-surface-2 p-3">
+                <div key={rowKey} className="min-w-0 rounded-[14px] border border-line/70 bg-surface-2 p-3">
                   <ScheduleForm
                     key={rowKey}
                     mode="edit"
@@ -142,7 +143,7 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
 
             return (
               <div
-                key={idx}
+                key={rowKey}
                 className="flex min-w-0 flex-wrap items-center gap-2 rounded-[14px] border border-line/70 bg-surface-2 p-3"
               >
                 <div className="min-w-0 w-full">
