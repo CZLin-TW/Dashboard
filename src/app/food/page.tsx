@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Apple, Plus, Pencil, X } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapse } from "@/components/ui/collapse";
 import {
   Field,
   PillButton,
@@ -112,7 +113,7 @@ export default function FoodPage() {
         </PillButton>
       </div>
 
-      {showAdd && (
+      <Collapse open={showAdd}>
         <Card>
           <div className="space-y-3">
             <div className="flex gap-2">
@@ -159,7 +160,7 @@ export default function FoodPage() {
             </button>
           </div>
         </Card>
-      )}
+      </Collapse>
 
       <Card>
         <CardHeader>

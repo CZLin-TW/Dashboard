@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { CheckSquare, Plus, Lock, Pencil, X, Check, Lightbulb, Repeat } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapse } from "@/components/ui/collapse";
 import {
   Field,
   PillButton,
@@ -300,7 +301,7 @@ export default function TodosPage() {
         </PillButton>
       </div>
 
-      {showAdd && (
+      <Collapse open={showAdd}>
         <Card>
           <div className="space-y-3">
             <input
@@ -479,7 +480,7 @@ export default function TodosPage() {
             </button>
           </div>
         </Card>
-      )}
+      </Collapse>
 
       <Card>
         <CardHeader>

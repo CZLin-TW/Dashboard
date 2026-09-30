@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { Collapse } from "@/components/ui/collapse";
 import { colorPreview, wheelColor, wheelPosition, type LightColorState, type LightStateCommand } from "@/lib/light-color";
 
 const RANGE_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"];
@@ -81,9 +82,9 @@ export function LightColorControl({ name, value, total, disabled, onSend }: {
       <button type="button" disabled={disabled} aria-expanded={expanded} aria-label={`${name}展開色盤`}
         onClick={() => setExpanded(!expanded)} className="flex h-[38px] w-full items-center gap-2 rounded-full border border-line bg-elevated px-3 text-[13px] text-soft disabled:opacity-40">
         <span className="h-5 w-5 rounded-full border border-line" style={{ background: value.hs || draftHS ? colorPreview(hs) : "linear-gradient(120deg,#ffc9c9,#d9d0ff,#c1eedc)" }} />
-        {expanded ? "收合色盤" : "選擇顏色"}<ChevronDown className={`ml-auto h-4 w-4 ${expanded ? "rotate-180" : ""}`} />
+        {expanded ? "收合色盤" : "選擇顏色"}<ChevronDown className={`ml-auto h-4 w-4 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
       </button>
-      {expanded && <div className="space-y-3 rounded-[14px] border border-line/60 bg-elevated/40 p-4">
+      <Collapse open={expanded}><div className="space-y-3 rounded-[14px] border border-line/60 bg-elevated/40 p-4">
         <div role="group" aria-label={`${name}二維色盤`} aria-disabled={disabled}
           onPointerDown={event => {
             if (disabled || !event.isPrimary || event.button !== 0) return;
@@ -118,7 +119,7 @@ export function LightColorControl({ name, value, total, disabled, onSend }: {
               onKeyUp={event => { if (RANGE_KEYS.includes(event.key) && gestureHS.current) void sendHS(gestureHS.current); }} />
           </label>)}
         </div>
-      </div>}
+      </div></Collapse>
     </div>}
   </div>;
 }

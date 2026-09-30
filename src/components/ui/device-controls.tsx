@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { ChevronDown, Pin } from "lucide-react";
+import { Collapse } from "./collapse";
 
 // ─────────────────────────────────────────────────────────────
 // 裝置控制 UI 元件 — devices 頁、首頁裝置快捷與內嵌排程共用。
@@ -484,6 +485,6 @@ export function ControlDetails({ title, summary, children, keepMounted = false }
       <span className="font-medium text-soft">{title}</span>
       <span className="flex min-w-0 items-center gap-2 text-xs text-mute"><span className="truncate">{summary}</span><ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} /></span>
     </button>
-    <div id={id} hidden={!open}>{(open || keepMounted) && <div className="space-y-4 pb-2 pt-3">{children}</div>}</div>
+    <Collapse id={id} open={open} keepMounted={keepMounted}><div className="space-y-4 pb-2 pt-3">{children}</div></Collapse>
   </div>;
 }
