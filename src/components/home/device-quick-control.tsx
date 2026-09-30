@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { LayoutGrid, ChevronUp, ChevronDown, ArrowUpRight, Pin } from "lucide-react";
@@ -80,12 +80,21 @@ export function DeviceQuickControl({
   schedulesError,
 }: Props) {
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
+  // 實際渲染面板的設備。切換到另一台時先設 null 讓舊面板收合，
+  // 收合動畫結束（onExitComplete）再換成新設備展開，呈現「收起 → 展開」的換過去感。
+  const [shownDevice, setShownDevice] = useState<string | null>(null);
+  const expandedRef = useRef<string | null>(null);
   const reduceMotion = useReducedMotion();
 
-  function toggleExpand(name: string) {
-    const next = expandedDevice === name ? null : name;
+  function selectDevice(next: string | null) {
+    expandedRef.current = next;
     setExpandedDevice(next);
+    setShownDevice((cur) => (cur === null || next === null ? next : cur === next ? cur : null));
     onExpandedChange?.(next !== null);
+  }
+
+  function toggleExpand(name: string) {
+    selectDevice(expandedDevice === name ? null : name);
   }
 
   function renderPanel(device: DeviceData) {
@@ -104,7 +113,7 @@ export function DeviceQuickControl({
           </div>
           <button
             type="button"
-            onClick={() => { setExpandedDevice(null); onExpandedChange?.(false); }}
+            onClick={() => selectDevice(null)}
             className="flex min-h-9 items-center gap-1 rounded-full bg-elevated px-3 text-xs text-mute hover:text-soft"
           >
             收合
@@ -161,7 +170,7 @@ export function DeviceQuickControl({
     );
   }
 
-  const expandedDev = expandedDevice ? devices.find((d) => d.name === expandedDevice) : null;
+  const expandedDev = shownDevice ? devices.find((d) => d.name === shownDevice) : null;
 
   function renderTile(device: DeviceData) {
     const isRunning =
@@ -227,7 +236,7 @@ export function DeviceQuickControl({
           return (
             <div key={rowIdx}>
               <div className={`grid ${gridCols} gap-3`}>{row.map(renderTile)}</div>
-              <AnimatePresence initial={false}>
+              <AnimatePresence initial={false} onExitComplete={() => setShownDevice(expandedRef.current)}>
                 {rowHasExpanded && expandedDev && (
                   <motion.div
                     key="panel"
