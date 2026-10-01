@@ -6,6 +6,8 @@
 
 HB 正式唯讀摘要已核對為 HA 中繼，Mac 兩程序及 Apple TV 健康正常；未操作 Dashboard 正式開關或家電，不把後端健康當成前端或實體連動驗收。純文件差異／連結核對，不重跑 UI 測試與 build。
 
+發布追記：文件提交 `d636305` 已推送 main，[CI 建置通過](https://github.com/CZLin-TW/Dashboard/actions/runs/36892359723)，該提交的 Vercel commit status 為 success。此為文件發布，未新增 UI 或實體設備驗收。
+
 ## 2026-09-28 排程編輯時間格式（v1.61.3，未部署）
 
 以合成自動排程 `2026-09-29 7:00` 重現：修正前 input 的 value attribute 是 `7:00`，
