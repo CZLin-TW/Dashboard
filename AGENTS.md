@@ -109,3 +109,4 @@ kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
   「中繼壞掉」和「這個家沒有劇院」長得一模一樣；實際發生過，症狀是切換 `THEATER_VIA_HA`
   之後整個區塊消失、畫面上沒有任何線索。
 - Theater Agent 的 T1–T7 與現有八項架構清單分開。它在私人 repo，勿把其金鑰、配對或設備設定複製到 Dashboard。
+- Mac 主機遷移只需 HA 本地整合改址；Dashboard 不保存劇院 LAN 位址，也不需為新主機建立 PC 卡。Windows 僅回報指標時，其在線狀態不再代表劇院健康。

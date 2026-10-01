@@ -66,7 +66,7 @@ Sheet 讀回的 `7:00` 等未補零時間會在編輯時整理成 `07:00`，不�
 | 照明 | Hue 房間/區域卡：電源、亮度、白光色溫、可展開彩色色盤、特效與場景；依燈具能力提供控制。顯示名稱可收合編輯，區域統一另階段處理 |
 | 照明自動化 | HB 自動夜燈已退役；夜燈在 HA 設定，待辦燈光提醒仍由 HB 決定、經 HA 執行 |
 | PC 監控 | 家中 PC 跑 agent 推指標到後端，Dashboard 顯示當下值（CPU/GPU 用量+溫度）+ 24h 折線圖（CPU/GPU/RAM 用量、CPU/GPU 溫度） |
-| 劇院 agent 監控 | PC 卡片提供三個自動化開關：KEF 喇叭連動、電視畫面自動關閉、AVR 隨電視開啟；顯示兩程序版本、Apple TV 健康、設備過時提示與兩份 log。寫入期間鎖定所有開關，完成後重讀確認；失敗不以反向值假裝回復。資料經 home-butler → PC agent → 同機 theater-agent 轉送。 |
+| 劇院 agent 監控 | 提供三個自動化開關：KEF 喇叭連動、電視畫面自動關閉、AVR 隨電視開啟；顯示兩程序版本、Apple TV 健康、設備過時提示與兩份 log。依 agent_id 掛在 PC 卡或獨立劇院卡。資料由 HB 經 HA 或既有 PC 中繼到本地 theater-agent；寫入期間鎖定開關、完成後回讀，失敗不反向操作。 |
 | 裝置配對登入 | 登入頁顯示 6 位驗證碼，在 LINE Bot 輸入「登入 <6位數字>」核准後前端輪詢取得 session，全程不離開 PWA 容器；僅限家庭成員使用 |
 | PWA 主畫面 | 提供 manifest、standalone display、iOS web app meta 與 app icons，讓手機加入主畫面後更接近獨立 app |
 
@@ -483,9 +483,8 @@ Dashboard 是 home-butler 的**視覺化前端**，兩者共用同一套後端 A
 
 ## 劇院整合與維護入口
 
-- `GET /api/theater/summary`、`POST /api/theater/flags`：代理到 home-butler，沿 PC agent 的 `theater` capability 到達劇院服務。
+- `GET /api/theater/summary`、`POST /api/theater/flags`：代理到 home-butler，由其 THEATER_VIA_HA 決定 HA 或既有 PC 中繼；Dashboard 不直接連 Mac／HA 或保管其金鑰。`agent_id=home_assistant` 顯示獨立劇院卡，舊 PC 停用不會移除劇院入口。搬主機不需修改 BFF／demo 契約。
 - `health` 與设备 `stale`／`updated_at` 為可選欄位，相容舊版 theater-agent；API 在線、Apple TV 程序有心跳和設備可讀是不同判斷。
 - KEF 事件訂閱及 15 秒補漏在 theater-agent 內執行，不依賴 Dashboard 開著，也不是瀏覽器直接接喇叭 push。
 - 三個 repo 的責任、部署與回復順序：[系統導覽](https://github.com/CZLin-TW/home-butler/blob/main/docs/system-overview.md)。
 - 測試方式與已驗證範圍：[驗證紀錄](docs/verification.md)；新 session 先讀 [AGENTS.md](AGENTS.md) 與 [demo 說明](docs/demo-mode.md)。
-

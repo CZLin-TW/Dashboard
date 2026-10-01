@@ -1,5 +1,11 @@
 # 驗證方式與範圍
 
+## 2026-10-02 Mac mini 劇院遷移文件核對
+
+以 origin/main `7786440` 為基準，保留既有首頁設備卡新提交與未提交發布紀錄。本次只改 README／AGENTS／驗證文件；已核對程式依 `agent_id=home_assistant` 顯示獨立劇院卡，BFF 只代理 HB，不持有 HA／Mac LAN 位址或金鑰，因此不需改 UI、API、demo fixture 或系統顯示版本。
+
+HB 正式唯讀摘要已核對為 HA 中繼，Mac 兩程序及 Apple TV 健康正常；未操作 Dashboard 正式開關或家電，不把後端健康當成前端或實體連動驗收。純文件差異／連結核對，不重跑 UI 測試與 build。
+
 ## 2026-09-28 排程編輯時間格式（v1.61.3，未部署）
 
 以合成自動排程 `2026-09-29 7:00` 重現：修正前 input 的 value attribute 是 `7:00`，
@@ -19,9 +25,16 @@ Codex 瀏覽器 demo 確認 `7:00` 開啟編輯顯示 `07:00`；原生時間欄�
 開發伺服器沿用啟動時版本標籤 1.61.2；本次 package.json 與正式建置為 1.61.3。
 未 push、部署、操作正式 Sheets／HA／家電；既有驗證文件未提交的發布紀錄已保留。
 
+2026-09-28 發布確認：使用者授權後，`7be45799049e29ed4495ce12a8273b6c55999653` 已推送 main。
+GitHub Actions [36415881893](https://github.com/CZLin-TW/Dashboard/actions/runs/36415881893) 結果 success；
+Vercel Production deployment `6708766879` 與該提交 Vercel status 均為 success。
+手機原生時間選擇器與正式排程編輯由使用者接續驗收；本次沒有操作正式家電或排程。
+
 ## 2026-09-23 同名待辦修正（v1.61.2）
 
 僅更新 package.json 系統版本，JSON 解析與差異檢查通過；未重跑 UI 測試或 build。功能與離線測試位於 home-butler，見該 repo 驗證紀錄。未 push 或部署。
+
+2026-09-23 發布確認：`db6af50793c69e123c9f169c46631435139118fb` 已推送 main，GitHub Actions 35821043697 成功；Vercel Production deployment 6606807444 與 commit status 均為 success。部署網址的 `/api/version` 回重導，未取得版本 JSON；不以此宣稱正式網址版本 API 已驗證。後端實際 Render SHA 仍待登入核對，見 home-butler 驗證紀錄。
 
 ## 2026-09-23 排程自動同步（v1.61.1）
 
