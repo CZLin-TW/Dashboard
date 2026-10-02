@@ -1,6 +1,6 @@
 # 驗證方式與範圍
 
-## 2026-10-03 首頁釘選設備排程編輯（v1.61.4，未部署）
+## 2026-10-03 首頁釘選設備排程編輯（v1.61.4）
 
 隔離 checkout 與無正式憑證 demo，使用內建瀏覽器操作首頁「HA 測試空調」。
 修正前開啟排程編輯，等待下一輪 15 秒更新後，表單消失、排程區回到收合狀態。
@@ -11,7 +11,11 @@
 
 36 項離線測試、ESLint、TypeScript 與 Next.js webpack 正式建置（DASHBOARD_DEMO_MODE=1）通過；
 以 bundled Node 直接執行對應 CLI，本機沒有 npm。API／demo 資料契約未修改。
-未 push、未部署；未驗證 iPhone Safari、正式家庭資料、API 失敗的瀏覽器情境或真實家電。
+初次驗證時未 push／部署；未驗證 iPhone Safari、正式家庭資料、API 失敗的瀏覽器情境或真實家電。
+
+發布追記：依使用者授權，修正提交 `8603637` 已推送 main；[CI 通過](https://github.com/CZLin-TW/Dashboard/actions/runs/37039270405)，
+[該提交的 Vercel 部署](https://vercel.com/czlin-tws-projects/dashboard/4iUzVEnusaocHeXdMtwG9VhNPGBj) commit status 為 success。
+此為發布結果，不代表 iPhone Safari 或真實家電驗收。
 
 ## 2026-10-02 Mac mini 劇院遷移文件核對
 
