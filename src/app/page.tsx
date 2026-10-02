@@ -69,7 +69,7 @@ export default function HomePage() {
     "/api/dehumidifier/auto-rule", {},
   );
   useAutoRefresh(refetchDehumRules, 60_000, 0);
-  const { data: schedules, loading: schedulesLoading, error: schedulesError, refetch: refetchSchedules } = useCachedFetch<Schedule[]>(
+  const { data: schedules, loading: schedulesLoading, hasData: schedulesHasData, error: schedulesError, refetch: refetchSchedules } = useCachedFetch<Schedule[]>(
     "/api/schedules", [], deviceExpanded,
   );
   // HB creates automatic shutdowns asynchronously; disabled queries remain idle.
@@ -139,6 +139,7 @@ export default function HomePage() {
         sensorsMap={sensorsMap}
         onExpandedChange={setDeviceExpanded}
         schedulesLoading={schedulesLoading}
+        schedulesHasData={schedulesHasData}
         schedulesError={schedulesError}
         schedules={schedules}
         allDevices={allDevices.filter((d) => d.type !== "感應器")}

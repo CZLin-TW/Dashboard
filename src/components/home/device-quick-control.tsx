@@ -49,6 +49,7 @@ interface Props {
   onSchedulesChange?: () => void;
   onExpandedChange?: (expanded: boolean) => void;
   schedulesLoading?: boolean;
+  schedulesHasData?: boolean;
   schedulesError?: string | null;
 }
 
@@ -77,6 +78,7 @@ export function DeviceQuickControl({
   onSchedulesChange,
   onExpandedChange,
   schedulesLoading,
+  schedulesHasData,
   schedulesError,
 }: Props) {
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
@@ -133,8 +135,9 @@ export function DeviceQuickControl({
           dehumHistoryMap={device.type === "除濕機" ? dehumHistoryMap : undefined}
         />
         {schedulesError ? <p role="status" className="text-sm text-mute">暫時無法讀取排程。<button type="button" onClick={onSchedulesChange} className="ml-2 min-h-9 rounded-full bg-cool-bg px-3 text-cool">重試</button></p>
-        : schedulesLoading ? <p role="status" className="text-sm text-mute">正在讀取排程…</p>
-        : schedules && onSchedulesChange && (
+        : schedulesLoading ? <p role="status" className="text-sm text-mute">正在讀取排程…</p> : null}
+        {/* Background refreshes retain the mounted editor and its unsaved draft. */}
+        {schedulesHasData && schedules && onSchedulesChange && (
           <ScheduleSection
             device={device}
             options={options}

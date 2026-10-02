@@ -1,5 +1,18 @@
 # 驗證方式與範圍
 
+## 2026-10-03 首頁釘選設備排程編輯（v1.61.4，未部署）
+
+隔離 checkout 與無正式憑證 demo，使用內建瀏覽器操作首頁「HA 測試空調」。
+修正前開啟排程編輯，等待下一輪 15 秒更新後，表單消失、排程區回到收合狀態。
+原因是載入／錯誤提示取代 ScheduleSection，造成元件卸載與草稿狀態清除。
+修正後成功資料由 hasData 判斷，背景載入／錯誤提示與排程區獨立渲染。
+實際確認編輯表單跨多輪更新保持展開，關機改成開機、溫度改成 27°C 的未儲存草稿保留。
+原生時間欄位的自動 fill 沒有提交 React 草稿，不能把該操作列為改時驗收。
+
+36 項離線測試、ESLint、TypeScript 與 Next.js webpack 正式建置（DASHBOARD_DEMO_MODE=1）通過；
+以 bundled Node 直接執行對應 CLI，本機沒有 npm。API／demo 資料契約未修改。
+未 push、未部署；未驗證 iPhone Safari、正式家庭資料、API 失敗的瀏覽器情境或真實家電。
+
 ## 2026-10-02 Mac mini 劇院遷移文件核對
 
 以 origin/main `7786440` 為基準，保留既有首頁設備卡新提交與未提交發布紀錄。本次只改 README／AGENTS／驗證文件；已核對程式依 `agent_id=home_assistant` 顯示獨立劇院卡，BFF 只代理 HB，不持有 HA／Mac LAN 位址或金鑰，因此不需改 UI、API、demo fixture 或系統顯示版本。
