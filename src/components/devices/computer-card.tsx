@@ -7,6 +7,7 @@ import { TheaterSection } from "@/components/devices/theater-section";
 import { ComputerCharts } from "@/components/devices/lazy-charts";
 import {
   PC_COLORS,
+  formatComputerMetric,
   type ComputerPC,
   relativeFromHeartbeat,
   toChartHistory,
@@ -30,16 +31,6 @@ interface Props {
   onTheaterFlagChange?: (key: TheaterFlagKey, value: boolean) => void;
 }
 
-/** 顯示用的整數百分比；null 顯示「—」。 */
-function fmtPct(v: number | null | undefined): string {
-  return v == null ? "—" : `${Math.round(v)}`;
-}
-
-/** 顯示用的整數溫度；null（例如 PC 沒裝 LHM）顯示「—」。 */
-function fmtTemp(v: number | null | undefined): string {
-  return v == null ? "—" : `${Math.round(v)}`;
-}
-
 function MetricBlock({
   name,
   model,
@@ -61,11 +52,11 @@ function MetricBlock({
         <span className="num">{model || "—"}</span>
       </span>
       <div className="flex flex-shrink-0 items-baseline gap-3">
-        <span className="num text-base font-semibold text-foreground">
-          {pctText}%
+        <span aria-label={`${name} 使用率 ${pctText}`} className="num text-sm font-semibold text-foreground">
+          {pctText}
         </span>
-        <span className="num text-base font-semibold text-foreground">
-          {tempText}°C
+        <span aria-label={`${name} 溫度 ${tempText}`} className="num text-sm font-semibold text-foreground">
+          {tempText}
         </span>
       </div>
     </div>
@@ -95,7 +86,7 @@ export function ComputerCard({
           <span className="grid h-5 w-5 place-items-center text-mute">
             <Cpu className="h-5 w-5" strokeWidth={1.8} />
           </span>
-          <span className="num truncate text-[22px] font-bold tracking-[-0.01em] text-foreground">{pc.ip}</span>
+          <span className="num truncate text-[22px] font-bold tracking-[-0.01em] text-foreground">{pc.hostname || pc.ip}</span>
         </div>
         <span className="flex flex-shrink-0 items-center gap-1.5">
           <span
@@ -108,23 +99,27 @@ export function ComputerCard({
         </span>
       </div>
 
+      {pc.hostname && <p className="num text-xs text-mute">{pc.ip}</p>}
+
       {/* ── 當下值：CPU/GPU 各自一行（用量｜溫度） ── */}
       <div className="grid grid-cols-1 gap-2">
         <MetricBlock
           name="CPU"
           model={pc.cpu_model || ""}
-          pctText={fmtPct(pc.current?.cpu_pct)}
-          tempText={fmtTemp(pc.current?.cpu_temp_c)}
+          pctText={formatComputerMetric(pc.current?.cpu_pct, "%")}
+          tempText={formatComputerMetric(pc.current?.cpu_temp_c, "°C")}
           color={PC_COLORS.cpu}
         />
         <MetricBlock
           name="GPU"
           model={pc.gpu_model || ""}
-          pctText={fmtPct(pc.current?.gpu_pct)}
-          tempText={fmtTemp(pc.current?.gpu_temp_c)}
+          pctText={formatComputerMetric(pc.current?.gpu_pct, "%")}
+          tempText={formatComputerMetric(pc.current?.gpu_temp_c, "°C")}
           color={PC_COLORS.gpu}
         />
       </div>
+
+      <p className="px-1 text-sm text-mute">RAM 使用率：<span className="num">{formatComputerMetric(pc.current?.ram_pct, "%")}</span></p>
 
       {!hasHistory ? (
         <p className="px-1 text-sm text-mute">等待 agent heartbeat 累積資料...</p>

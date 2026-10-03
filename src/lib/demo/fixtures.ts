@@ -133,6 +133,14 @@ export function monitoring(state: DemoState, now = Date.now()) {
   }
   const history = Array.from({ length: 1441 }, (_, i) => ({ t: t - (1440 - i) * 60, cpu_pct: Math.round(25 + Math.sin(i / 60) * 15), ram_pct: 42, gpu_pct: Math.round(30 + Math.sin(i / 40) * 20), cpu_temp_c: 48 + Math.round(Math.sin(i / 60) * 5), gpu_temp_c: 52 + Math.round(Math.sin(i / 40) * 8) }));
   const computers: Record<string, ComputerPC> = state.scenario === "empty" ? {} : { "192.0.2.10": { ip: "192.0.2.10", hostname: "DEMO-PC", cpu_model: "Demo CPU", gpu_model: "Demo GPU", current: history[1440], history, last_heartbeat_at: state.scenario === "offline" ? t - 3600 : t, online: state.scenario !== "offline" } };
+  if (state.scenario !== "empty") {
+    const macHistory = history.map((point) => ({ ...point, cpu_pct: 18, ram_pct: 56,
+      gpu_pct: null, cpu_temp_c: null, gpu_temp_c: null }));
+    computers["192.0.2.20"] = { ip: "192.0.2.20", hostname: "Mac mini (demo)",
+      cpu_model: "Apple M6", gpu_model: "Apple M6 GPU", current: macHistory[1440],
+      history: macHistory, last_heartbeat_at: state.scenario === "offline" ? t - 3600 : t,
+      online: state.scenario !== "offline" };
+  }
   return { sensors, acs, dehums, computers };
 }
 

@@ -111,3 +111,7 @@ kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
   之後整個區塊消失、畫面上沒有任何線索。
 - Theater Agent 的 T1–T7 與現有八項架構清單分開。它在私人 repo，勿把其金鑰、配對或設備設定複製到 Dashboard。
 - Mac 主機遷移只需 HA 本地整合改址；Dashboard 不保存劇院 LAN 位址，也不需為新主機建立 PC 卡。Windows 僅回報指標時，其在線狀態不再代表劇院健康。
+
+# 電腦指標
+
+卡片使用既有 heartbeat/status 契約，顯示 hostname（fallback IP）、CPU/GPU 與 RAM 當下使用率。缺少指標顯示 unavailable；無溫度歷史不畫溫度圖。Mac collector 位於 home-butler `agent/macos_metrics.py`，與劇院／vision 分離，沒有可靠攝氏來源時保持 null。Demo 提供 Mac mini 假資料；正式接入、憑證與常駐仍未部署。

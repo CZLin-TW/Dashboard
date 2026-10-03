@@ -1,5 +1,15 @@
 # 驗證方式與範圍
 
+## 2026-10-03 Mac mini 電腦卡（v1.62.0，未部署）
+
+基於 GitHub main `0c77919` 獨立 checkout；卡頭顯示 hostname 與 IP，CPU/GPU 缺值顯示 unavailable（零值仍是零），新增 RAM 當下百分比；沒有溫度歷史時顯示 unavailable 提示。沒有新增 API 欄位，與 home-butler 獨立 macOS collector 共用既有契約。Demo 同時提供 Windows 與 Mac mini，Mac CPU=18%、RAM=56%、GPU／溫度=null。
+
+依現有 package-lock 使用 npm ci --ignore-scripts 安裝後：**38 項離線測試、ESLint、TypeScript --noEmit、Next.js 16.2.1 webpack 正式建置（DASHBOARD_DEMO_MODE=1）通過**。新增測試涵蓋零值與缺值、history gap、Mac fixture／status、offline／empty；沒有正式憑證。
+
+內建瀏覽器 `127.0.0.1:3001/devices` 的 AX／DOM 確認黃色測試模式列、兩張電腦卡、Mac unavailable、RAM 與無溫度資料提示。390×844 viewport document width/scrollWidth 都是 390，GPU 溫度文字完整落在 x=265..341；離線情境 Mac 標離線，空資料情境 Mac 卡數為 0。已恢復 viewport。截圖 API 多次回報 Unable to capture screenshot，故**未完成像素／截图視覺驗收**；不宣稱 iPhone Safari 實機驗證。既有 Windows 卡仍有數值與溫度歷史，獨立劇院卡保留。
+
+沒有 push、部署、正式登入、真實 heartbeat 或家電操作。Mac 真實 CPU/RAM/GPU 單點採樣在 home-butler 驗證紀錄，不把 UI 假資料當作端到端接入成功。正式目的地、憑證與常駐仍待授權；版本為待發布 1.62.0。
+
 ## 2026-10-03 首頁釘選設備排程編輯（v1.61.4）
 
 隔離 checkout 與無正式憑證 demo，使用內建瀏覽器操作首頁「HA 測試空調」。

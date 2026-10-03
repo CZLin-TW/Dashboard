@@ -279,3 +279,21 @@ test("demo enforces private visibility and stable IDs after renames", async () =
   await sim.handle(request("/api/todos?todo_id=" + encodeURIComponent(own.待辦ID!), "DELETE"));
   assert.ok(!sim.snapshot().todos.some(t => t.待辦ID === own.待辦ID));
 });
+
+
+test("Mac telemetry uses existing status contract with null unavailable metrics", async () => {
+  const simulator = createSimulator();
+  const response = await simulator.handle(new Request("http://demo/api/computers/status"));
+  const pcs = await response.json();
+  const mac = pcs["192.0.2.20"];
+  assert.equal(mac.hostname, "Mac mini (demo)");
+  assert.equal(mac.online, true);
+  assert.equal(mac.current.cpu_pct, 18);
+  assert.equal(mac.current.ram_pct, 56);
+  assert.equal(mac.current.cpu_temp_c, null);
+  assert.equal(mac.current.gpu_temp_c, null);
+  assert.equal(mac.current.gpu_pct, null);
+  assert.ok(mac.history.every((point: { cpu_temp_c: number | null }) => point.cpu_temp_c === null));
+  assert.equal(monitoring(createDemoState("offline")).computers["192.0.2.20"].online, false);
+  assert.deepEqual(monitoring(createDemoState("empty")).computers, {});
+});

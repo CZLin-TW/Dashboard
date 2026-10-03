@@ -113,7 +113,9 @@ export function ComputerCharts({ chartHistory, tempDomain }: Props) {
       </div>
 
       {/* ── 圖 2：溫度 °C ── */}
-      <div className="space-y-1.5">
+      {!chartHistory.some((point) => point.cpuTemp != null || point.gpuTemp != null) ? (
+        <p className="px-1 text-sm text-mute">溫度 unavailable · 無可用感測資料</p>
+      ) : <div className="space-y-1.5">
         <ChartTitle label="溫度" unit="°C" />
         <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
           <LineChart data={chartHistory} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
@@ -154,7 +156,7 @@ export function ComputerCharts({ chartHistory, tempDomain }: Props) {
             <Line type="monotone" dataKey="gpuTemp" name="GPU" stroke={PC_COLORS.gpu} strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
-      </div>
+      </div>}
     </>
   );
 }

@@ -88,3 +88,8 @@ export const PC_COLORS = {
   gpu: "var(--color-chart-temperature)",
   ram: "var(--color-chart-co2)",
 } as const;
+
+/** Missing or invalid metrics are unavailable, never zero or a unit-bearing placeholder. */
+export function formatComputerMetric(value: number | null | undefined, unit: "%" | "°C"): string {
+  return value == null || !Number.isFinite(value) ? "unavailable" : `${Math.round(value)}${unit}`;
+}

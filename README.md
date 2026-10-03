@@ -157,8 +157,10 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 **電腦**（H1）
 - 列出所有最近有 heartbeat 的 PC（依 IP 排序，桌機 2 欄、手機 1 欄）
-- 卡頭：IP + 在線指示燈（綠/灰）+ 「N 分鐘前回報」
+- 卡頭：hostname（缺值退回 IP）、IP + 在線指示燈（綠/灰）+ 「N 分鐘前回報」
 - 當下值橫排：`CPU：型號  N% N°C` / `GPU：型號  N% N°C`（CPU 同色 fresh、GPU 同色 warm，跨兩張圖一致）
+- RAM 當下使用率另列；CPU/GPU 缺值顯示 unavailable，零值仍顯示 0%／0°C
+- macOS collector 使用同一 heartbeat 契約，無可靠溫度時回 null；沒有溫度歷史時顯示 unavailable 提示。Demo 包含 Mac mini 模擬卡，不代表正式主機已接入。
 - 折線圖 1（使用率 %）：CPU / GPU / RAM 三條線
 - 折線圖 2（溫度 °C）：CPU 溫 / GPU 溫
 - 24h 範圍，X 軸從現在最近整點往前每 6 小時一個 tick；資料剛累積時圖會慢慢長滿

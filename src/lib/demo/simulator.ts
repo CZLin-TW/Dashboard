@@ -53,6 +53,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
           .map(([name, sensor]) => [name, value("include_history") === "false" ? { ...sensor, history: [] } : sensor])));
         case "/api/ac/status": return json(history().acs);
         case "/api/dehumidifier/history": return json(history().dehums);
+        // Shared Windows + Mac fixtures preserve null GPU/temperature readings.
         case "/api/computers/status": return json(history().computers);
         case "/api/dehumidifier/auto-rule": return json(state.rules);
         case "/api/todos": return json(visibleTodos);
