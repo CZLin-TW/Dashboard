@@ -189,3 +189,11 @@ npm run build
 CI：[v1.38.0 執行紀錄](https://github.com/CZLin-TW/Dashboard/actions/runs/34017951441)。未來變更需記錄當次版本與實際結果，不能沿用上表當成新版本證明。
 
 三個 repo 的責任與部署順序见 [系統導覽](https://github.com/CZLin-TW/home-butler/blob/main/docs/system-overview.md)；劇院硬體驗證由私人 theater-agent 的文件記錄，不複製部署憑證到本 repo。
+
+## 2026-10-04 TCMb / TCMz integration (local only)
+
+Optional smc_temperature={tcmb_c,tcmz_c} travels collector -> strict backend schema -> bounded current/history -> Dashboard. No CPU/GPU field reuse. Null, unsupported and missing sensors remain unavailable; labels disclose AppleSMC, OSHI interpretation and unconfirmed M6 mapping. New temperatures have in-memory history only (maximum 24h); existing Sheet columns are unchanged and restart loses this history. Old agent payloads remain compatible.
+
+Backend: 253 offline tests passed; after adding the child-timeout/invalid-value case, all 7 targeted collector/schema tests passed. Dashboard: 39 tests, typecheck, lint and production build passed. Native staged sender fake-only tests passed for strict nested fields, ranges, booleans, nulls and unknown fields; no Keychain/network access. Actual localhost demo UI confirmed TCMb value/line, TCMz unavailable and source/retention labels. IAB screenshot tool failed, so no pixel screenshot verification claimed. No push, deployment, runtime/LaunchAgent/Keychain changes.
+
+Mobile DOM verification: 390px viewport, document scrollWidth390; TCMb label/value, TCMz unavailable and source text present. Real collector Python -I sample (stdout only, no send): TCMb46.3C, TCMznull.

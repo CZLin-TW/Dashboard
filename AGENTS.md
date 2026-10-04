@@ -114,4 +114,4 @@ kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
 
 # 電腦指標
 
-卡片使用既有 heartbeat/status 契約，顯示 hostname（fallback IP）、CPU/GPU 與 RAM 當下使用率。缺少指標顯示 unavailable；無溫度歷史不畫溫度圖。Mac collector 位於 home-butler `agent/macos_metrics.py`，與劇院／vision 分離，沒有可靠攝氏來源時保持 null。Demo 提供 Mac mini 假資料；正式接入、憑證與常駐仍未部署。
+卡片使用既有 heartbeat/status 契約，顯示 hostname（fallback IP）、CPU/GPU 與 RAM 當下使用率。缺少指標顯示 unavailable；無溫度歷史不畫溫度圖。Mac collector 位於 home-butler `agent/macos_metrics.py`，與劇院／vision 分離，TCMb／TCMz 使用獨立 smc_temperature 欄位，空值 unavailable；AppleSMC／OSHI 定義與 M6 未官方確認限制顯示在卡片。新溫度僅 bounded 24h 記憶體歷史，後端重啟後重累積，未發布。Demo 提供 Mac mini 假資料；正式接入、憑證與常駐仍未部署。

@@ -200,7 +200,10 @@ export default function DevicesPage() {
   const tempDomain: [number, number] = (() => {
     const temps: number[] = [];
     for (const c of computers) {
-      for (const p of c.history) {
+      for (const p of [...c.history, c.current]) {
+        for (const v of [p.smc_temperature?.tcmb_c, p.smc_temperature?.tcmz_c]) {
+          if (typeof v === "number" && Number.isFinite(v) && v > 0 && v <= 150) temps.push(v);
+        }
         if (p.cpu_temp_c != null) temps.push(p.cpu_temp_c);
         if (p.gpu_temp_c != null) temps.push(p.gpu_temp_c);
       }

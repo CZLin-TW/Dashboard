@@ -8,6 +8,7 @@ export interface ComputerHistoryRaw {
   gpu_pct: number | null;
   cpu_temp_c: number | null;
   gpu_temp_c: number | null;
+  smc_temperature?: { tcmb_c: number | null; tcmz_c: number | null } | null;
 }
 
 export interface ComputerCurrentRaw extends ComputerHistoryRaw {
@@ -38,6 +39,8 @@ export interface ComputerChartPoint {
   gpu: number | null;
   cpuTemp: number | null;
   gpuTemp: number | null;
+  tcmb: number | null;
+  tcmz: number | null;
 }
 
 // agent 預期每 60s push 一次。相鄰兩點時間差超過這個就視為 gap，插 null 讓
@@ -53,7 +56,7 @@ export function toChartHistory(raw: ComputerHistoryRaw[]): ComputerChartPoint[] 
     if (prevT !== null && tMs - prevT > PC_GAP_THRESHOLD_MS) {
       out.push({
         t: (prevT + tMs) / 2,
-        cpu: null, ram: null, gpu: null, cpuTemp: null, gpuTemp: null,
+        cpu: null, ram: null, gpu: null, cpuTemp: null, gpuTemp: null, tcmb: null, tcmz: null,
       });
     }
     out.push({
@@ -63,6 +66,8 @@ export function toChartHistory(raw: ComputerHistoryRaw[]): ComputerChartPoint[] 
       gpu: p.gpu_pct,
       cpuTemp: p.cpu_temp_c,
       gpuTemp: p.gpu_temp_c,
+      tcmb: validSMCTemperature(p.smc_temperature?.tcmb_c),
+      tcmz: validSMCTemperature(p.smc_temperature?.tcmz_c),
     });
     prevT = tMs;
   }
@@ -92,4 +97,8 @@ export const PC_COLORS = {
 /** Missing or invalid metrics are unavailable, never zero or a unit-bearing placeholder. */
 export function formatComputerMetric(value: number | null | undefined, unit: "%" | "°C"): string {
   return value == null || !Number.isFinite(value) ? "unavailable" : `${Math.round(value)}${unit}`;
+}
+
+export function validSMCTemperature(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 150 ? value : null;
 }

@@ -7,6 +7,7 @@ import { TheaterSection } from "@/components/devices/theater-section";
 import { ComputerCharts } from "@/components/devices/lazy-charts";
 import {
   PC_COLORS,
+  validSMCTemperature,
   formatComputerMetric,
   type ComputerPC,
   relativeFromHeartbeat,
@@ -41,7 +42,7 @@ function MetricBlock({
   name: string;
   model: string;
   pctText: string;
-  tempText: string;
+  tempText: string | null;
   color: string;
 }) {
   return (
@@ -55,9 +56,9 @@ function MetricBlock({
         <span aria-label={`${name} 使用率 ${pctText}`} className="num text-sm font-semibold text-foreground">
           {pctText}
         </span>
-        <span aria-label={`${name} 溫度 ${tempText}`} className="num text-sm font-semibold text-foreground">
+        {tempText !== null && <span aria-label={`${name} 溫度 ${tempText}`} className="num text-sm font-semibold text-foreground">
           {tempText}
-        </span>
+        </span>}
       </div>
     </div>
   );
@@ -107,19 +108,26 @@ export function ComputerCard({
           name="CPU"
           model={pc.cpu_model || ""}
           pctText={formatComputerMetric(pc.current?.cpu_pct, "%")}
-          tempText={formatComputerMetric(pc.current?.cpu_temp_c, "°C")}
+          tempText={pc.current?.smc_temperature ? null : formatComputerMetric(pc.current?.cpu_temp_c, "°C")}
           color={PC_COLORS.cpu}
         />
         <MetricBlock
           name="GPU"
           model={pc.gpu_model || ""}
           pctText={formatComputerMetric(pc.current?.gpu_pct, "%")}
-          tempText={formatComputerMetric(pc.current?.gpu_temp_c, "°C")}
+          tempText={pc.current?.smc_temperature ? null : formatComputerMetric(pc.current?.gpu_temp_c, "°C")}
           color={PC_COLORS.gpu}
         />
       </div>
 
       <p className="px-1 text-sm text-mute">RAM 使用率：<span className="num">{formatComputerMetric(pc.current?.ram_pct, "%")}</span></p>
+
+      {pc.current?.smc_temperature && <div className="space-y-1 px-1 text-sm">
+        <p>TCMb · CPU die 平均：<span className="num">{formatComputerMetric(validSMCTemperature(pc.current.smc_temperature.tcmb_c), "°C")}</span></p>
+        <p>TCMz · CPU die 最高：<span className="num">{formatComputerMetric(validSMCTemperature(pc.current.smc_temperature.tcmz_c), "°C")}</span></p>
+        <p className="text-xs text-mute">AppleSMC · 名稱依 OSHI 定義；M6 對應未經 Apple 官方確認。</p>
+        <p className="text-xs text-mute">TCMb／TCMz 歷史僅保留本次後端執行期間，最多 24 小時。</p>
+      </div>}
 
       {!hasHistory ? (
         <p className="px-1 text-sm text-mute">等待 agent heartbeat 累積資料...</p>

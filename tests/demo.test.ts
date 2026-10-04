@@ -291,6 +291,8 @@ test("Mac telemetry uses existing status contract with null unavailable metrics"
   assert.equal(mac.current.cpu_pct, 18);
   assert.equal(mac.current.ram_pct, 56);
   assert.equal(mac.current.cpu_temp_c, null);
+  assert.equal(typeof mac.current.smc_temperature.tcmb_c, "number");
+  assert.equal(mac.current.smc_temperature.tcmz_c, null);
   assert.equal(mac.current.gpu_temp_c, null);
   assert.equal(mac.current.gpu_pct, null);
   assert.ok(mac.history.every((point: { cpu_temp_c: number | null }) => point.cpu_temp_c === null));
