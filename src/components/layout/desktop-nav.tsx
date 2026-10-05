@@ -12,12 +12,12 @@ export function DesktopNav() {
   if (pathname === "/login") return null;
 
   return (
-    <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b border-line bg-surface/80 backdrop-blur-md px-6 py-3">
-      <div className="flex items-center gap-8">
-        <Link href="/" className="flex items-center gap-2 text-lg font-bold text-soft">
+    <header className="sticky top-0 z-40 hidden md:flex items-center justify-between border-b border-line bg-surface/80 backdrop-blur-md gap-3 px-4 lg:px-6 py-3">
+      <div className="flex min-w-0 items-center gap-4 lg:gap-8">
+        <Link href="/" aria-label="Smart Home 首頁" className="flex shrink-0 items-center gap-2 text-lg font-bold text-soft">
           <Zap className="h-5 w-5 text-cool" strokeWidth={2} fill="currentColor" />
-          Smart Home
-          <span className="text-xs font-normal text-mute">v{process.env.APP_VERSION}</span>
+          <span className="hidden lg:inline whitespace-nowrap">Smart Home</span>
+          <span className="hidden lg:inline text-xs font-normal text-mute">v{process.env.APP_VERSION}</span>
         </Link>
         <nav className="flex items-center gap-1">
           {NAV_ITEMS.map((item) => {
@@ -28,7 +28,7 @@ export function DesktopNav() {
                 key={item.href}
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex min-h-11 shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full px-2 lg:px-3 py-2 text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-cool-bg text-cool"
                     : "text-mute hover:bg-elevated hover:text-soft"

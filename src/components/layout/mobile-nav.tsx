@@ -19,7 +19,7 @@ export function MobileNav() {
             key={item.href}
             href={item.href}
             aria-current={isActive ? "page" : undefined}
-            className={`flex min-h-12 min-w-[56px] flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-[11px] transition-colors ${
+            className={`flex min-h-12 min-w-11 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[11px] transition-colors ${
               isActive ? "bg-cool-bg text-cool" : "text-mute hover:text-soft"
             }`}
           >

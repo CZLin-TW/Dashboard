@@ -1,3 +1,7 @@
+## 2026-10-05 v1.64.0：視覺感測第一階段（本機分支，未部署）
+
+新增手機友善 vision 頁面、可注入 transport、default-deny 伺服器 status／preview／edit 授權，以及隔離合成互動。正式通道與媒體未接通，現役 mini 不變。
+
 ## 2026-10-03 v1.62.0：Mac mini 電腦指標顯示（未部署）
 
 電腦卡顯示主機名稱、IP 與 RAM；缺值明確 unavailable，沒有溫度歷史不畫溫度圖。Demo 增加 Mac mini 與 Windows 並列，保持既有 API 與劇院綁定語意。home-butler 新增獨立 macOS collector，正式接入尚未部署。

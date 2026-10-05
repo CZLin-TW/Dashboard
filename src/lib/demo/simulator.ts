@@ -10,6 +10,7 @@ const success = () => json({ ok: true, message: "模擬操作完成" });
 /** An independent store per browser tab. Unknown requests never fall through to a backend. */
 export function createSimulator(initial = createDemoState(), persist: (state: DemoState) => void = () => {}) {
   const state = structuredClone(initial);
+  state.vision ??= { revision: 0, model: "yolo11n", precision: "fp16" };
   let sequence = 0;
 
   async function dispatch(request: Request): Promise<Response> {
@@ -35,6 +36,34 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
     if (path.startsWith("/api/auth/")) return error("測試模式使用模擬身分，不提供正式登入", 403);
     if (state.scenario === "error") return error("模擬 API 失敗：請切回正常情境重試", 503);
     if (state.scenario === "offline" && (path.startsWith("/api/lighting/") || path.startsWith("/api/theater/") || (!read && path === "/api/devices/control"))) return error("模擬設備離線", 503);
+
+    if (path.startsWith("/api/vision/v1/")) {
+      const capabilities = { status: true, preview: true, edit: true };
+      const online = state.scenario === "normal";
+      const config = state.vision!;
+      if (path === "/api/vision/v1/access" && read) return json({ capabilities });
+      if (path === "/api/vision/v1/status" && read) return json({
+        ...config, capabilities, online, source: online ? "synthetic" : "unavailable",
+        reason: state.scenario === "empty" ? "empty" : online ? "synthetic_demo" : "offline",
+      });
+      if (!online) return error("模擬視覺來源不可用", 503);
+      if (path === "/api/vision/v1/config" && read) return json(config);
+      if (path === "/api/vision/v1/config" && method === "PUT") {
+        if (Object.keys(b).sort().join(",") !== "model,precision,revision" ||
+            !Number.isSafeInteger(b.revision) || Number(b.revision) < 0 || typeof b.model !== "string" || typeof b.precision !== "string" ||
+            !["yolo11n", "yolo11s"].includes(String(b.model)) || !["fp16", "fp32"].includes(String(b.precision))) return error("無效視覺設定", 400);
+        if (b.revision !== config.revision) return error("設定版本衝突", 409);
+        if (b.model !== config.model || b.precision !== config.precision) {
+          state.vision = { revision: config.revision + 1, model: b.model as typeof config.model, precision: b.precision as typeof config.precision };
+        }
+        return json(state.vision);
+      }
+      if (path === "/api/vision/v1/preview" && method === "POST") {
+        if (Object.keys(b).length) return error("預覽不接受影像或來源參數", 400);
+        return json({ source: "synthetic", label: "合成示意圖 · 沒有真相機影像" });
+      }
+      return error("測試模式尚未提供此視覺操作", 501);
+    }
 
     const visibleTodo = (t: { 類型?: string; 負責人?: string }) => t.類型 === "公開" || t.負責人 === "測試成員";
     const visibleTodos = state.todos.filter(t => t.狀態 === "待辦" && visibleTodo(t));

@@ -1,3 +1,4 @@
+import type { VisionConfig } from "../vision-contract";
 import type { LightColorState } from "../light-color";
 import type { DeviceData, DeviceOptions, TodoData, FoodData, RecurringRule, DehumidifierAutoRule, WeatherData } from "../types";
 import type { Schedule } from "../schedule";
@@ -52,6 +53,7 @@ export interface DemoArea {
 
 export interface DemoState {
   schema: 2; scenario: Scenario; createdAt: number;
+  vision?: VisionConfig;
   devices: DeviceData[]; todos: TodoData[]; food: (FoodData & { 狀態: string; 新增日: string; 新增者: string })[];
   recurring: RecurringRule[]; schedules: Schedule[]; rules: Record<string, DehumidifierAutoRule>;
   areas: DemoArea[]; lightingRules: Record<string, Row>; theater: TheaterSummary;
@@ -74,6 +76,7 @@ export function createDemoState(scenario: Scenario = "normal", now = Date.now())
     待辦ID: `demo-todo-${item}`, 事項: item, 日期: dateAt(offset, now), 時間: "", 負責人: "測試成員", 狀態: "待辦", 類型: "私人", 來源: "本地", 屬性: "讀寫", ...extra,
   });
   return {
+    vision: { revision: 0, model: "yolo11n", precision: "fp16" },
     schema: 2, scenario, createdAt: now, devices: scenario === "empty" ? [] : devices,
     todos: scenario === "empty" ? [] : [
       todo("清洗冷氣濾網", -1, { 時間: "19:00", 燈光提醒: true, 燈光區域ID: JSON.stringify(["demo-living", "demo-bedroom"]) }), todo("倒垃圾", 0, { 時間: "20:00", 類型: "公開", 燈光提醒: true, 燈光區域ID: "demo-living", 規則ID: "demo-daily" }),

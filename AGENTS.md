@@ -51,6 +51,10 @@ kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
 `age_seconds` 加瀏覽器本次讀取後經過時間判斷過期，不比較兩台電腦的絕對時鐘；
 失敗、過期、unavailable 均顯示未知，不能把 false／0 與缺值混淆。
 
+# 視覺感測（第一階段，未部署）
+
+`/vision` 與 `/api/vision/v1/*` 是獨立 vision 入口，status／preview／edit 各自在 server 以 session 與明確 grant 驗證，預設拒絕、kid deny。正式 transport 尚未接通，回 unavailable，不轉送 HB／HA／mini。相機秘密仍本機原生管理。Demo 僅合成畫面與互動，不能宣稱串流、ROI 或真實 detector 已接入。後續通道、WebRTC 與 HA 驗收見 [階段計畫](docs/vision-phases.md)。
+
 # UI 開發與獨立測試模式
 
 本專案已有可操作的模擬家庭，不需建立測試帳號或取得正式登入憑證。

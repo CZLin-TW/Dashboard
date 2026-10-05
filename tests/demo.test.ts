@@ -299,3 +299,34 @@ test("Mac telemetry uses existing status contract with null unavailable metrics"
   assert.equal(monitoring(createDemoState("offline")).computers["192.0.2.20"].online, false);
   assert.deepEqual(monitoring(createDemoState("empty")).computers, {});
 });
+
+test("vision demo is synthetic, validates drafts and conflicts without external traffic", async () => {
+  const simulator = createSimulator();
+  const call = (path: string, method = "GET", body?: object) => simulator.handle(new Request(`http://demo/api/vision/v1/${path}`, {
+    method, ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
+  }));
+  assert.deepEqual((await (await call("access")).json()).capabilities, { status: true, edit: true, preview: true });
+  const status = await (await call("status")).json();
+  assert.equal(status.source, "synthetic"); assert.equal(status.online, true);
+  assert.deepEqual(await (await call("config")).json(), { revision: 0, model: "yolo11n", precision: "fp16" });
+  const change = { revision: 0, model: "yolo11s", precision: "fp32" };
+  const saved = await (await call("config", "PUT", change)).json();
+  assert.deepEqual(saved, { ...change, revision: 1 });
+  assert.equal((await call("config", "PUT", change)).status, 409);
+  assert.deepEqual(await (await call("config", "PUT", saved)).json(), saved);
+  assert.equal((await call("config", "PUT", { ...saved, password: "fake" })).status, 400);
+  assert.equal((await call("preview", "POST", { url: "http://forbidden" })).status, 400);
+  assert.equal((await (await call("preview", "POST", {})).json()).source, "synthetic");
+  assert.equal((await call("credentials", "POST", {})).status, 501);
+});
+
+test("vision offline and empty remain unavailable; error never becomes fake success", async () => {
+  for (const scenario of ["offline", "empty", "error"] as const) {
+    const simulator = createSimulator(createDemoState(scenario));
+    const response = await simulator.handle(new Request("http://demo/api/vision/v1/status"));
+    if (scenario === "error") assert.equal(response.status, 503);
+    else { const status = await response.json(); assert.equal(status.online, false); assert.equal(status.source, "unavailable"); }
+    assert.equal((await simulator.handle(new Request("http://demo/api/vision/v1/preview", { method: "POST", body: "{}" }))).status, 503);
+    assert.equal((await simulator.handle(new Request("http://demo/api/vision/v1/config", { method: "PUT", body: JSON.stringify({ revision: 0, model: "yolo11s", precision: "fp32" }) }))).status, 503);
+  }
+});

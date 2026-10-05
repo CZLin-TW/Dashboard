@@ -1,3 +1,14 @@
+## 2026-10-05 v1.64.0：視覺入口第一階段（本機分支，未部署）
+
+- 來源 Dashboard `755f5f8`；本機獨立 checkout，不改現役 mini、Dashboard／HB 原 checkout。
+- `npm run test:demo`：49/49。包含真實 vision route 缺失／錯誤／過期 JWT、kid、獨立 grants、default deny、Origin／JSON／body validation、production fail closed、禁止外送，以及 timeout／abort 清理測試。
+- `npm run lint`、`npm run typecheck`、`npm run build`：通過。
+- `npm run test:vision-ui`：9/9。Chromium 320×740、390×844、844×390、1440×1000，另含 touch emulation；合成 preview、draft cancel/save/undo、重複寫入、401／403 清除、offline、離頁取消、取消後晚到結果不可恢復預覽。
+- 看圖確認手機直向及橫向畫面；窄螢幕導覽與提示對比已修正。這不是實體 iPhone Safari 驗收。
+- 瀏覽器腳本先 build，使用 localhost:3014 `next start` + 隔離 demo，完成自動關閉；圖片與結果只在忽略的 artifacts/。沒有相機影像、YOLO推論、正式串流、ROI寫入、MQTT或HA實機測試。
+- 一次開發模式重跑發生 Next 子程序異常增生，停止該測試程序樹並確認沒有殘留；撤回實驗性的 root 設定，驗收啟動改用建置產物。未將該失敗計為通過，也未斷言已定位 Next 根因。現役 8768／8771 listener PID 未改變。測試過程短暫增加主機資源負載，與現役 vision 程式修復無關。
+- 剩餘邊界：正式 transport 固定 unavailable；沒有設定任何實際 grants／憑證或公開通道。後續必須依 docs/vision-phases.md 分階段驗收，不直接替換現役安裝。
+
 # 驗證方式與範圍
 
 ## 2026-10-03 Mac mini 電腦卡（v1.62.0，未部署）

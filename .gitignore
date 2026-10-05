@@ -41,3 +41,8 @@ next-env.d.ts
 
 # claude code
 .claude/
+
+# Local browser verification artifacts
+/artifacts/
+/test-results/
+/playwright-report/
