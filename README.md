@@ -492,3 +492,7 @@ Dashboard 是 home-butler 的**視覺化前端**，兩者共用同一套後端 A
 - KEF 事件訂閱及 15 秒補漏在 theater-agent 內執行，不依賴 Dashboard 開著，也不是瀏覽器直接接喇叭 push。
 - 三個 repo 的責任、部署與回復順序：[系統導覽](https://github.com/CZLin-TW/home-butler/blob/main/docs/system-overview.md)。
 - 測試方式與已驗證範圍：[驗證紀錄](docs/verification.md)；新 session 先讀 [AGENTS.md](AGENTS.md) 與 [demo 說明](docs/demo-mode.md)。
+
+
+視覺功能另有 [loopback HTTP整合驗證](docs/vision-http-fixture.md)：使用假裝置與fixture設定，
+正式production transport仍未啟用。

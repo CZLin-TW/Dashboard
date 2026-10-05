@@ -208,3 +208,17 @@ Optional smc_temperature={tcmb_c,tcmz_c} travels collector -> strict backend sch
 Backend: 253 offline tests passed; after adding the child-timeout/invalid-value case, all 7 targeted collector/schema tests passed. Dashboard: 39 tests, typecheck, lint and production build passed. Native staged sender fake-only tests passed for strict nested fields, ranges, booleans, nulls and unknown fields; no Keychain/network access. Actual localhost demo UI confirmed TCMb value/line, TCMz unavailable and source/retention labels. IAB screenshot tool failed, so no pixel screenshot verification claimed. No push, deployment, runtime/LaunchAgent/Keychain changes.
 
 Mobile DOM verification: 390px viewport, document scrollWidth390; TCMb label/value, TCMz unavailable and source text present. Real collector Python -I sample (stdout only, no send): TCMb46.3C, TCMznull.
+
+
+## 2026-10-05 loopback HB transport milestone
+
+Server-side HTTP transport已實作，預設disabled且production拒絕fixture設定。
+GET status/config及PUT config保持session/grant/Origin/schema邊界；preview仍unavailable。
+53 unit tests（含4項真正HTTP socket）／全repo ESLint／TypeScript／Next webpack build通過。
+build初次sandbox無法取得公共Google字型，限定build網路重跑通過，未改layout/config。
+已建置產物next start browser9/9通過（6.3s），沒有啟動Next dev。
+
+`scripts/test-vision-live-fixture.ts`由HB三repo runner呼叫，
+用真HTTP BFF→HTTP HB→mini outbound WS→temporary fixture磁碟驗證；兩client同revision
+取得200/409、舊revision拒絕，reload確認保存。沒有正式端點／credential／相機／HA publish。
+詳見vision-http-fixture.md；正式部署與media relay仍須分別批准。

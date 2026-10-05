@@ -1,5 +1,6 @@
+import { VisionHTTPError } from "./vision-http";
 /** Server route helpers only. Never import this module into a client component.
- * No transport or camera/broker client exists in Phase 1.
+ * Loopback synthetic transport is separately opt-in; production stays disabled.
  */
 import { NextRequest } from "next/server";
 import { decodeJwt } from "jose";
@@ -75,6 +76,7 @@ export function visionUnavailable() {
   return visionJSON({ code: "vision_unavailable", message: "尚未接通本機視覺服務" }, 503);
 }
 export function visionError(error: unknown) {
+  if (error instanceof VisionHTTPError) return visionJSON({ code: error.code, message: error.status === 409 ? "設定版本已變更，請重新讀取。" : "視覺操作未完成或結果未知；請手動確認，不會自動重送。" }, error.status);
   if (error instanceof VisionError) return visionJSON({ code: error.code, message: error.message }, error.status);
   if (error instanceof RequestError) return visionJSON({ code: error.status === 401 ? "unauthorized" : "vision_forbidden", message: error.status === 401 ? "請先登入。" : "此帳號沒有視覺權限。" }, error.status);
   return visionJSON({ code: "vision_error", message: "暫時無法處理視覺請求。" }, 500);

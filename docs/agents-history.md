@@ -110,3 +110,10 @@ v1.42.0 空調回饋 UI 位於 `ac-feedback-panel.tsx`，首頁／裝置頁共�
 ## 2026-10-04 SMC temperature integration (unpublished)
 
 Added independent optional TCMb/TCMz fields, strict validation, bounded memory history, UI source labels and null handling. No Sheet-column additions or credential changes. Dashboard version prepared as 1.63.0.
+
+
+## 2026-10-05 vision loopback HTTP integration
+
+新增server-only固定127.0.0.1 HTTP transport與既有route wiring；production仍拒fixture，
+不跟redirect／不重試，strict回應validation。53 unit、lint/typecheck/build、9 UI通過，
+三repo實際HTTP/WS/fixture writer串接完成。未部署；media與正式connector仍未啟用。
