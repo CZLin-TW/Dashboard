@@ -397,3 +397,13 @@ Corrected zero-valid-identity inference: original self-signed camera identity ex
 and its installed app passes a pinned public-certificate requirement without trust
 changes. Source package codesign inline requirement syntax was corrected separately
 in Floor. No private key bytes/secret or identity metadata copied into fixtures.
+
+
+## 2026-10-06 overlap-compatible status regression
+
+HB359/359 including five two-instance tests; Floor201/201 including inline
+codesign requirement regression. Existing production-built Dashboard + loopback
+verified TLS/WSS + fake Sheets suite13/13 passed against the updated HB. All owned
+processes stopped and temporary fixture material removed. No real Sheets/native
+Keychain/signing/installation/production deployment tested. Dashboard code and
+version unchanged; docs diff checked.
