@@ -159,3 +159,15 @@ correctly rejected by the existing strict origin check. No Origin allowlist or
 production security rule was relaxed. The native signaling endpoint remains
 fixed to numeric loopback. The embedded native region supplies its own dark
 background so its light text stays readable inside Dashboard's light cards.
+
+
+## HB authority path (subsequent isolated milestone)
+
+The direct-native runner above remains historical fixture coverage. The new
+`DASHBOARD_VISION_MEDIA_HUB_FIXTURE_MODE=1` path uses a stateless BFF with a fixed
+loopback HB port and public-only mock service credential; no Dashboard-owned lease
+or native address is used. HB forwards bounded signaling over the mini's dedicated
+outbound WS; WebRTC video remains native-to-browser. See
+[deployment review](vision-deployment-review.md) for topology evidence, quarantine,
+revocation responsibilities and the explicit list of unfinished production work.
+A 503/unknown cleanup state stays unknown and never becomes confirmed stopped.

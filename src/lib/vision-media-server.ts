@@ -1,6 +1,7 @@
 /** Server-only media BFF. Production has no activation path; fixture configuration
  * and native credential never reach the browser. Session cookies are not retained.
  */
+import { mediaHubConfig, createMediaHub } from "./vision-media-hub";
 import { NextRequest } from "next/server";
 import { decodeJwt } from "jose";
 import { requestUser } from "./request-user";
@@ -18,7 +19,7 @@ function startCleanup() {
   state.timer = setInterval(() => { void leases.sweep().catch(() => {}); }, 250);
   state.timer.unref();
 }
-export function nativeMediaAvailable() { return !!mediaFixtureConfig(); }
+export function nativeMediaAvailable() { return process.env.DASHBOARD_VISION_MEDIA_HUB_FIXTURE_MODE === "1" ? !!mediaHubConfig() : !!mediaFixtureConfig(); }
 async function owner(request: Request): Promise<MediaOwner> {
   await requireVision(request, "preview");
   const id = await requestUser(request);
@@ -63,6 +64,29 @@ export async function mediaRoute(request: Request, action: "offer" | "heartbeat"
     const actor = await owner(request);
     if (new URL(request.url).search) throw new MediaError("media_invalid_request", 400);
     if (action !== "state") requireVisionMutation(request);
+    const hubConfig = mediaHubConfig();
+    if (process.env.DASHBOARD_VISION_MEDIA_HUB_FIXTURE_MODE === "1") {
+      if (!hubConfig) throw new MediaError("media_disabled");
+      const hub = createMediaHub(hubConfig);
+      if (action === "state") return visionJSON(await hub.call("state", actor));
+      const value = await body(request);
+      if (action === "offer") {
+        exact(value, ["type", "sdp"]);
+        if (value.type !== "offer") throw new MediaError("media_invalid_request");
+        validateSDP(value.sdp);
+      } else {
+        exact(value, action === "heartbeat" ? ["session_id", "visible"] : ["session_id"]);
+        leaseId(value.session_id);
+        if (action === "heartbeat" && typeof value.visible !== "boolean") throw new MediaError("media_invalid_request");
+      }
+      if (request.signal.aborted) throw new MediaError("media_result_unknown");
+      const result = await hub.call(action, actor, value);
+      if (action === "offer") {
+        try { await owner(request); if (request.signal.aborted) throw new MediaError("media_result_unknown"); }
+        catch (error) { await hub.call("stop", actor, {session_id: result.session_id}).catch(() => {}); throw error; }
+      }
+      return visionJSON(result);
+    }
     const config = mediaFixtureConfig();
     if (!config) throw new MediaError("media_disabled");
     startCleanup();

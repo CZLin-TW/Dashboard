@@ -127,3 +127,14 @@ and fixed branded errors preserve safe code/status across separate route bundles
 Process-local lease limits, restart behavior and the unapproved external activation
 proposal are documented in `vision-native-preview.md`. No site-wide authentication,
 production credentials, camera, HA, provider enrollment or deployment changes.
+
+## 2026-10-06 HB media authority consolidation (v1.66.0, isolated)
+
+Vercel deployment metadata ruled out reliance on a Dashboard singleton. The new
+BFF is stateless and delegates leases/revocation to a dedicated HB media channel;
+mini initiates the WS and owns local native cleanup. Unknown/restart quarantine
+uses monotonic time, await boundaries recheck credentials, and unknown remains
+unknown in state responses. Local two-Dashboard/three-service synthetic validation
+passed; formal TLS credentials, provider enrollment, relay and deployment remain
+unfinished and unauthorized. No short-lived credentials should be minted until
+an approved activation window.

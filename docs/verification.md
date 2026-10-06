@@ -280,3 +280,31 @@ real iPhone claim. DOM visibility events are not a physical mobile background te
 application UI9/9 passed (6.4s). Full-site authentication was unchanged. Formal
 activation recipients/credentials/data/cost and independent work boundaries are
 summarized in `vision-native-preview.md`; none of those external actions occurred.
+
+## 2026-10-06 authority consolidation and three-service path (v1.66.0)
+
+Read-only GitHub deployment metadata confirmed Vercel Production deployments;
+therefore Next process affinity is not assumed. Added a stateless HB BFF path,
+dedicated HB media authority/WS and mini outbound connector. New signaling is
+Dashboard → HB → mini outbound WS → native, not Dashboard → native loopback.
+The bounded `test-native-hub.py` integration passed9/9 on its first complete run.
+Two independent built Next instances shared one HB lease; a Dashboard restart kept
+that lease, while HB restart rejected new offers during unknown quarantine.
+The Next child sandbox permitted only owned Next/HB ports; a probe confirmed
+native HTTP was denied. Actual browser VP8 640×360 advanced pixelID3→4 with
+loopback ICE and zero STUN/TURN. Grant revoke, WS loss, TTL/no retry, actor
+isolation and all-owned-process cleanup passed. Evidence/screenshots:
+`artifacts/native-hub/verification.json`, portrait/landscape synthetic PNGs.
+
+Independent code review found and fixed await-boundary credential expiry/revocation,
+wall-clock-based quarantine and inactive-state loss of unknown semantics. HB now
+uses monotonic quarantine; native connector rechecks before dispatch/publish;
+BFF preserves the authoritative unknown reason. Final HB325 tests passed3.100s,
+floor167 passed8.444s, Dashboard72 tests plus lint/typecheck/webpack build passed.
+HB commit24b81aa5d9a7454b73cbab29c0e7bb931054038a;
+floor commit1f5a326b97d0094fbde698c961c4f01b420c4854.
+
+No formal TLS adapter/provider, durable enrollment/revocation, multi-HB coordination,
+TURN, camera, iPhone or production deployment is claimed. This milestone is not
+production-ready; see `vision-deployment-review.md` for the exact remaining list
+and delayed credential creation/activation order. Existing services were untouched.
