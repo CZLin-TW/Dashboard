@@ -77,14 +77,19 @@ No formal tokens, accounts, persistent Keychain changes, relay resources, public
 listener, push, deployment or live service modifications were made by this review.
 
 
-## Subsequent status-only pilot implementation
+## Current status-only pilot implementation
 
-The status-only follow-up implements fixed HTTPS/WSS adapters, hosting and isolated protected-file fixture
-credential providers, protected SQLite digest enrollment/revocation and a default-off
-main route installer. The production mini default is the dedicated native
-Keychain broker proposal; its offline source/mock checks do not prove signing,
-installation or real Keychain acceptance. A paid Render volume is not assumed
-mandatory before reviewing HB’s existing storage. It does not activate or complete the media path. See
+The pilot now reuses existing LINE pairing/JWT and the Dashboard-to-HB server
+API key. HB checks trusted actor/role/expiry headers against enabled members and
+explicit grants in a shared Sheets snapshot. Refresh is 30 seconds with a
+60-second monotonic hard limit; failure denies access, revocation invalidates
+sessions and late results. No second Dashboard service credential, SQLite DB or
+paid persistent Disk is required. Existing media fixtures are not enabled by this
+change; formal dispatch remains status.get only.
+
+The mini keeps its independent native Keychain broker boundary. Its source/mock
+checks do not prove signing, installation, real ACLs or native TLS. Actual Sheet
+grants, device enrollment, restricted sharing review, singleton hosting, external
+TLS and approved release/rollback remain unconfigured or unverified. See
 [status pilot operations](vision-status-pilot-operations.md) for the concentrated
-approval list, activation order and rollback. Real hosting secrets, persistent
-mount, topology and external TLS acceptance remain unconfigured/unverified.
+activation boundary. No real Sheet, key, hosting setting or live service was changed.

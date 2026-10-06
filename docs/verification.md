@@ -1,3 +1,11 @@
+## 2026-10-06 v1.68.0：既有家庭驗證＋HB Sheets 視覺授權（未部署）
+
+- 80/80 unit tests；ESLint、TypeScript 與 `next build --webpack` 通過。未改 UI，未重跑相機／native／UI 全套。
+- `scripts/test-status-pilot.py`：10/10，真 built Next → verified HTTPS HB → verified outbound WSS，只有 fake Sheets rows。
+- 不設定 `DASHBOARD_VISION_GRANTS` 或第二個 vision service token、不建 SQLite；JWT user/member role/expiry 由 server 衍生，client header、kid 父母 LINE ID 與家庭 API key 冒充 device 均拒絕。
+- 重複請求重用 HB snapshot；reader 失敗、撤權、late response、mock source 重啟與 TLS wrong CA/hostname 均維持 fail closed。
+- 所有自建程序停止，暫存 CA/private keys/fake rows 清除；證據 `artifacts/status-pilot/verification.json`。詳見 [本輪驗證](vision-shared-auth-verification.md)。
+
 ## 2026-10-05 v1.64.0：視覺入口第一階段（本機分支，未部署）
 
 - 來源 Dashboard `755f5f8`；本機獨立 checkout，不改現役 mini、Dashboard／HB 原 checkout。

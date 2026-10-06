@@ -1,3 +1,7 @@
+## 2026-10-06 v1.68.0：視覺狀態沿用家庭登入與 HB 授權（未部署）
+
+status-only pilot 不再要求第二個 vision service token、Dashboard 本地 grants 或 SQLite。沿用既有 LINE/JWT 與 server `HOME_BUTLER_API_KEY`，只轉送驗證後的 user/member role/session expiry；HB Sheets snapshot 是成員與分權唯一 authority。固定 verified HTTPS、default deny/kid deny、7 秒上限、晚到回覆再驗權限，preview/edit/media 仍未啟用。mini 的獨立原生 Keychain device credential 邊界不變，未實際簽名、註冊、讀取或驗收 Keychain。全80 tests、lint/typecheck/webpack build 與10組 fake-Sheets TLS 整合通過，沒有正式 Sheets、相機、憑證或部署操作。
+
 ## 2026-10-05 v1.64.0：視覺感測第一階段（本機分支，未部署）
 
 新增手機友善 vision 頁面、可注入 transport、default-deny 伺服器 status／preview／edit 授權，以及隔離合成互動。正式通道與媒體未接通，現役 mini 不變。

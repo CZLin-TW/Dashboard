@@ -1,4 +1,5 @@
 import { VisionHTTPError } from "./vision-http";
+import { configuredVisionPilotTransport, type VisionActor } from "./vision-pilot";
 /** Server route helpers only. Never import this module into a client component.
  * Loopback synthetic transport is separately opt-in; production stays disabled.
  */
@@ -31,15 +32,29 @@ function readPolicy(): Map<string, Capability[]> {
 }
 /** Server-side current grant check for bounded media lease cleanup. */
 export function visionUserHasCapability(userId: string, capability: keyof VisionCapabilities): boolean {
+  if (process.env.DASHBOARD_VISION_STATUS_PILOT === "1") return false; // Media stays disabled in this activation.
   return (readPolicy().get(userId) ?? []).includes(capability);
 }
-export async function requireVision(request: Request, capability?: Capability): Promise<VisionCapabilities> {
-  const userId = await requestUser(request); // Verified session cookie; never a client identity header.
-  if (typeof userId !== "string" || !userId.trim()) throw new RequestError("請先登入。", 401);
-  // Existing verifier checks signatures/expiry. Require an expiry claim as well;
-  // a signed token with no expiry must not become a permanent vision grant.
+export async function verifiedVisionActor(request: Request): Promise<VisionActor> {
+  const userId = await requestUser(request); // Signature/expiry checked, kid denied by existing auth.
   const token = new NextRequest(request.url, { headers: request.headers }).cookies.get("dashboard_session")?.value;
-  if (!token || typeof decodeJwt(token).exp !== "number") throw new RequestError("請先登入。", 401);
+  const expiry = token ? decodeJwt(token).exp : undefined;
+  if (typeof userId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(userId) || !Number.isSafeInteger(expiry) || (expiry as number)*1000 <= Date.now()) throw new RequestError("請先登入。", 401);
+  return {id:userId,role:"member",expiresAt:(expiry as number)*1000};
+}
+export async function requireVision(request: Request, capability?: Capability): Promise<VisionCapabilities> {
+  const actor = await verifiedVisionActor(request);
+  if (process.env.DASHBOARD_VISION_STATUS_PILOT === "1") {
+    if (capability && capability !== "status") throw new VisionError(403,"vision_forbidden","此試行只提供狀態讀取。");
+    const transport = configuredVisionPilotTransport();
+    if (!transport) throw new VisionHTTPError(503,"vision_pilot_unavailable");
+    const capabilities = await transport.access(actor, request.signal);
+    const current = await verifiedVisionActor(request);
+    if (current.id !== actor.id || current.expiresAt !== actor.expiresAt) throw new RequestError("請重新登入。",401);
+    if (!capabilities.status) throw new VisionError(403,"vision_forbidden","此帳號沒有視覺狀態權限。");
+    return capabilities;
+  }
+  const userId = actor.id;
   const grants = readPolicy().get(userId) ?? [];
   const capabilities: VisionCapabilities = { status: grants.includes("status"), preview: grants.includes("preview"), edit: grants.includes("edit") };
   if (process.env.DASHBOARD_VISION_STATUS_PILOT === "1") { capabilities.preview = false; capabilities.edit = false; }

@@ -1,3 +1,5 @@
+> 歷史紀錄：本頁為 v1.67.0 的 SQLite／第二 service token 驗證；v1.68.0 已改用家庭 API key 與 HB Sheets 授權。舊命令不是目前操作流程，當時 artifact 路徑已由新一輪驗證取代。請依 [目前操作](vision-status-pilot-operations.md) 與 [v1.68.0 驗證](vision-shared-auth-verification.md)。
+
 # Status-only pilot 本機 TLS 驗證
 
 2026-10-06，Dashboard 1.67.0／Next 16.2.1：`scripts/test-status-pilot.py` 最終 9 組檢查全部通過。使用真正已建置的 `next start`、HB `install_status_pilot`、持久 SQLite registry，以及 floor credential provider／WSS status client；只有合成狀態，不啟動相機、模型、媒體、MQTT 或家電 API。
