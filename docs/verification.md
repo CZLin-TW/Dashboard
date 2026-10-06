@@ -222,3 +222,35 @@ build初次sandbox無法取得公共Google字型，限定build網路重跑通過
 用真HTTP BFF→HTTP HB→mini outbound WS→temporary fixture磁碟驗證；兩client同revision
 取得200/409、舊revision拒絕，reload確認保存。沒有正式端點／credential／相機／HA publish。
 詳見vision-http-fixture.md；正式部署與media relay仍須分別批准。
+
+## 2026-10-06 Dashboard native synthetic preview (v1.65.0, local only)
+
+Reusable React preview uses authenticated same-origin BFF leases with independent
+preview permission, single viewer, bounded TTL and no automatic retry. Late offer
+cancellation and late heartbeat after stop have regression coverage. Production
+activation remains disabled; no camera, model inference, HA or external relay.
+
+67 unit/API tests passed, including 8 media-server and 6 native-client tests;
+repository ESLint, TypeScript and `npm run build -- --webpack` passed. Default
+Turbopack build was cancelled after no progress; the previously verified webpack
+path completed without configuration changes. Existing synthetic application UI:
+9/9 passed on built `next start` (6.6 seconds). The offline assertion was narrowed
+to the status error because the independent native preview can now show a second
+alert; authentication assertions remain unchanged. No `next dev` was started.
+
+Real-component/native integration evidence and mobile screenshots are kept under
+`artifacts/native-dashboard/`; see [scope and reproduction](vision-native-preview.md).
+Single-process fixture proof does not establish multi-worker Next deployment,
+Safari/iPhone behavior or immediate server-side JWT logout revocation.
+
+Actual React → authenticated HTTP route handlers → Python native WebRTC →
+Chromium 140.0.7339.186: 9/9 integration checks passed, exit 0, owned native server
+confirmed stopped. Received VP8 640×360; pixel frame ID 3→4, decoded frames 4→5,
+bytes 8023→9437; selected ICE pair loopback, zero ICE servers. Checks include
+401/403, cross-user lease isolation, explicit stop, late-response cancellation,
+hidden/unmount/navigation, TTL/no retry, portrait/landscape and no page errors.
+Late cancellation after BFF completion proves no UI resurrection and native TTL
+cleanup, not immediate cancellation. A test initialization error on about:blank
+was fixed by guarding absent mediaDevices; no product failure was concealed.
+Screenshots precede the final success-message wording correction; final webpack
+build includes that correction. Viewport emulation is not iPhone Safari evidence.

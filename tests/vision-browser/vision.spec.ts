@@ -70,7 +70,7 @@ test('offline and failed API never look like live or vacant', async ({ page }) =
   await expect(page.getByText('來源不可用；區域存在狀態未知。')).toBeVisible();
   await expect(page.getByLabel('人物模型')).toBeDisabled();
   await page.getByLabel('測試情境（切換會重設資料）').selectOption('error');
-  await expect(page.locator('p[role=alert]')).toBeVisible();
+  await expect(page.getByText('視覺服務尚未連線或操作未完成。請手動重新讀取；不會自動重送。', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '開啟合成預覽' })).toBeDisabled();
 });
 

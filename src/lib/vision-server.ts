@@ -29,6 +29,10 @@ function readPolicy(): Map<string, Capability[]> {
     return policy;
   } catch { return new Map(); }
 }
+/** Server-side current grant check for bounded media lease cleanup. */
+export function visionUserHasCapability(userId: string, capability: keyof VisionCapabilities): boolean {
+  return (readPolicy().get(userId) ?? []).includes(capability);
+}
 export async function requireVision(request: Request, capability?: Capability): Promise<VisionCapabilities> {
   const userId = await requestUser(request); // Verified session cookie; never a client identity header.
   if (typeof userId !== "string" || !userId.trim()) throw new RequestError("請先登入。", 401);

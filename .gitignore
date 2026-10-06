@@ -46,3 +46,7 @@ next-env.d.ts
 /artifacts/
 /test-results/
 /playwright-report/
+
+# Local Python integration test harness
+__pycache__/
+*.pyc

@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import type { VisionCapabilities, VisionConfig, VisionPreview, VisionStatus, VisionTransport } from "@/lib/vision-contract";
 import { createVisionTransport, VisionRequestError } from "./transport";
 import styles from "./vision.module.css";
+import { NativeVisionPreview } from "./native-vision-preview";
+import { useUser } from "@/hooks/use-user";
 
 const defaultTransport = createVisionTransport();
 const denied: VisionCapabilities = { status: false, preview: false, edit: false };
 const same = (a?: VisionConfig, b?: VisionConfig) => !!a && !!b && a.model === b.model && a.precision === b.precision;
 
 export function VisionPanel({ transport = defaultTransport }: { transport?: VisionTransport }) {
+  const { currentUser } = useUser();
   const [capabilities, setCapabilities] = useState(denied);
   const [status, setStatus] = useState<VisionStatus>();
   const [saved, setSaved] = useState<VisionConfig>();
@@ -105,6 +108,7 @@ export function VisionPanel({ transport = defaultTransport }: { transport?: Visi
         </div>
         <div className={styles.actions}><button onClick={() => void startPreview()} disabled={!usable || !capabilities.preview || !!pending || !!preview}>開啟合成預覽</button><button onClick={stopPreview} disabled={!preview && pending !== "準備示意圖"}>停止預覽</button></div>
         <p className={styles.hint}>地面點與區域僅為示意。畫區功能待串流與同影格校正完成後開放。</p>
+        <NativeVisionPreview key={currentUser?.lineUserId ?? "signed-out"} />
       </section>
       <section className={styles.controls} aria-label="視覺設定">
         <h2>模型設定草稿</h2><p className={styles.hint}>此階段只驗證設定流程，沒有載入模型。</p>

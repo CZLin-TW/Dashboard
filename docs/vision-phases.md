@@ -1,6 +1,6 @@
 # 視覺感測整合：階段與驗收
 
-此分支僅第一階段，尚未部署。現役 mini 安裝、相機、ROI、Keychain 與網路維持原狀。
+此分支已延伸至隔離控制通道及原生 synthetic WebRTC 預覽整合，尚未部署。現役 mini 安裝、相機、ROI、Keychain 與網路維持原狀。
 
 來源：Dashboard main `755f5f8`、home-butler main `cd5da63`、floor-presence main `9772b55`。
 Floor Presence 的乾淨來源採獨立開發命名空間，不能直接覆蓋現役安裝。
@@ -18,7 +18,7 @@ Floor Presence 的乾淨來源採獨立開發命名空間，不能直接覆蓋�
 
 `/vision` 提供頁面外殼，所有資料及操作仍經 `/api/vision/v1/*` 驗證。UI 隱藏／disabled 不是授權。
 伺服器設定 `DASHBOARD_VISION_GRANTS` 將已驗證使用者 ID 映射至 `status`、`preview`、`edit` 權限；預設空、錯誤設定拒絕，沒有成員預設全開。此分支沒有設定任何實際授權。
-通道未實作；有權限的操作仍回 503，不會傳給 HB、HA、相機或 mini。
+正式模式 transport 仍停用；有權限的操作仍回 503。測試環境才可明確啟用 loopback fixture；不會連真相機或 HA。
 影像／session 回應不得持久快取，操作不自動重送；相機秘密只由本機原生介面管理，沒有 getter。
 
 ## 合成驗證
@@ -28,4 +28,4 @@ Floor Presence 的乾淨來源採獨立開發命名空間，不能直接覆蓋�
 `npm run test:demo` 檢查真實 route 的 session／權限邊界及 simulator；`npm run test:vision-ui` 檢查手機與桌面合成互動。首次安裝瀏覽器可執行 `npx playwright install chromium`。
 本機 viewport 不是 iPhone Safari 實機驗證。正式權限測試與 demo UI 測試分開。
 
-完成第一階段後回報並停在階段邊界，不自行部署或開始連線。
+後續授權已允許隔離本機控制與原生 synthetic 媒體驗證。正式部署、相機、relay、憑證與 HA 仍須後續明確授權。原生 React 元件、BFF lease 與生命週期見 [原生預覽](vision-native-preview.md)。
