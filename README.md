@@ -59,7 +59,7 @@ Sheet 讀回的 `7:00` 等未補零時間會在編輯時整理成 `07:00`，不�
 |------|------|
 | 首頁總覽 | 天氣、室內溫濕度、釘選設備快速控制、未來 5 天 / 已過期的待辦與食品 |
 | 設備控制 | 空調（電源/溫度/模式/風速 + 送出後輪詢確認）、除濕機（模式/濕度 + 條件式自動模式 toggle + 即時可調的目標濕度門檻）、IR 設備（自訂按鈕）；環境感測器（溫度/濕度即時值，含 SwitchBot Meter Pro CO2 三合一） |
-| 視覺感測（開發中） | 手機友善頁面、伺服器端分權、隔離控制通道、原生 synthetic WebRTC 預覽與 HB 權威媒體 lease；正式相機／ROI 寫入未啟用。見 [分階段驗收](docs/vision-phases.md) 與 [原生預覽](docs/vision-native-preview.md)／[部署缺口](docs/vision-deployment-review.md) |
+| 視覺感測（開發中） | 手機友善頁面、伺服器端分權、隔離控制通道、原生 synthetic WebRTC 與 HB 權威 lease；另有預設停用的 [status-only TLS pilot](docs/vision-status-pilot-operations.md)；正式相機／ROI 寫入未啟用。見 [分階段驗收](docs/vision-phases.md) 與 [原生預覽](docs/vision-native-preview.md)／[部署缺口](docs/vision-deployment-review.md) |
 | 設備釘選 | 常用設備（最多 4 個）+ 一個感測器釘選到首頁，快速存取 |
 | 空調控制來源 | 目標一律整數 16–30°C；HA 管理空調顯示 HA 狀態，支援經 HA 執行的手動排程與自動關機。半度目標與室溫回饋補償已於 v1.58.0 移除；IR 仍沒有真實狀態回讀 |
 | 待辦事項 | 新增、修改、完成、查看；支援週期任務（每天/每週/每月/間隔天的重複待辦，由模板自動生成當次待辦並以 🔁 標記）；隱私邏輯只顯示「自己負責 + 公開」項目；過期/今日提醒 highlight；有時間的待辦可勾選 Hue 燈光提醒並複選照明區域 |

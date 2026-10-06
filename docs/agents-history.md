@@ -138,3 +138,13 @@ unknown in state responses. Local two-Dashboard/three-service synthetic validati
 passed; formal TLS credentials, provider enrollment, relay and deployment remain
 unfinished and unauthorized. No short-lived credentials should be minted until
 an approved activation window.
+
+## 2026-10-06 reviewable status-only pilot code (v1.67.0)
+
+Added fixed HTTPS/WSS clients and injectable credential providers, HB persistent
+digest registry/revocation and explicit main route gates. Pilot masks broader
+Dashboard grants and denies config/edit/media; no fallback to old fixture when
+pilot credentials are unavailable. Post-await authority checks close expiry/
+revocation races. Offline TLS+restart acceptance passed. This completes the code
+milestone for status-only pilot review, not activation, media enrollment or a
+Keychain adapter. Formal storage/credentials/hosting changes await explicit approval.

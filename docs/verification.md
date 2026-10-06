@@ -308,3 +308,28 @@ No formal TLS adapter/provider, durable enrollment/revocation, multi-HB coordina
 TURN, camera, iPhone or production deployment is claimed. This milestone is not
 production-ready; see `vision-deployment-review.md` for the exact remaining list
 and delayed credential creation/activation order. Existing services were untouched.
+
+## 2026-10-06 status-only TLS pilot (v1.67.0, not activated)
+
+Implemented fixed-host verified HTTPS BFF, server credential-provider abstraction,
+post-await JWT/grant/credential/deadline checks and explicit denial of config/edit/
+media. HB implements default-off main route registration, digest-only private
+SQLite enrollment/revocation, fail-closed reads and a single-filesystem authority
+lock. Floor implements a protected-file provider and explicit bounded production
+WSS CLI with system trust, no proxy/redirect/retry and status.get-only execution.
+
+Independent read-only security review found no remaining blocker for isolated TLS
+validation after final deadline/re-authorization fixes. `test-status-pilot.py`
+passed9/9: actual built Next HTTPS → HB official status installer/SQLite → verified
+outbound WSS floor; wrongCA/hostname rejected before ASGI on both clients; writes/
+config/media refused; service/device revocation survived restart; invalid/expired
+providers made no network request. Temporary CA/keys/credentials/DB removed, all
+owned processes stopped, no trust-store change. Evidence is
+`artifacts/status-pilot/verification.json`.
+
+Final Dashboard75 tests, lint/typecheck/webpack build passed. HB334 tests passed;
+floor183 tests passed8.907s. HB0098e33e57b605ddc5a582590e96fcf527242a5a;
+floor5e9ca7bf72f98d3209c7e9f96f2031df0d2b1b2c. Synthetic metadata does not validate
+camera/model/occupancy. Actual Render/Vercel secrets, persistent mount, singleton
+platform configuration and public TLS endpoints remain unconfigured/unverified.
+See `vision-status-pilot-operations.md` for concentrated approval and rollback.

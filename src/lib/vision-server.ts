@@ -42,6 +42,7 @@ export async function requireVision(request: Request, capability?: Capability): 
   if (!token || typeof decodeJwt(token).exp !== "number") throw new RequestError("請先登入。", 401);
   const grants = readPolicy().get(userId) ?? [];
   const capabilities: VisionCapabilities = { status: grants.includes("status"), preview: grants.includes("preview"), edit: grants.includes("edit") };
+  if (process.env.DASHBOARD_VISION_STATUS_PILOT === "1") { capabilities.preview = false; capabilities.edit = false; }
   if (!grants.length || (capability && !capabilities[capability])) throw new VisionError(403, "vision_forbidden", "此帳號沒有這項視覺權限。");
   return capabilities;
 }

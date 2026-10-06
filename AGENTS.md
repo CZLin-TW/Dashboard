@@ -53,7 +53,7 @@ kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
 
 # 視覺感測（隔離整合驗證，未部署）
 
-`/vision` 與 `/api/vision/v1/*` 是獨立 vision 入口，status／preview／edit 各自在 server 以 session 與明確 grant 驗證，預設拒絕、kid deny。正式 transport 尚未啟用，回 unavailable。隔離 fixture 已有控制通道與原生 synthetic WebRTC BFF；後者僅測試環境、loopback、單一 viewer，production fail closed。`test-native-next.py` 驗證正式 build 的實際 next start／proxy／跨 route；串流只在明確 test runtime 開啟，不代表正式部署。新 hub fixture 路徑由無狀態 Dashboard BFF 經 HB 權威 lease／專用 signaling WS 到 mini outbound connector，不得將舊 Next singleton 當 Vercel 部署方案。正式啟用缺口見 [部署審查](docs/vision-deployment-review.md)。相機秘密仍本機原生管理。Demo 僅合成畫面與互動，不能宣稱串流、ROI 或真實 detector 已接入。後續通道、WebRTC 與 HA 驗收見 [階段計畫](docs/vision-phases.md)。
+`/vision` 與 `/api/vision/v1/*` 是獨立 vision 入口，status／preview／edit 各自在 server 以 session 與明確 grant 驗證，預設拒絕、kid deny。正式 transport 尚未啟用，回 unavailable。status-only pilot 已有固定 HTTPS/WSS 與持久撤銷程式，只有明確批准後設定 gates 才能啟用；操作見 [pilot 文件](docs/vision-status-pilot-operations.md)。隔離 fixture 已有控制通道與原生 synthetic WebRTC BFF；後者僅測試環境、loopback、單一 viewer，production fail closed。`test-native-next.py` 驗證正式 build 的實際 next start／proxy／跨 route；串流只在明確 test runtime 開啟，不代表正式部署。新 hub fixture 路徑由無狀態 Dashboard BFF 經 HB 權威 lease／專用 signaling WS 到 mini outbound connector，不得將舊 Next singleton 當 Vercel 部署方案。正式啟用缺口見 [部署審查](docs/vision-deployment-review.md)。相機秘密仍本機原生管理。Demo 僅合成畫面與互動，不能宣稱串流、ROI 或真實 detector 已接入。後續通道、WebRTC 與 HA 驗收見 [階段計畫](docs/vision-phases.md)。
 
 # UI 開發與獨立測試模式
 

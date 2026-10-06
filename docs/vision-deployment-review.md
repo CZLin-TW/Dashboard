@@ -49,9 +49,9 @@ Completed building blocks: same-origin BFF authorization, stateless hub adapter,
 dedicated media signaling protocol, mock credential provider, actor-owned central
 lease, outbound connector, native synthetic sender, bounded cleanup and tests.
 
-Still required before production: explicit HTTPS/WSS endpoint configuration and
-TLS adapter review; real credential provider/enrollment, persistence, rotation and
-revocation; enforced HB singleton/replica policy or durable fencing; approved
+For the media path, still required before production: explicit HTTPS/WSS endpoint
+configuration and TLS adapter review; real media credential enrollment, persistence,
+rotation and revocation; enforced HB singleton/replica policy or durable fencing; approved
 installation and route registration; monitoring/rollback; approved network relay
 and real browser/network interoperability. Camera/media privacy, real detector and
 HA validation are separate. There is no real iPhone/WebKit, TURN, camera, formal
@@ -75,3 +75,13 @@ in [native preview proposal](vision-native-preview.md#deployment-constraints-and
 
 No formal tokens, accounts, persistent Keychain changes, relay resources, public
 listener, push, deployment or live service modifications were made by this review.
+
+
+## Subsequent status-only pilot implementation
+
+The status-only follow-up implements fixed HTTPS/WSS adapters, hosting/private-file
+credential providers, protected SQLite digest enrollment/revocation and a default-off
+main route installer. It does not activate or complete the media path. See
+[status pilot operations](vision-status-pilot-operations.md) for the concentrated
+approval list, activation order and rollback. Real hosting secrets, persistent
+mount, topology and external TLS acceptance remain unconfigured/unverified.
