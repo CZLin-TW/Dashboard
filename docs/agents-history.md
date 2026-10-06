@@ -148,3 +148,14 @@ pilot credentials are unavailable. Post-await authority checks close expiry/
 revocation races. Offline TLS+restart acceptance passed. This completes the code
 milestone for status-only pilot review, not activation, media enrollment or a
 Keychain adapter. Formal storage/credentials/hosting changes await explicit approval.
+
+## 2026-10-06 credential/storage proposal correction (docs only)
+
+The default mini credential proposal is a dedicated native Keychain broker, not
+a plaintext token file. Python file credentials remain fixture-only; native
+source/mock validation does not establish signing, installation or real Keychain
+acceptance. HB already uses Google Sheets, so a paid Render disk is not assumed
+mandatory. The current SQLite adapter is the least code change for strict fresh
+revocation checks; a Sheets registry requires additional quota/consistency work.
+No storage purchase, deployment, credential or Keychain operation occurred.
+Documentation diff checked; no application code/version change in Dashboard.

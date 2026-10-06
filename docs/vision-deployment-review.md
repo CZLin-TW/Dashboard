@@ -79,9 +79,12 @@ listener, push, deployment or live service modifications were made by this revie
 
 ## Subsequent status-only pilot implementation
 
-The status-only follow-up implements fixed HTTPS/WSS adapters, hosting/private-file
+The status-only follow-up implements fixed HTTPS/WSS adapters, hosting and isolated protected-file fixture
 credential providers, protected SQLite digest enrollment/revocation and a default-off
-main route installer. It does not activate or complete the media path. See
+main route installer. The production mini default is the dedicated native
+Keychain broker proposal; its offline source/mock checks do not prove signing,
+installation or real Keychain acceptance. A paid Render volume is not assumed
+mandatory before reviewing HB’s existing storage. It does not activate or complete the media path. See
 [status pilot operations](vision-status-pilot-operations.md) for the concentrated
 approval list, activation order and rollback. Real hosting secrets, persistent
 mount, topology and external TLS acceptance remain unconfigured/unverified.

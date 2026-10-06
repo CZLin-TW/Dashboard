@@ -333,3 +333,14 @@ floor5e9ca7bf72f98d3209c7e9f96f2031df0d2b1b2c. Synthetic metadata does not valid
 camera/model/occupancy. Actual Render/Vercel secrets, persistent mount, singleton
 platform configuration and public TLS endpoints remain unconfigured/unverified.
 See `vision-status-pilot-operations.md` for concentrated approval and rollback.
+
+## 2026-10-06 credential/storage proposal correction (docs only)
+
+The default mini credential proposal is a dedicated native Keychain broker, not
+a plaintext token file. Python file credentials remain fixture-only; native
+source/mock validation does not establish signing, installation or real Keychain
+acceptance. HB already uses Google Sheets, so a paid Render disk is not assumed
+mandatory. The current SQLite adapter is the least code change for strict fresh
+revocation checks; a Sheets registry requires additional quota/consistency work.
+No storage purchase, deployment, credential or Keychain operation occurred.
+Documentation diff checked; no application code/version change in Dashboard.
