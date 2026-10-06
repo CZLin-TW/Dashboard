@@ -366,3 +366,14 @@ verification.json and annotated owner/nonowner screenshots. Health payloads were
 simulated; the fixed native HTTP adapter was not run against8768/8771. This is
 not camera/model, Keychain, real owner identity or deployment acceptance. The
 historical9-case VisionPanel demo-page suite is superseded, not reported passed.
+
+
+## 2026-10-06 native package preparation and rollback correction (docs only)
+
+Documented completed native enrollment/manual reconnect/packaging source and its
+unsigned inactive package, 200 Floor tests and bounded mock soak. Published Floor
+rollback is main 9772b55; unrelated original local 837f544 is a separate live-source
+reference, never an overwrite target. Owner identity remains unverified, with the
+exact authenticated mapping procedure and actual Sheets read scope documented.
+No Dashboard application code or version change (1.69.0); diff check passed.
+Signing, Keychain, installation, production network and deployment remain unrun.

@@ -75,8 +75,12 @@ HB `VISION_STATUS_PILOT_ENABLED=1`, `VISION_STATUS_SINGLE_AUTHORITY_ACK=1`,
 HB uses its existing Google/server-key configuration. No fixture CA/port variable
 belongs in production. ACK flags are operator assertions, not platform proof.
 
-There is no ready-to-run native activation command until signing, Keychain setup
-and their acceptance are separately completed. launchd, media/TURN, real camera,
+Native enrollment and continuous manual connection source, packaging and exact
+install/rollback/uninstall commands are prepared in the isolated Floor repository
+`docs/native-status-packaging.md`. The unsigned review package cannot be installed.
+Actual signing, native Keychain acceptance and installation still require the
+approved activation window. There is no 120-second process cutoff: bounded
+reconnect continues until stop, expiry, rejection or retry exhaustion. launchd, media/TURN, real camera,
 HA/MQTT, tunnels and public mini listeners remain outside this pilot.
 
 ## Acceptance and rollback

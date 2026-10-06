@@ -167,3 +167,14 @@ mandatory. The current SQLite adapter is the least code change for strict fresh
 revocation checks; a Sheets registry requires additional quota/consistency work.
 No storage purchase, deployment, credential or Keychain operation occurred.
 Documentation diff checked; no application code/version change in Dashboard.
+
+
+## 2026-10-06 native package preparation and rollback correction (docs only)
+
+Documented completed native enrollment/manual reconnect/packaging source and its
+unsigned inactive package, 200 Floor tests and bounded mock soak. Published Floor
+rollback is main 9772b55; unrelated original local 837f544 is a separate live-source
+reference, never an overwrite target. Owner identity remains unverified, with the
+exact authenticated mapping procedure and actual Sheets read scope documented.
+No Dashboard application code or version change (1.69.0); diff check passed.
+Signing, Keychain, installation, production network and deployment remain unrun.

@@ -19,7 +19,11 @@ The proposed narrow verification is: from the owner's already authenticated
 production Dashboard session (never demo/fixture mode), inspect only `lineUserId` and role from `GET /api/auth/me`, then
 match that exact ID to `Line User ID` and enabled status in the existing family
 membership source. Do not transmit the cookie, JWT, API key, LINE secret or other
-members' data. No such authenticated request or actual Sheet read was made here.
+members' data. No such authenticated request or actual Sheet read was made here. The production
+Sheets adapter fetches the whole family-members worksheet before projecting the
+identity/enabled fields; its read scope must not be described as a server-side
+two-column restriction. Confirm the existing spreadsheet by its nonsecret
+SPREADSHEET_ID and owner-confirmed URL/name, without reading GOOGLE_CREDENTIALS.
 Kid sessions may contain a parent's ID, so verified role must also be member.
 
 ## Exact future configuration targets
@@ -40,8 +44,12 @@ Use existing Dashboard-to-HB API key and Google authorization; do not create a
 second service credential or expose the family key to the mini. No Sheet editor
 or sharing permission is expanded. Secrets must be entered directly into approved
 stores using a safe input flow, never into chat, argv, source, logs or artifacts.
-The native source is not an installed/signed/enrolled release. If its provisioning
-workflow needs additional implementation, finish and review it before activation.
+The native source is not an installed/signed/enrolled release. The implemented native
+packaging and enrollment workflow must be reviewed with its exact staging
+manifest, signing requirement and dry-run plan before action-time activation.
+The broker runs manually until stopped or its credential authorization expires;
+there is no scheduled launch or login item in this scope. Transient network
+failures use bounded backoff, while rejected or revoked credentials stop.
 
 ## Health semantics and test boundary
 
@@ -64,7 +72,18 @@ Read-only GitHub main checks on 2026-10-06 returned:
 
 - Dashboard: `755f5f8d94008f4777576159abb04fdbc215e6de`.
 - HomeButler: `cd5da6365041fdd9f7b543a550b997c46643ace7`.
-- The unchanged original Floor checkout: `837f54409d7da56c4e2f88dbce2febab669bc917`.
+- Published Floor repository main: `9772b555b04cbe206bea2b37582a837471a0c7fe`.
+
+The original local `task-4` checkout separately remains at
+`837f54409d7da56c4e2f88dbce2febab669bc917`, has no remote, and has no common
+ancestor with the sanitized published Floor history. It is **not** the rollback
+commit for the published repository. The isolated Floor checkout tracks
+`https://github.com/CZLin-TW/floor-presence.git`; its native connector candidates
+descend from published main `9772b55`. Never merge the unrelated histories or
+overwrite the original live checkout. Read-only process inspection found the
+8768/8771 listeners working from original `task-4`; it did not establish their
+exact loaded revision. Install the new broker separately, leaving both listeners
+and their code/configuration unchanged.
 
 Those are source baselines, not proof of every running process's exact binary.
 Before an approved deployment, reconfirm the actual deployed revision and retain
@@ -111,3 +130,23 @@ To stop, disable the new pilot gates and stop only the newly approved connector;
 rollback Dashboard before HB if needed. Preserve device revocation and current
 grants when rolling back code. Do not restore old secrets/grants automatically,
 rotate the shared household key just to stop vision, or affect local vision/HA.
+
+
+## Native preparation evidence (2026-10-06)
+
+The isolated Floor repository now provides native secure enrollment (or native
+256-bit generation on explicit Save), hash-only enrollment receipt, restricted
+ACL validation, continuous manual connect/stop/forget, and a default-dry-run
+package/install/rollback/uninstall tool. Exact commands and fixed per-user paths
+are in Floor `docs/native-status-packaging.md`; the unsigned inactive review
+package is `artifacts/native-status/package-review/`. It was compiled but never
+executed. Actual unsigned installation is rejected without creating targets.
+
+Floor full regression passed 200 tests including 12 packaging fixture tests.
+A 60.008-second same-process mock soak completed 4,406 cycles / 9,694 attempts,
+maximum one simulated transport and zero at exit; peak RSS was 6,864,896 bytes.
+The final enrollment-helper source additionally passed 10,000 cycles and a
+1-second smoke; the original 60-second source hash is preserved separately.
+These tests use the production supervisor with fake transport, not actual TLS,
+Keychain, OS sockets or signal-handler acceptance. No signing, real token,
+installation, live endpoint request or persistent process occurred.
