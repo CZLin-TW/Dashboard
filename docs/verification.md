@@ -377,3 +377,13 @@ reference, never an overwrite target. Owner identity remains unverified, with th
 exact authenticated mapping procedure and actual Sheets read scope documented.
 No Dashboard application code or version change (1.69.0); diff check passed.
 Signing, Keychain, installation, production network and deployment remain unrun.
+
+
+## 2026-10-06 approved activation preflight (docs only)
+
+Batch authorization received with a seven-day native enrollment period. Activation
+paused for actual Render single-authority/rollout and SPREADSHEET_ID verification;
+Render documentation establishes ordinary zero-downtime instance overlap. Public
+code-signing identity lookup returned zero valid identities. No secrets, Sheet
+writes, signing, install or push performed. User confirmed member uniqueness and
+enabled status; no identity inserted into fixtures. Documentation diff checked.

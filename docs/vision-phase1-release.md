@@ -150,3 +150,36 @@ The final enrollment-helper source additionally passed 10,000 cycles and a
 These tests use the production supervisor with fake transport, not actual TLS,
 Keychain, OS sockets or signal-handler acceptance. No signing, real token,
 installation, live endpoint request or persistent process occurred.
+
+
+## Activation preflight: rollout and identity blockers
+
+The user approved the bounded activation batch, with the first device credential
+changed to seven days from the actual native Save action. This authorization does
+not establish that the platform prerequisites have passed. The user confirmed the
+member row is unique and enabled; production SPREADSHEET_ID still needs a safe
+single-value comparison. Do not copy identity data into source or fixtures.
+
+Render's current deployment documentation describes starting the new instance
+while the old instance is still running, then sending SIGTERM to the old instance
+60 seconds after traffic cutover. A one-instance scale setting or the workspace
+Overlapping Deploy Policy does not prove a non-overlapping process rollout.
+An ephemeral filesystem flock cannot coordinate these containers. Therefore the
+current single-authority pilot must remain off and deployment must pause until
+an actual supported non-overlapping procedure is established, or an independently
+reviewed architecture change is approved. Do not buy/attach a disk or suspend the
+whole household service implicitly to work around this requirement.
+Source: https://render.com/docs/deploys#zero-downtime-deploys
+
+No Render connector/CLI or existing Safari Render tab was available for safe
+production settings inspection. The minimal handoff is the service's instance
+count/autoscaling, worker start command, disk presence and rollout procedure,
+auto-deploy setting, and the single nonsecret SPREADSHEET_ID match; do not export
+all environment variables or API keys. Safari Sheet JavaScript remained blocked
+on the previous authorized retry; do not change browser permissions.
+
+Read-only `security find-identity -v -p codesigning` returned zero valid identities.
+No signing/private-key operation occurred. A usable stable code-signing identity
+must be created/imported by the user in native secure UI (or an existing identity
+made available there), then its public fingerprint can be verified. Do not use an
+ad-hoc identity or create/import a private key through shell/chat.
