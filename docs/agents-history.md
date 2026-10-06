@@ -188,3 +188,13 @@ Render documentation establishes ordinary zero-downtime instance overlap. Public
 code-signing identity lookup returned zero valid identities. No secrets, Sheet
 writes, signing, install or push performed. User confirmed member uniqueness and
 enabled status; no identity inserted into fixtures. Documentation diff checked.
+
+
+## 2026-10-06 status-only rollout and identity correction (docs only)
+
+Replaced the exclusive-authority setup with per-instance fail-closed status routing;
+no disk, household suspension or false single-authority ACK. Media remains off.
+Corrected zero-valid-identity inference: original self-signed camera identity exists,
+and its installed app passes a pinned public-certificate requirement without trust
+changes. Source package codesign inline requirement syntax was corrected separately
+in Floor. No private key bytes/secret or identity metadata copied into fixtures.

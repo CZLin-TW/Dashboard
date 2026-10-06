@@ -61,17 +61,17 @@ provider is restricted to temporary fake loopback fixtures, not production.
    and enrollment of a separate device credential. Mint it shortly before the
    supervised window. Enter it directly into the approved native store; enroll
    only its digest, identity, scope, expiry and revocation metadata on HB.
-4. Approve the bounded release and actual TLS/hosting acceptance. HB must run one
-   instance and one worker without overlapping rollout. The private ephemeral
-   lock prevents duplicate authority only on the same filesystem; it is not
-   distributed coordination. Provision its private directory/file as part of
-   the approved deployment, not as an unreviewed persistent change.
+4. Execute the approved release and actual TLS/hosting acceptance. The status-only
+   pilot tolerates overlapping containers: a request routed away from its local
+   device socket returns unavailable. It does not provide cross-instance routing
+   or media authority. Retain one worker per container; no exclusive lock or
+   single-authority ACK is required for this status-only path.
 
 Candidate gates remain default-off: Dashboard `DASHBOARD_VISION_STATUS_PILOT=1`;
-HB `VISION_STATUS_PILOT_ENABLED=1`, `VISION_STATUS_SINGLE_AUTHORITY_ACK=1`,
-`VISION_STATUS_TLS_PROXY_ACK=1`, `WEB_CONCURRENCY=1` and
-`VISION_STATUS_AUTHORITY_LOCK`, plus explicitly verified
-`VISION_STATUS_OWNER_USER_ID` (never inferred from another setting). If `UVICORN_WORKERS` is present it must be 1.
+HB `VISION_STATUS_PILOT_ENABLED=1`, `VISION_STATUS_TLS_PROXY_ACK=1`,
+`WEB_CONCURRENCY=1`, plus verified `VISION_STATUS_OWNER_USER_ID`.
+If `UVICORN_WORKERS` is present it must be 1. Do not add
+`VISION_STATUS_SINGLE_AUTHORITY_ACK` or `VISION_STATUS_AUTHORITY_LOCK` for this pilot.
 HB uses its existing Google/server-key configuration. No fixture CA/port variable
 belongs in production. ACK flags are operator assertions, not platform proof.
 

@@ -38,7 +38,7 @@ instructions. Unknown values are intentionally not guessed.
 | Same spreadsheet, `Vision Devices` | New unique record ID, digest of the separate device token, device ID `floor-mini-01`, scope status, approved Unix expiry, revoked FALSE | Authenticate only this mini; no raw token in Sheets |
 | Mini dedicated login Keychain | Service `org.floorpresence.dev.status.v1`, account `approved-hub-status-only`; native-only token/device_id/expires_at | Keep device secret inside the native broker |
 | Native broker packaging | Approved fixed signing requirement, restricted ACL, exact binary/source hash, manual execution scope | Enable the currently unprovisioned helper only after review |
-| Existing Dashboard/HB deployments | Exact candidate and rollback SHAs, default-off gates, single-authority topology and ephemeral lock location | Bounded release and supervised acceptance |
+| Existing Dashboard/HB deployments | Exact candidate and rollback SHAs, default-off gates, status-only per-instance routing and worker count | Bounded release and supervised acceptance |
 
 Use existing Dashboard-to-HB API key and Google authorization; do not create a
 second service credential or expose the family key to the mini. No Sheet editor
@@ -152,34 +152,45 @@ Keychain, OS sockets or signal-handler acceptance. No signing, real token,
 installation, live endpoint request or persistent process occurred.
 
 
-## Activation preflight: rollout and identity blockers
+## Activation preflight: status-only rollout and native signing
 
-The user approved the bounded activation batch, with the first device credential
-changed to seven days from the actual native Save action. This authorization does
-not establish that the platform prerequisites have passed. The user confirmed the
-member row is unique and enabled; production SPREADSHEET_ID still needs a safe
-single-value comparison. Do not copy identity data into source or fixtures.
+The user approved the bounded activation batch, with seven days from actual
+native Save. The user confirmed unique enabled membership; production
+SPREADSHEET_ID still needs a safe single-value comparison. Do not copy identity
+into source or fixtures. Browser Sheet scripting remains unavailable; exact
+nonsecret rows can be entered manually without sending any raw token.
 
-Render's current deployment documentation describes starting the new instance
-while the old instance is still running, then sending SIGTERM to the old instance
-60 seconds after traffic cutover. A one-instance scale setting or the workspace
-Overlapping Deploy Policy does not prove a non-overlapping process rollout.
-An ephemeral filesystem flock cannot coordinate these containers. Therefore the
-current single-authority pilot must remain off and deployment must pause until
-an actual supported non-overlapping procedure is established, or an independently
-reviewed architecture change is approved. Do not buy/attach a disk or suspend the
-whole household service implicitly to work around this requirement.
+Render starts a new container before stopping the old one. The Sheets status-only
+pilot now tolerates this: each instance owns its local snapshot and device socket.
+An HTTP request reaching an instance without that socket returns 503
+`device_unavailable`; it cannot invent health or forward to another instance.
+Old session nonces/results cannot satisfy new-instance work. Owner/grants/expiry
+and snapshot revocation are rechecked before result release; snapshot revocation
+remains bounded by the documented refresh window, not globally instantaneous.
+This safely tolerates rollout but does not provide cross-container status routing
+or uninterrupted availability. Prefer a single steady-state replica and retain
+one worker per container for existing HB behavior. The status-only setup no longer
+requires SINGLE_AUTHORITY_ACK or AUTHORITY_LOCK. Media remains disabled and its
+separate authority design is not changed.
 Source: https://render.com/docs/deploys#zero-downtime-deploys
 
-No Render connector/CLI or existing Safari Render tab was available for safe
-production settings inspection. The minimal handoff is the service's instance
-count/autoscaling, worker start command, disk presence and rollout procedure,
-auto-deploy setting, and the single nonsecret SPREADSHEET_ID match; do not export
-all environment variables or API keys. Safari Sheet JavaScript remained blocked
-on the previous authorized retry; do not change browser permissions.
+No Render connector/CLI or existing Safari Render tab was available. The remaining
+minimal platform handoff is nonsecret SPREADSHEET_ID match, service/repo identity,
+current worker start command and deployment settings. The operator does not need
+to disable ordinary Render rollout, buy a disk or suspend the household service.
 
-Read-only `security find-identity -v -p codesigning` returned zero valid identities.
-No signing/private-key operation occurred. A usable stable code-signing identity
-must be created/imported by the user in native secure UI (or an existing identity
-made available there), then its public fingerprint can be verified. Do not use an
-ad-hoc identity or create/import a private key through shell/chat.
+A `find-identity -v` zero-valid result does not prove no certificate/key pair exists.
+Read-only lookup without the valid-only filter found the original camera installer's
+self-signed identity, marked CSSMERR_TP_NOT_TRUSTED. Its public certificate and
+installer receipt agree; the existing signed camera app passed an explicit
+bundle-ID plus leaf-fingerprint requirement without trust changes. The dev-prefixed
+isolated installer uses a different label, which must not be mistaken for absence
+of the original identity. No private key bytes or secrets were read, no identity
+was created, and no trust/ACL/unlock changes were made.
+
+The status activation candidate pins the existing public certificate fingerprint
+with its own distinct bundle ID. It remains unsigned and unexecuted. Actual
+signing may require the user's native OS prompt; do not pre-authorize codesign
+permanently or broaden the camera credential ACL. Enrollment remains a separate
+user-confirmed native Save. Public identity metadata belongs in local ignored
+activation artifacts, not source or test fixtures.
