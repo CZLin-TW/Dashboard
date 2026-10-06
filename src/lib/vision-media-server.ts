@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
 import { decodeJwt } from "jose";
 import { requestUser } from "./request-user";
 import { requireVision, requireVisionMutation, visionJSON, visionError, visionUserHasCapability } from "./vision-server";
-import { MediaError, createMediaUpstream, mediaFixtureConfig } from "./vision-media-http";
+import { MediaError, mediaErrorDetails, createMediaUpstream, mediaFixtureConfig } from "./vision-media-http";
 import { MediaLeaseStore, validateSDP, type MediaOwner } from "./vision-media-leases";
 
 // One process-wide owner across Next route bundles/HMR; still not a distributed lock.
@@ -82,7 +82,8 @@ export async function mediaRoute(request: Request, action: "offer" | "heartbeat"
     }
     return visionJSON(await leases.stop(actor, value.session_id));
   } catch (error) {
-    if (error instanceof MediaError) return visionJSON({ code: error.code, message: "預覽操作未完成或結果未知；不會自動重試。" }, error.status);
+    const mediaError = mediaErrorDetails(error);
+    if (mediaError) return visionJSON({ code: mediaError.code, message: "預覽操作未完成或結果未知；不會自動重試。" }, mediaError.status);
     return visionError(error);
   }
 }

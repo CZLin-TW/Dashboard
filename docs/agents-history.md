@@ -117,3 +117,13 @@ Added independent optional TCMb/TCMz fields, strict validation, bounded memory h
 新增server-only固定127.0.0.1 HTTP transport與既有route wiring；production仍拒fixture，
 不跟redirect／不重試，strict回應validation。53 unit、lint/typecheck/build、9 UI通過，
 三repo實際HTTP/WS/fixture writer串接完成。未部署；media與正式connector仍未啟用。
+
+## 2026-10-06 isolated native media Next runtime validation
+
+Added a bounded real `next start` integration runner for the production build.
+Streaming remains confined to explicit test runtime; production runtime keeps
+media disabled. The media gate reads runtime NODE_ENV without build-time inlining,
+and fixed branded errors preserve safe code/status across separate route bundles.
+Process-local lease limits, restart behavior and the unapproved external activation
+proposal are documented in `vision-native-preview.md`. No site-wide authentication,
+production credentials, camera, HA, provider enrollment or deployment changes.

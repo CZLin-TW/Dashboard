@@ -254,3 +254,29 @@ cleanup, not immediate cancellation. A test initialization error on about:blank
 was fixed by guarding absent mediaDevices; no product failure was concealed.
 Screenshots precede the final success-message wording correction; final webpack
 build includes that correction. Viewport emulation is not iPhone Safari evidence.
+
+## 2026-10-06 actual Next start media integration (v1.65.1, local only)
+
+`test-native-next.py` exercised the production webpack build through real Next
+16.2.1 `start`, `/vision`, session proxy and BFF routes: 13/13 checks passed.
+Production runtime rejected media despite fixture flags; the same build streamed
+only with explicit test runtime. Chromium140 received native VP8 640×360, pixel
+ID3→4, decoded4→5, bytes8026→9383, loopback ICE pair and no STUN/TURN. Cross-route
+state/heartbeat/stop shared one lease, another viewer got409, another user could
+not stop it, and stop/cancel/re-entry/navigation/TTL checks passed. Restart lost
+BFF lease ownership as expected: old lease404 and native TTL closed the orphan.
+This is not durable ownership or multi-worker support. Owned Next/native processes
+were stopped; no external browser requests were observed.
+
+First actual-page run exposed two integration issues: NextURL canonicalizes
+numeric loopback to localhost, so the runner now uses canonical localhost Origin
+without changing strict server Origin validation; embedded light text needed its
+own dark background inside Dashboard's light card, now fixed and visually checked.
+Native artifacts: `artifacts/native-next/verification.json`, portrait/landscape
+synthetic screenshots. No WebKit binary was installed, so there is no Safari or
+real iPhone claim. DOM visibility events are not a physical mobile background test.
+
+69 unit/API tests, repository lint, TypeScript and webpack build passed. Existing
+application UI9/9 passed (6.4s). Full-site authentication was unchanged. Formal
+activation recipients/credentials/data/cost and independent work boundaries are
+summarized in `vision-native-preview.md`; none of those external actions occurred.

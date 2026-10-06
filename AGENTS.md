@@ -53,7 +53,7 @@ kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
 
 # 視覺感測（隔離整合驗證，未部署）
 
-`/vision` 與 `/api/vision/v1/*` 是獨立 vision 入口，status／preview／edit 各自在 server 以 session 與明確 grant 驗證，預設拒絕、kid deny。正式 transport 尚未啟用，回 unavailable。隔離 fixture 已有控制通道與原生 synthetic WebRTC BFF；後者僅測試環境、loopback、單一 viewer，production fail closed。相機秘密仍本機原生管理。Demo 僅合成畫面與互動，不能宣稱串流、ROI 或真實 detector 已接入。後續通道、WebRTC 與 HA 驗收見 [階段計畫](docs/vision-phases.md)。
+`/vision` 與 `/api/vision/v1/*` 是獨立 vision 入口，status／preview／edit 各自在 server 以 session 與明確 grant 驗證，預設拒絕、kid deny。正式 transport 尚未啟用，回 unavailable。隔離 fixture 已有控制通道與原生 synthetic WebRTC BFF；後者僅測試環境、loopback、單一 viewer，production fail closed。`test-native-next.py` 驗證正式 build 的實際 next start／proxy／跨 route；串流只在明確 test runtime 開啟，不代表正式部署。相機秘密仍本機原生管理。Demo 僅合成畫面與互動，不能宣稱串流、ROI 或真實 detector 已接入。後續通道、WebRTC 與 HA 驗收見 [階段計畫](docs/vision-phases.md)。
 
 # UI 開發與獨立測試模式
 
