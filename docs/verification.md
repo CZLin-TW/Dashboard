@@ -352,3 +352,17 @@ mandatory. The current SQLite adapter is the least code change for strict fresh
 revocation checks; a Sheets registry requires additional quota/consistency work.
 No storage purchase, deployment, credential or Keychain operation occurred.
 Documentation diff checked; no application code/version change in Dashboard.
+
+
+## 2026-10-06 Dashboard1.69.0 owner-only HTTP health
+
+85/85 unit tests, lint/typecheck and production webpack build passed.
+The updated test-status-pilot.py passed13/13 real Next + verified TLS/WSS + fake
+Sheets checks: owner page200, other granted member/missing pin page404 andAPI403,
+unreachable/invalid/denied refresh clears prior health, responsive mobile/desktop,
+no image/edit controls, current revoke and fail-closed TLS. All child processes
+stopped and temporary material removed. Evidence: artifacts/owner-health/
+verification.json and annotated owner/nonowner screenshots. Health payloads were
+simulated; the fixed native HTTP adapter was not run against8768/8771. This is
+not camera/model, Keychain, real owner identity or deployment acceptance. The
+historical9-case VisionPanel demo-page suite is superseded, not reported passed.

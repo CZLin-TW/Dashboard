@@ -1,7 +1,9 @@
 # Status-only pilot: existing login and Sheets authorization
 
 This is source and an operator proposal, not an executed deployment. The pilot
-returns synthetic status metadata only. It does not read cameras, determine real
+returns strictly whitelisted local HTTP service health only. Current TLS/UI
+evidence uses simulated health payloads; the native HTTP adapter has not been
+executed against the live service. It does not read cameras, determine real
 occupancy, edit ROI, stream media, publish MQTT or invoke HA.
 
 ## Current implementation
@@ -15,8 +17,10 @@ when their LINE ID belongs to the approving parent.
 
 The fixed destination is
 `https://home-butler.onrender.com/api/vision/v1/access` or `/command`.
-HB validates the existing API key, current enabled membership and explicit vision
-grants. Dashboard remains stateless and checks JWT/grants again before releasing
+HB validates the existing API key, explicit VISION_STATUS_OWNER_USER_ID pin,
+current enabled membership and explicit status grant. Missing pin or another
+member is denied even with grants. The server page checks HB before rendering;
+page denial is404 and API denial is403. Dashboard remains stateless and checks JWT/grants again before releasing
 results. The pilot masks preview/edit and HB dispatches only `status.get`, even
 when future capabilities appear in the grants table. Global pairing/login code
 has not changed; known global login limitations are not repaired by this change.
@@ -48,7 +52,7 @@ provider is restricted to temporary fake loopback fixtures, not production.
 ## Work remaining before an approved activation window
 
 1. Review the exact three-repository release/rollback commits and confirm the
-   existing HB host, mini identity and intended synthetic status fields.
+   existing HB host, mini identity and exact HTTP health whitelist.
 2. Confirm the actual operator/member IDs and status-only grants, and authorize
    creation/population of the two registry worksheets in the existing approved
    spreadsheet. Verify its editors are trusted authorization administrators;
@@ -66,7 +70,8 @@ provider is restricted to temporary fake loopback fixtures, not production.
 Candidate gates remain default-off: Dashboard `DASHBOARD_VISION_STATUS_PILOT=1`;
 HB `VISION_STATUS_PILOT_ENABLED=1`, `VISION_STATUS_SINGLE_AUTHORITY_ACK=1`,
 `VISION_STATUS_TLS_PROXY_ACK=1`, `WEB_CONCURRENCY=1` and
-`VISION_STATUS_AUTHORITY_LOCK`. If `UVICORN_WORKERS` is present it must be 1.
+`VISION_STATUS_AUTHORITY_LOCK`, plus explicitly verified
+`VISION_STATUS_OWNER_USER_ID` (never inferred from another setting). If `UVICORN_WORKERS` is present it must be 1.
 HB uses its existing Google/server-key configuration. No fixture CA/port variable
 belongs in production. ACK flags are operator assertions, not platform proof.
 
@@ -76,7 +81,7 @@ HA/MQTT, tunnels and public mini listeners remain outside this pilot.
 
 ## Acceptance and rollback
 
-Accept only synthetic-labelled output, reject unauthorized/kid users and all
+Accept only owner-authorized HTTP health metadata, reject other members/kid users and all
 config/edit/media calls, verify grant/device revocation, reader failure, expiry,
 restart and clean shutdown on the approved services. After restart, fresh Sheets
 authorization and an explicit new mini session are required; unknown work is not

@@ -1,6 +1,6 @@
 {
   "name": "dashboard",
-  "version": "1.68.0",
+  "version": "1.69.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,7 +10,7 @@
     "demo": "node scripts/demo.mjs",
     "test:demo": "tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "test:vision-ui": "next build && playwright test --config playwright.vision.config.ts"
+    "test:vision-ui": "node scripts/test-status-pilot.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

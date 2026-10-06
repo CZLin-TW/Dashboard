@@ -17,3 +17,18 @@ export interface VisionTransport {
   save(config: VisionConfig, signal?: AbortSignal): Promise<VisionConfig>;
   preview(signal?: AbortSignal): Promise<VisionPreview>;
 }
+
+/** HTTP service health only; never camera, detector, occupancy, or image health. */
+export interface VisionHealthStatus {
+  source: "local-health";
+  online: boolean;
+  reason: "http_service_responding" | "local_health_unavailable";
+  capabilities: VisionCapabilities;
+  service: {
+    reachable: boolean;
+    app_version: string | null;
+    mode: "localhost-dev" | "production" | null;
+    config_schema: number | null;
+  };
+}
+export type VisionPilotStatus = VisionStatus | VisionHealthStatus;

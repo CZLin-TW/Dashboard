@@ -1,3 +1,4 @@
+// Historical <=1.68 synthetic VisionPanel page harness. Owner-only /vision UI acceptance now uses scripts/test-status-pilot.mjs; this page suite is superseded.
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({

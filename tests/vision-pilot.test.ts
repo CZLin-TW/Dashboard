@@ -45,7 +45,7 @@ function fixture(t: test.TestContext, handler: (call: Call) => Reply) {
 }
 const caps = {capabilities:{status:true,preview:true,edit:true}};
 function result(call: Call) {
-  return {protocol:"vision.v1",type:"result",request_id:call.body!.request_id,device_id:"floor-mini-01",session_nonce:"abcdefghijklmnopqrstuvwxyz012345",status:"ok",payload:{adapter:"synthetic",available:true,config_revision:0,detector_revision:0,detector:{model:"yolo11n",precision:"fp32"},zone_count:0}};
+  return {protocol:"vision.v1",type:"result",request_id:call.body!.request_id,device_id:"floor-mini-01",session_nonce:"abcdefghijklmnopqrstuvwxyz012345",status:"ok",payload:{adapter:"local-health",available:true,service:{reachable:true,app_version:"1.2.3",mode:"localhost-dev",config_schema:2},reason:"http_service_responding"}};
 }
 async function token(role="member",expiry?: number) { return new SignJWT({lineUserId:"alice",role}).setProtectedHeader({alg:"HS256"}).setExpirationTime(expiry??Math.floor(Date.now()/1000)+60).sign(JWT_SECRET); }
 function request(jwt:string,path="status",method="GET") { return new Request(`http://localhost/api/vision/v1/${path}`,{method,headers:{cookie:`dashboard_session=${jwt}`,origin:"http://localhost","content-type":"application/json","X-Dashboard-User":"mallory","X-Dashboard-Role":"member","X-Dashboard-Session-Expires":"9999999999","X-API-Key":"client-spoof"},...(method==="PUT"?{body:"{}"}:{})}); }
@@ -61,7 +61,7 @@ test("pilot default off and production fixture cannot replace TLS endpoint or tr
 
 test("HB grants are authoritative without local grants; verified JWT headers cannot be spoofed",async t=>{
   const calls=fixture(t,call=>({body:call.options.path?.endsWith("/access")?caps:result(call)}));const jwt=await token();
-  const response=await status(request(jwt));assert.equal(response.status,200);assert.equal((await response.json()).source,"synthetic");assert.equal(calls.length,3);
+  const response=await status(request(jwt));assert.equal(response.status,200);assert.equal((await response.json()).source,"local-health");assert.equal(calls.length,3);
   for(const call of calls){const headers=call.options.headers as Record<string,string>;assert.equal(headers["X-API-Key"],"fixture-existing-household-key");assert.equal(headers["X-Dashboard-User"],"alice");assert.equal(headers["X-Dashboard-Role"],"member");assert(Number(headers["X-Dashboard-Session-Expires"])<9999999999);assert.equal(headers.Authorization,undefined);assert.equal(call.options.rejectUnauthorized,true);assert.equal(call.options.servername,"localhost")}
 });
 
@@ -88,4 +88,19 @@ test("household key rotation and late JWT expiry discard responses",async t=>{
   let mode="rotate";const now=Date.now;fixture(t,()=>({body:caps,beforeReply:()=>{if(mode==="rotate")process.env.HOME_BUTLER_API_KEY="new-household-key";else t.mock.method(Date,"now",()=>now()+100000)}}));
   assert.equal((await access(request(await token(),"access"))).status,503);
   mode="expire";assert.equal((await access(request(await token(),"access"))).status,401);
+});
+
+test("owner page gate consults HB before rendering; local grants cannot allow another member",async t=>{
+  const {authorizeVisionPage}=await import("../src/lib/vision-page-access");
+  const calls=fixture(t,call=>(call.options.headers as Record<string,string>)["X-Dashboard-User"]==="alice"?{body:caps}:{status:403,body:{code:"forbidden"}});
+  process.env.DASHBOARD_VISION_GRANTS=JSON.stringify({mallory:["status","preview","edit"]});
+  await authorizeVisionPage(request(await token()));assert.equal(calls.length,1);assert(calls.every(call=>call.options.path?.endsWith("/access")));
+  const other=await new SignJWT({lineUserId:"mallory",role:"member"}).setProtectedHeader({alg:"HS256"}).setExpirationTime("1m").sign(JWT_SECRET);
+  await assert.rejects(authorizeVisionPage(request(other)));
+  delete process.env.DASHBOARD_VISION_STATUS_PILOT;const before=calls.length;await assert.rejects(authorizeVisionPage(request(await token())));assert.equal(calls.length,before);
+});
+
+test("pilot rejects legacy synthetic status instead of implying real HTTP health",async t=>{
+  fixture(t,call=>({body:call.options.path?.endsWith("/access")?caps:{...result(call),payload:{adapter:"synthetic",available:true,config_revision:0,detector_revision:0,detector:{model:"yolo11n",precision:"fp32"},zone_count:0}}}));
+  assert.equal((await status(request(await token()))).status,503);
 });

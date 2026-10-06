@@ -13,6 +13,7 @@ async def main():
     for name in ('hb-checkout', 'snapshot-file', 'control-file', 'family-key-file', 'cert', 'key', 'ready-file', 'stats-file', 'stop-file'):
         parser.add_argument('--' + name, required=True)
     parser.add_argument('--enabled', action='store_true')
+    parser.add_argument('--owner-user-id')
     parser.add_argument('--port', type=int, default=0)
     parser.add_argument('--lifetime', type=int, default=120)
     args = parser.parse_args()
@@ -39,7 +40,7 @@ async def main():
         if control().get('fail'):
             raise RuntimeError('synthetic_reader_unavailable')
         return json.loads(Path(args.snapshot_file).read_text())
-    app = create_sheets_app(reader, verifier) if args.enabled else FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    app = create_sheets_app(reader, verifier, owner_user_id=args.owner_user_id) if args.enabled else FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     save_stats()
     async def counted(scope, receive, send):
         if scope['type'] in ('http', 'websocket'):

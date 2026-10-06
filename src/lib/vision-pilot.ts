@@ -4,8 +4,9 @@
 import { request as httpsRequest } from "node:https";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { parseLocalHealth } from "./vision-health";
 import { VisionHTTPError } from "./vision-http";
-import type { VisionCapabilities, VisionStatus } from "./vision-contract";
+import type { VisionCapabilities, VisionHealthStatus } from "./vision-contract";
 export interface VisionActor { id: string; role: "member"; expiresAt: number }
 export interface PilotCredentialProvider { read(): string | undefined }
 const DEVICE = "floor-mini-01";
@@ -55,15 +56,15 @@ function transport(provider: PilotCredentialProvider, host: string, port: number
       // This activation is status only even when HB grants future preview/edit rights.
       return {status:value.capabilities.status as boolean,preview:false,edit:false};
     },
-    async status(actor: VisionActor, capabilities: VisionCapabilities, signal?: AbortSignal): Promise<VisionStatus> {
+    async status(actor: VisionActor, capabilities: VisionCapabilities, signal?: AbortSignal): Promise<VisionHealthStatus> {
       validActor(actor);
       const id = randomUUID();
       const deadline = Math.min(Date.now()+7000,actor.expiresAt);
       const result = await request(actor,"command",{protocol:"vision.v1",type:"command",request_id:id,device_id:DEVICE,action:"status.get",deadline:deadline/1000,payload:{}},signal,deadline);
     if (!object(result) || !keys(result,["protocol","type","request_id","device_id","session_nonce","status","payload"]) || result.protocol!=="vision.v1" || result.type!=="result" || result.request_id!==id || result.device_id!==DEVICE || typeof result.session_nonce!=="string" || !/^[A-Za-z0-9_-]{22,128}$/.test(result.session_nonce) || result.status!=="ok") throw fail();
-    const p=result.payload;
-    if (!object(p) || !keys(p,["adapter","available","config_revision","detector_revision","detector","zone_count"]) || p.adapter!=="synthetic" || typeof p.available!=="boolean" || !Number.isSafeInteger(p.config_revision) || (p.config_revision as number)<0 || !Number.isSafeInteger(p.detector_revision) || (p.detector_revision as number)<0 || !Number.isInteger(p.zone_count) || (p.zone_count as number)<0 || (p.zone_count as number)>32 || !object(p.detector) || !keys(p.detector,["model","precision"]) || !["yolo11n","yolo11s"].includes(p.detector.model as string) || !["fp16","fp32"].includes(p.detector.precision as string)) throw fail();
-    return {revision:p.detector_revision as number, model:p.detector.model as VisionStatus["model"], precision:p.detector.precision as VisionStatus["precision"], source:p.available?"synthetic":"unavailable", online:p.available, reason:p.available?"synthetic_status_pilot":"adapter_unavailable", capabilities:{status:capabilities.status, preview:false, edit:false}};
+      const health = parseLocalHealth(result.payload);
+      if (!health) throw fail();
+      return {source:"local-health",...health,capabilities:{status:capabilities.status,preview:false,edit:false}};
     }
   };
 }
