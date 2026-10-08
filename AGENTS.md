@@ -118,4 +118,4 @@ kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
 
 # 電腦指標
 
-卡片使用既有 heartbeat/status 契約，顯示 hostname（fallback IP）、CPU/GPU 使用率；有 memory_pressure 的 Mac 顯示連續 pct（0–100）與獨立系統正常／警告／嚴重；面積曲線高度讀 pct，顏色讀 level，不能由三級狀態虛構百分比；未知或離線顯示未知。Windows／舊 agent 保留 RAM 當下使用率。缺少指標顯示 unavailable；無溫度歷史不畫溫度圖。Mac collector 位於 home-butler `agent/macos_metrics.py`，與劇院／vision 分離，TCMb／TCMz 使用獨立 smc_temperature 欄位，空值 unavailable；AppleSMC／OSHI 定義與 M6 未官方確認限制顯示在卡片。新溫度與記憶體壓力僅 bounded 24h 記憶體歷史，後端重啟後重累積。Demo 提供連續數值及三種系統狀態的假資料；Mac 正式 agent 已接入，由 home-butler 簽署更新器管理。
+卡片使用既有 heartbeat/status 契約，顯示 hostname（fallback IP）、CPU/GPU 使用率；有 memory_pressure 的 Mac 顯示連續 pct（0–100）與獨立系統正常／警告／嚴重；壓力折線與 CPU/GPU 共用 0–100% 圖及固定系列顏色，當下狀態文字顏色讀 level，不能由三級狀態虛構百分比；未知或離線顯示未知。Windows／舊 agent 保留 RAM 當下使用率。缺少指標顯示 unavailable；無溫度歷史不畫溫度圖。Mac collector 位於 home-butler `agent/macos_metrics.py`，與劇院／vision 分離，TCMb／TCMz 使用獨立 smc_temperature 欄位，空值 unavailable；AppleSMC／OSHI 定義與 M6 未官方確認限制保留在卡片可展開的感測器資訊。新溫度與記憶體壓力僅 bounded 24h 記憶體歷史，後端重啟後重累積。Demo 提供連續數值及三種系統狀態的假資料；Mac 正式 agent 已接入，由 home-butler 簽署更新器管理。

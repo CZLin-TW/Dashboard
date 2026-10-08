@@ -132,10 +132,15 @@ export function ComputerCard({
       )}
 
       {pc.current?.smc_temperature && <div className="space-y-1 px-1 text-sm">
-        <p>TCMb · CPU die 平均：<span className="num">{formatComputerMetric(validSMCTemperature(pc.current.smc_temperature.tcmb_c), "°C")}</span></p>
-        <p>TCMz · CPU die 最高：<span className="num">{formatComputerMetric(validSMCTemperature(pc.current.smc_temperature.tcmz_c), "°C")}</span></p>
-        <p className="text-xs text-mute">AppleSMC · 名稱依 OSHI 定義；M6 對應未經 Apple 官方確認。</p>
-        <p className="text-xs text-mute">TCMb／TCMz 歷史僅保留本次後端執行期間，最多 24 小時。</p>
+        <p className="flex flex-wrap gap-x-4">
+          <span>TCMb <span className="num">{formatComputerMetric(validSMCTemperature(pc.current.smc_temperature.tcmb_c), "°C")}</span></span>
+          <span>TCMz <span className="num">{formatComputerMetric(validSMCTemperature(pc.current.smc_temperature.tcmz_c), "°C")}</span></span>
+        </p>
+        <details className="text-xs text-mute">
+          <summary className="cursor-pointer">感測器資訊</summary>
+          <p>TCMb：CPU die 平均；TCMz：CPU die 最高。名稱依 AppleSMC／OSHI 定義，M6 對應未經 Apple 官方確認。</p>
+          <p>每分鐘採樣；溫度與記憶體壓力歷史最多保留本次後端執行期間的 24 小時。</p>
+        </details>
       </div>}
 
       {!hasHistory ? (

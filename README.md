@@ -162,7 +162,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 - 當下值橫排：`CPU：型號  N% N°C` / `GPU：型號  N% N°C`（CPU 同色 fresh、GPU 同色 warm，跨兩張圖一致）
 - Mac 支援 memory_pressure 時顯示記憶體壓力百分比與正常／警告／嚴重，數值與狀態獨立，缺值或離線顯示未知；Windows／舊 agent 保留 RAM 使用率。CPU/GPU 缺值顯示 unavailable，零值仍顯示 0%／0°C
 - macOS collector 使用同一 heartbeat 契約，無可靠溫度時回 null；沒有溫度歷史時顯示 unavailable 提示。Demo 包含 Mac mini 模擬卡，不代表正式主機已接入。
-- 使用率圖保留 CPU / GPU；Windows／舊 agent 同圖包含 RAM。Mac 的記憶體壓力使用獨立 0–100% 面積曲線（每分鐘採樣）；綠／黃／紅由系統 level 決定，狀態未知為灰色，level-only 舊資料不製造數值，缺資料與回報中斷留空；歷史只保存本次後端執行期間、最多 24 小時。
+- CPU / GPU 與記憶體共用百分比圖：Mac 顯示記憶體壓力，Windows／舊 agent 顯示 RAM。折線使用固定系列顏色，壓力狀態保留在當下數值旁；level-only 舊資料與回報中斷留空。Mac 感測器說明可展開，歷史最多保留本次後端執行期間 24 小時。
 - 折線圖 2（溫度 °C）：CPU 溫 / GPU 溫
 - 24h 範圍，X 軸從現在最近整點往前每 6 小時一個 tick；資料剛累積時圖會慢慢長滿
 - 60 秒 auto-refetch（跟 agent push 節奏對齊）

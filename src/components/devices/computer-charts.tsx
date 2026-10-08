@@ -1,9 +1,6 @@
 "use client";
 
-import { useId } from "react";
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
   Legend,
   Line,
@@ -62,19 +59,6 @@ interface Props {
 export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = false }: Props) {
   const rightmost = chartHistory[chartHistory.length - 1]?.t ?? 0;
   const ticks = computeTicks(rightmost);
-  const pressureGradient = useId().replaceAll(":", "");
-  const firstTime = chartHistory[0]?.t ?? 0;
-  const span = Math.max(1, rightmost - firstTime);
-  // Time-based colors come from actual OS severity, never percentage thresholds.
-  const pressureStops = chartHistory.flatMap((point, index) => {
-    const previous = chartHistory[index - 1];
-    const offset = `${100 * (point.t - firstTime) / span}%`;
-    if (!previous) return [{ offset, color: point.pressureColor }];
-    return previous.pressureColor === point.pressureColor ? [] : [
-      { offset, color: previous.pressureColor }, { offset, color: point.pressureColor },
-    ];
-  });
-
   // 溫度圖明確指定 Y ticks（避免 Recharts auto-tick 對奇數差範圍挑出 5 47 53 之類斷層）
   const tempStep = tempDomain[1] - tempDomain[0] <= 30 ? 5 : 10;
   const tempStart = Math.ceil(tempDomain[0] / tempStep) * tempStep;
@@ -85,7 +69,7 @@ export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = 
     <>
       {/* ── 圖 1：使用率 % ── */}
       <div className="space-y-1.5">
-        <ChartTitle label="使用率" unit="%" />
+        <ChartTitle label={showMemoryPressure ? "使用率／記憶體壓力" : "使用率"} unit="%" />
         <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
           <LineChart data={chartHistory} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
             <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
@@ -123,29 +107,10 @@ export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = 
             />
             <Line type="monotone" dataKey="cpu" name="CPU" stroke={PC_COLORS.cpu} strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="gpu" name="GPU" stroke={PC_COLORS.gpu} strokeWidth={2} dot={false} />
-            {!showMemoryPressure && <Line type="monotone" dataKey="ram" name="RAM" stroke={PC_COLORS.ram} strokeWidth={2} dot={false} />}
+            <Line type={showMemoryPressure ? "linear" : "monotone"} dataKey={showMemoryPressure ? "pressure" : "ram"} name={showMemoryPressure ? "記憶體壓力" : "RAM"} stroke={PC_COLORS.ram} strokeWidth={2} dot={false} connectNulls={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
-
-      {showMemoryPressure && <div className="space-y-1.5">
-        <ChartTitle label="記憶體壓力" unit="%" />
-        {!chartHistory.some(point => point.pressure != null) ? <p className="px-1 text-sm text-mute">尚無記憶體壓力數值</p> : (
-          <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-            <AreaChart data={chartHistory} margin={{ top: 6, right: 8, left: -8, bottom: 0 }}>
-              <defs><linearGradient id={pressureGradient} x1="0" y1="0" x2="1" y2="0">
-                {pressureStops.map((stop, index) => <stop key={index} offset={stop.offset} stopColor={stop.color} />)}
-              </linearGradient></defs>
-              <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="t" type="number" domain={["dataMin", "dataMax"]} ticks={ticks} tickFormatter={formatHHMM} tick={{ fontSize: 10, fill: "var(--color-mute)" }} />
-              <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} interval={0} tick={{ fontSize: 10, fill: "var(--color-mute)" }} />
-              <Tooltip labelFormatter={t => formatHHMM(Number(t))} formatter={v => `${v}%`} contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-line)", borderRadius: 10, fontSize: 12 }} />
-              <Area type="linear" dataKey="pressure" name="記憶體壓力" stroke={`url(#${pressureGradient})`} fill={`url(#${pressureGradient})`} fillOpacity={0.2} strokeWidth={2} dot={chartHistory.filter(p => p.pressure != null).length === 1} connectNulls={false} isAnimationActive={false} />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
-        <p className="px-1 text-xs text-mute">綠：正常 · 黃：警告 · 紅：嚴重 · 灰：狀態未知。每分鐘採樣，最多保留本次後端執行期間的 24 小時。</p>
-      </div>}
 
       {/* ── 圖 2：溫度 °C ── */}
       {!chartHistory.some((point) => point.cpuTemp != null || point.gpuTemp != null || point.tcmb != null || point.tcmz != null) ? (
