@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { PC_COLORS, type ComputerChartPoint } from "@/lib/computer";
+import { PC_COLORS, memoryPressureTick, type ComputerChartPoint } from "@/lib/computer";
 
 // ComputerCard 的兩張 recharts 圖，從卡片本體拆出來單獨成一個非同步 chunk
 // （見 lazy-charts.tsx 的說明）。卡片的 IP / 在線燈 / CPU-GPU 數值 / 劇院區塊
@@ -53,9 +53,10 @@ interface Props {
   chartHistory: ComputerChartPoint[];
   /** 溫度圖共用的 Y 軸範圍（整數 °C），讓多張卡之間視覺可比較。 */
   tempDomain: [number, number];
+  showMemoryPressure?: boolean;
 }
 
-export function ComputerCharts({ chartHistory, tempDomain }: Props) {
+export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = false }: Props) {
   const rightmost = chartHistory[chartHistory.length - 1]?.t ?? 0;
   const ticks = computeTicks(rightmost);
 
@@ -107,10 +108,26 @@ export function ComputerCharts({ chartHistory, tempDomain }: Props) {
             />
             <Line type="monotone" dataKey="cpu" name="CPU" stroke={PC_COLORS.cpu} strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="gpu" name="GPU" stroke={PC_COLORS.gpu} strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="ram" name="RAM" stroke={PC_COLORS.ram} strokeWidth={2} dot={false} />
+            {!showMemoryPressure && <Line type="monotone" dataKey="ram" name="RAM" stroke={PC_COLORS.ram} strokeWidth={2} dot={false} />}
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {showMemoryPressure && <div className="space-y-1.5">
+        <ChartTitle label="記憶體壓力" unit="狀態" />
+        {!chartHistory.some(point => point.pressure != null) ? <p className="px-1 text-sm text-mute">尚無記憶體壓力資料</p> : (
+          <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+            <LineChart data={chartHistory} margin={{ top: 6, right: 8, left: -8, bottom: 0 }}>
+              <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="t" type="number" domain={["dataMin", "dataMax"]} ticks={ticks} tickFormatter={formatHHMM} tick={{ fontSize: 10, fill: "var(--color-mute)" }} />
+              <YAxis domain={[0, 2]} ticks={[0, 1, 2]} interval={0} tickFormatter={memoryPressureTick} tick={{ fontSize: 10, fill: "var(--color-mute)" }} />
+              <Tooltip labelFormatter={t => formatHHMM(Number(t))} formatter={v => memoryPressureTick(Number(v))} />
+              <Line type="stepAfter" dataKey="pressure" name="記憶體壓力" stroke={PC_COLORS.ram} strokeWidth={2} dot={false} connectNulls={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+        <p className="px-1 text-xs text-mute">系統壓力等級，非 RAM 使用率；歷史最多保留本次後端執行期間的 24 小時。</p>
+      </div>}
 
       {/* ── 圖 2：溫度 °C ── */}
       {!chartHistory.some((point) => point.cpuTemp != null || point.gpuTemp != null || point.tcmb != null || point.tcmz != null) ? (

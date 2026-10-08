@@ -1,3 +1,7 @@
+## 2026-10-09 v1.70.0：Mac 記憶體壓力
+
+Mac 電腦卡改顯示系統記憶體壓力正常／警告／嚴重，獨立階梯歷史圖；未知／離線不當正常，缺資料留空。RAM 百分比原契約保留供 Windows／舊 agent，相容部署順序先 home-butler 再 Dashboard。
+
 ## 2026-10-06 v1.69.0: owner-only HTTP health (not deployed)
 
 The actual /vision SSR page checks HB owner pin, enabled membership and status grant before rendering. Missing/non-owner access denies. Read-only cards distinguish mini reply from local HTTP health; strict metadata has no image/model/ROI controls. Previous modules remain; historical 9-case demo-page suite is not counted as new page acceptance. 85 unit tests, lint/typecheck/webpack build and13 fake-Sheets TLS/actual Next browser groups passed. Screenshots explicitly label simulated health; no live8768/8771, camera or production host was contacted. Actual owner pin, native HTTP/Keychain and deployment remain unverified.

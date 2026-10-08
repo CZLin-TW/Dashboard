@@ -84,6 +84,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         case "/api/dehumidifier/history": return json(history().dehums);
         // Shared Windows + Mac fixtures preserve null GPU/temperature readings.
         // Fixture includes optional SMC temperature with missing TCMz.
+        // Fixtures preserve optional memory_pressure; missing readings never become normal.
         case "/api/computers/status": return json(history().computers);
         case "/api/dehumidifier/auto-rule": return json(state.rules);
         case "/api/todos": return json(visibleTodos);

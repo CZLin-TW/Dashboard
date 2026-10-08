@@ -1,3 +1,8 @@
+## 2026-10-09 v1.70.0：Mac 記憶體壓力
+
+86 項離線測試、ESLint、TypeScript 與隔離 demo webpack 建置通過。測試涵蓋三種狀態、非法／缺失值、歷史 gap、正常壓力與高 RAM 不混淆、Mac fixture 與舊 Windows 相容。
+Chrome 1440×1000／390×844 的獨立無憑證 demo 驗證正常標籤、狀態圖與 Windows RAM；手機無橫向溢出。僅本機 demo，不將模擬畫面當成正式後端收值證據。原生 agent 的自動切版另由 home-butler 驗證。
+
 ## 2026-10-06 v1.68.0：既有家庭驗證＋HB Sheets 視覺授權（未部署）
 
 - 80/80 unit tests；ESLint、TypeScript 與 `next build --webpack` 通過。未改 UI，未重跑相機／native／UI 全套。

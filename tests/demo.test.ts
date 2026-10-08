@@ -290,6 +290,10 @@ test("Mac telemetry uses existing status contract with null unavailable metrics"
   assert.equal(mac.online, true);
   assert.equal(mac.current.cpu_pct, 18);
   assert.equal(mac.current.ram_pct, 56);
+  assert.deepEqual(mac.current.memory_pressure, { level: "normal" });
+  assert.ok(mac.history.some((point: { memory_pressure: { level: string } }) => point.memory_pressure.level === "warning"));
+  assert.ok(mac.history.some((point: { memory_pressure: { level: string } }) => point.memory_pressure.level === "critical"));
+  assert.equal(pcs["192.0.2.10"].current.memory_pressure, undefined);
   assert.equal(mac.current.cpu_temp_c, null);
   assert.equal(typeof mac.current.smc_temperature.tcmb_c, "number");
   assert.equal(mac.current.smc_temperature.tcmz_c, null);

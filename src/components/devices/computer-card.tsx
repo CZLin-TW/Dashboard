@@ -9,6 +9,7 @@ import {
   PC_COLORS,
   validSMCTemperature,
   formatComputerMetric,
+  memoryPressureDisplay,
   type ComputerPC,
   relativeFromHeartbeat,
   toChartHistory,
@@ -78,6 +79,8 @@ export function ComputerCard({
 }: Props) {
   const chartHistory = useMemo(() => toChartHistory(pc.history), [pc.history]);
   const hasHistory = chartHistory.length > 0;
+  const hasMemoryPressure = pc.current?.memory_pressure != null;
+  const pressure = memoryPressureDisplay(pc.online ? pc.current?.memory_pressure?.level : null);
 
   return (
     <Card>
@@ -120,7 +123,11 @@ export function ComputerCard({
         />
       </div>
 
-      <p className="px-1 text-sm text-mute">RAM 使用率：<span className="num">{formatComputerMetric(pc.current?.ram_pct, "%")}</span></p>
+      {hasMemoryPressure ? (
+        <p className="px-1 text-sm text-mute">記憶體壓力：<span className={`font-semibold ${pressure.color}`}>{pressure.label}</span></p>
+      ) : (
+        <p className="px-1 text-sm text-mute">RAM 使用率：<span className="num">{formatComputerMetric(pc.current?.ram_pct, "%")}</span></p>
+      )}
 
       {pc.current?.smc_temperature && <div className="space-y-1 px-1 text-sm">
         <p>TCMb · CPU die 平均：<span className="num">{formatComputerMetric(validSMCTemperature(pc.current.smc_temperature.tcmb_c), "°C")}</span></p>
@@ -132,7 +139,7 @@ export function ComputerCard({
       {!hasHistory ? (
         <p className="px-1 text-sm text-mute">等待 agent heartbeat 累積資料...</p>
       ) : (
-        <ComputerCharts chartHistory={chartHistory} tempDomain={tempDomain} />
+        <ComputerCharts chartHistory={chartHistory} tempDomain={tempDomain} showMemoryPressure={hasMemoryPressure} />
       )}
 
       {/* ── 劇院 agent（只有 theater PC 的卡片會收到 summary） ── */}

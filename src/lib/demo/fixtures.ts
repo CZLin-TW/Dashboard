@@ -138,7 +138,7 @@ export function monitoring(state: DemoState, now = Date.now()) {
   const computers: Record<string, ComputerPC> = state.scenario === "empty" ? {} : { "192.0.2.10": { ip: "192.0.2.10", hostname: "DEMO-PC", cpu_model: "Demo CPU", gpu_model: "Demo GPU", current: history[1440], history, last_heartbeat_at: state.scenario === "offline" ? t - 3600 : t, online: state.scenario !== "offline" } };
   if (state.scenario !== "empty") {
     const macHistory = history.map((point, i) => ({ ...point, cpu_pct: 18, ram_pct: 56,
-      gpu_pct: null, cpu_temp_c: null, gpu_temp_c: null, smc_temperature: { tcmb_c: 44.5 + Math.sin(i / 10), tcmz_c: null } }));
+      gpu_pct: null, cpu_temp_c: null, gpu_temp_c: null, memory_pressure: { level: i >= 1370 && i < 1390 ? "critical" as const : i >= 1320 && i < 1400 ? "warning" as const : "normal" as const }, smc_temperature: { tcmb_c: 44.5 + Math.sin(i / 10), tcmz_c: null } }));
     computers["192.0.2.20"] = { ip: "192.0.2.20", hostname: "Mac mini (demo)",
       cpu_model: "Apple M6", gpu_model: "Apple M6 GPU", current: macHistory[1440],
       history: macHistory, last_heartbeat_at: state.scenario === "offline" ? t - 3600 : t,
