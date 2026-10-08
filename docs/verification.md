@@ -1,3 +1,9 @@
+## 2026-10-09 v1.71.0：連續記憶體壓力曲線
+
+Mac 顯示 pct 連續數值與獨立系統等級；0–100% 面積曲線以系統 level 決定綠／黃／紅，未知等級灰色，缺值／舊 level-only／斷線空白。每分鐘採樣，最多本次後端執行期間 24h。無 RAM 換名、無三級映射或自行訂定顏色百分比門檻；Windows 保留原 RAM。
+
+86 項隔離測試、tsc、ESLint、demo webpack build 通過。新 Chrome profile 僅允許 localhost：桌機與 390px 手機檢查數值、面積曲線、Windows RAM、離線數值／狀態未知與無水平溢出；這是 demo 瀏覽器驗證，非真實資料或 iPhone Safari 實測。
+
 ## 2026-10-09 v1.70.0：Mac 記憶體壓力
 
 86 項離線測試、ESLint、TypeScript 與隔離 demo webpack 建置通過。測試涵蓋三種狀態、非法／缺失值、歷史 gap、正常壓力與高 RAM 不混淆、Mac fixture 與舊 Windows 相容。

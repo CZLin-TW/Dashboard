@@ -10,6 +10,7 @@ import {
   validSMCTemperature,
   formatComputerMetric,
   memoryPressureDisplay,
+  validMemoryPressure,
   type ComputerPC,
   relativeFromHeartbeat,
   toChartHistory,
@@ -80,6 +81,7 @@ export function ComputerCard({
   const chartHistory = useMemo(() => toChartHistory(pc.history), [pc.history]);
   const hasHistory = chartHistory.length > 0;
   const hasMemoryPressure = pc.current?.memory_pressure != null;
+  const pressurePct = validMemoryPressure(pc.online ? pc.current?.memory_pressure?.pct : null);
   const pressure = memoryPressureDisplay(pc.online ? pc.current?.memory_pressure?.level : null);
 
   return (
@@ -124,7 +126,7 @@ export function ComputerCard({
       </div>
 
       {hasMemoryPressure ? (
-        <p className="px-1 text-sm text-mute">記憶體壓力：<span className={`font-semibold ${pressure.color}`}>{pressure.label}</span></p>
+        <p className="px-1 text-sm text-mute">記憶體壓力：<span className={`font-semibold ${pressure.color}`}>{pressurePct == null ? "數值未知" : `${pressurePct}%`} · {pressure.label}</span></p>
       ) : (
         <p className="px-1 text-sm text-mute">RAM 使用率：<span className="num">{formatComputerMetric(pc.current?.ram_pct, "%")}</span></p>
       )}

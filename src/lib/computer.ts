@@ -9,7 +9,7 @@ export interface ComputerHistoryRaw {
   cpu_temp_c: number | null;
   gpu_temp_c: number | null;
   smc_temperature?: { tcmb_c: number | null; tcmz_c: number | null } | null;
-  memory_pressure?: { level: "normal" | "warning" | "critical" | null } | null;
+  memory_pressure?: { level: "normal" | "warning" | "critical" | null; pct?: number | null } | null;
 }
 
 export interface ComputerCurrentRaw extends ComputerHistoryRaw {
@@ -43,6 +43,7 @@ export interface ComputerChartPoint {
   tcmb: number | null;
   tcmz: number | null;
   pressure: number | null;
+  pressureColor: string;
 }
 
 // agent 預期每 60s push 一次。相鄰兩點時間差超過這個就視為 gap，插 null 讓
@@ -58,7 +59,7 @@ export function toChartHistory(raw: ComputerHistoryRaw[]): ComputerChartPoint[] 
     if (prevT !== null && tMs - prevT > PC_GAP_THRESHOLD_MS) {
       out.push({
         t: (prevT + tMs) / 2,
-        cpu: null, ram: null, gpu: null, cpuTemp: null, gpuTemp: null, tcmb: null, tcmz: null, pressure: null,
+        cpu: null, ram: null, gpu: null, cpuTemp: null, gpuTemp: null, tcmb: null, tcmz: null, pressure: null, pressureColor: "#94a3b8",
       });
     }
     out.push({
@@ -70,7 +71,8 @@ export function toChartHistory(raw: ComputerHistoryRaw[]): ComputerChartPoint[] 
       gpuTemp: p.gpu_temp_c,
       tcmb: validSMCTemperature(p.smc_temperature?.tcmb_c),
       tcmz: validSMCTemperature(p.smc_temperature?.tcmz_c),
-      pressure: memoryPressureDisplay(p.memory_pressure?.level).value,
+      pressure: validMemoryPressure(p.memory_pressure?.pct),
+      pressureColor: memoryPressureColor(p.memory_pressure?.level),
     });
     prevT = tMs;
   }
@@ -106,16 +108,20 @@ export function validSMCTemperature(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 150 ? value : null;
 }
 
-/** Ordinal states for a separate chart; never percentages or interpolated values. */
-export function memoryPressureDisplay(level: unknown): { label: string; value: number | null; color: string } {
+/** Severity is independent of the continuous numeric reading. */
+export function memoryPressureDisplay(level: unknown): { label: string; color: string } {
   switch (level) {
-    case "normal": return { label: "正常", value: 0, color: "text-emerald-700 dark:text-emerald-400" };
-    case "warning": return { label: "警告", value: 1, color: "text-amber-700 dark:text-amber-400" };
-    case "critical": return { label: "嚴重", value: 2, color: "text-red-700 dark:text-red-400" };
-    default: return { label: "未知", value: null, color: "text-mute" };
+    case "normal": return { label: "正常", color: "text-emerald-700 dark:text-emerald-400" };
+    case "warning": return { label: "警告", color: "text-amber-700 dark:text-amber-400" };
+    case "critical": return { label: "嚴重", color: "text-red-700 dark:text-red-400" };
+    default: return { label: "未知", color: "text-mute" };
   }
 }
 
-export function memoryPressureTick(value: number): string {
-  return ["正常", "警告", "嚴重"][value] ?? "未知";
+export function validMemoryPressure(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 100 ? value : null;
+}
+
+export function memoryPressureColor(level: unknown): string {
+  return level === "normal" ? "#10b981" : level === "warning" ? "#f59e0b" : level === "critical" ? "#ef4444" : "#94a3b8";
 }
