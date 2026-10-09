@@ -51,10 +51,6 @@ kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
 `age_seconds` 加瀏覽器本次讀取後經過時間判斷過期，不比較兩台電腦的絕對時鐘；
 失敗、過期、unavailable 均顯示未知，不能把 false／0 與缺值混淆。
 
-# 視覺感測（隔離整合驗證，未部署）
-
-`/vision` is now an owner-only, read-only HTTP health page. SSR verifies JWT then asks HB /access for the explicit owner pin, enabled member and status grant before rendering. Missing pin/non-owner/unverifiable authority returns page404; APIs independently deny. Never infer the owner from SIRI or other identity settings. Only local-health whitelist metadata is displayed; HTTP health is not camera/model/occupancy health. No image/model/ROI/media controls appear. Current owner/native HTTP/Keychain/production deployment remain unverified. `npm run test:vision-ui` now runs the isolated TLS/owner-page browser suite; the older playwright.vision.config.ts and 9 synthetic VisionPanel page cases are historical, not current /vision acceptance. Reusable VisionPanel/native fixture modules remain. See [owner health](docs/vision-owner-health.md), [pilot](docs/vision-status-pilot-operations.md), and [release review](docs/vision-phase1-release.md). Gates default off; do not deploy, access live camera/native ports, or control devices.
-
 # 區域編輯入口（v1.72.0）
 
 裝置頁「空間感測」標題列的「編輯區域」是一般連結，指向 `/api/zone-editor/enter`。
@@ -64,8 +60,8 @@ kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
 票放在 fragment，不進任何伺服器記錄；不要改成 query 參數。
 Dashboard 不代理影像或設定——那些只在家中主機與瀏覽器之間。兩個環境變數缺一即整個關閉，
 `/api/home-assistant/observations` 回應裡的 `zone_editor` 為 false、按鈕不顯示。
-導覽列已移除「視覺」；`/vision` 與 `src/lib/vision-*`、`src/components/vision/*` 是先前另一套
-設計的試作，仍由預設關閉的旗標控制，新入口不依賴它們。
+更早另一套經雲端轉送的設計（`/vision` 頁、`src/lib/vision-*`、`src/components/vision/*`、`/api/vision/v1/*`）
+已於 2026-10-10 整個移除；需要參考時從 git 歷史取回，不要重建。
 
 # UI 開發與獨立測試模式
 

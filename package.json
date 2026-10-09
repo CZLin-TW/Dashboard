@@ -9,8 +9,7 @@
     "lint": "eslint",
     "demo": "node scripts/demo.mjs",
     "test:demo": "tsx --test tests/*.test.ts",
-    "typecheck": "tsc --noEmit",
-    "test:vision-ui": "node scripts/test-status-pilot.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -25,7 +24,6 @@
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.55.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

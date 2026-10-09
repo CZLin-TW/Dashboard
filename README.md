@@ -59,7 +59,6 @@ Sheet 讀回的 `7:00` 等未補零時間會在編輯時整理成 `07:00`，不�
 |------|------|
 | 首頁總覽 | 天氣、室內溫濕度、釘選設備快速控制、未來 5 天 / 已過期的待辦與食品 |
 | 設備控制 | 空調（電源/溫度/模式/風速 + 送出後輪詢確認）、除濕機（模式/濕度 + 條件式自動模式 toggle + 即時可調的目標濕度門檻）、IR 設備（自訂按鈕）；環境感測器（溫度/濕度即時值，含 SwitchBot Meter Pro CO2 三合一） |
-| Vision (in development) | [Owner-only read-only HTTP health](docs/vision-owner-health.md), HB owner pin plus membership/grant authorization. No images or tuning controls. Default off; actual owner/native health/deployment unverified. See [release review](docs/vision-phase1-release.md). |
 | 區域編輯入口 | 裝置頁「空間感測」的「編輯區域」按鈕：Dashboard 替已登入的一般成員簽一張 60 秒、單次使用的通行票（ES256），把新分頁導向家中主機上的區域編輯工具。影像與設定都不經過 Dashboard；兩個環境變數都設好才顯示按鈕，kid 不開放 |
 | 設備釘選 | 常用設備（最多 4 個）+ 一個感測器釘選到首頁，快速存取 |
 | 空調控制來源 | 目標一律整數 16–30°C；HA 管理空調顯示 HA 狀態，支援經 HA 執行的手動排程與自動關機。半度目標與室溫回饋補償已於 v1.58.0 移除；IR 仍沒有真實狀態回讀 |
@@ -497,6 +496,3 @@ Dashboard 是 home-butler 的**視覺化前端**，兩者共用同一套後端 A
 - 三個 repo 的責任、部署與回復順序：[系統導覽](https://github.com/CZLin-TW/home-butler/blob/main/docs/system-overview.md)。
 - 測試方式與已驗證範圍：[驗證紀錄](docs/verification.md)；新 session 先讀 [AGENTS.md](AGENTS.md) 與 [demo 說明](docs/demo-mode.md)。
 
-
-視覺功能另有 [loopback HTTP整合驗證](docs/vision-http-fixture.md)：使用假裝置與fixture設定，
-正式production transport仍未啟用。

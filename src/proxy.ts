@@ -35,7 +35,6 @@ function kidPathAllowed(pathname: string): boolean {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const visionErrorHeaders = pathname.startsWith("/api/vision/") ? { "Cache-Control": "no-store" } : undefined;
 
   if (isDemoMode()) {
     // Defense in depth: no API route (including public auth endpoints) runs on the server.
@@ -61,7 +60,7 @@ export async function proxy(request: NextRequest) {
   if (!user) {
     // API 路由回 401 JSON（不要把 fetch 307 導到 login HTML）；頁面導向 login。
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: visionErrorHeaders });
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
     return NextResponse.redirect(new URL("/login?error=unauthorized", request.url));
   }
@@ -70,7 +69,7 @@ export async function proxy(request: NextRequest) {
   // 前端藏導覽列只是化妝——Dashboard 是公開 URL，光藏 UI 擋不住直接打 API。
   if (user.role === "kid" && !kidPathAllowed(pathname)) {
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "forbidden" }, { status: 403, headers: visionErrorHeaders });
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
     return NextResponse.redirect(new URL("/devices", request.url));
   }
