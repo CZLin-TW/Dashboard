@@ -31,10 +31,12 @@
   --color-pin: var(--color-cool);
   --color-pin-bg: var(--color-cool-bg);
 
-  /* 圖表序列獨立於錯誤色；PC 用量圖也沿用這三種色相。 */
+  /* 圖表序列獨立於錯誤色。溫度／濕度／CO₂ 各自一張圖；PC 用量圖把 CPU（同濕度藍）、
+     GPU（同溫度陶土）、記憶體畫在同一張，所以記憶體另用青綠——赭黃與陶土疊在一起分不開。 */
   --color-chart-temperature: #A75F40;
   --color-chart-humidity: #315B70;
   --color-chart-co2: #855E18;
+  --color-chart-memory: #4C9C92;
 
   /* Fonts — Inter 給數字、Noto Sans TC 給內文（layout.tsx 透過 next/font 注入 var） */
   --font-sans: var(--font-noto-tc), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
