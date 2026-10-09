@@ -159,11 +159,12 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 **電腦**（H1）
 - 列出所有最近有 heartbeat 的 PC（依 IP 排序，桌機 2 欄、手機 1 欄）
 - 卡頭：hostname（缺值退回 IP）、IP + 在線指示燈（綠/灰）+ 「N 分鐘前回報」
-- 當下值橫排：`CPU：型號  N% N°C` / `GPU：型號  N% N°C`（CPU 同色 fresh、GPU 同色 warm，跨兩張圖一致）
-- Mac 支援 memory_pressure 時顯示記憶體壓力百分比與正常／警告／嚴重，數值與狀態獨立，缺值或離線顯示未知；Windows／舊 agent 保留 RAM 使用率。CPU/GPU 缺值顯示 unavailable，零值仍顯示 0%／0°C
-- macOS collector 使用同一 heartbeat 契約，無可靠溫度時回 null；沒有溫度歷史時顯示 unavailable 提示。Demo 包含 Mac mini 模擬卡，不代表正式主機已接入。
-- CPU / GPU 與記憶體共用百分比圖：Mac 顯示記憶體壓力，Windows／舊 agent 顯示 RAM。折線使用固定系列顏色，壓力狀態保留在當下數值旁；level-only 舊資料與回報中斷留空。Mac 感測器說明可展開，歷史最多保留本次後端執行期間 24 小時。
-- 折線圖 2（溫度 °C）：CPU 溫 / GPU 溫
+- 文字只有兩行：`CPU：型號  N%` / `GPU：型號  N%`，Windows 在右側另有各自的 `N°C`（CPU 深海藍、GPU 陶土，與圖上的線同色）。缺值顯示 unavailable，零值仍顯示 0%／0°C。其餘當下數值都看圖，不另外寫成文字
+- 折線圖 1（%）：CPU、GPU，以及第三條記憶體線——Windows／舊 agent 是 RAM 使用率，有 memory_pressure 的 Mac 是記憶體壓力百分比。三條線各用固定顏色（記憶體是青綠）。level-only 舊資料與回報中斷留空
+- 記憶體壓力的系統等級（正常／警告／嚴重）圖上看不出來，所以只有在線且等級為警告或嚴重時，才在圖上方多一行文字提示
+- 折線圖 2（溫度 °C）：Windows 畫 CPU、GPU 兩條；Mac 的 CPU 與 GPU 在同一顆晶片上，只畫一條 SoC 熱點溫度（陶土色，與環境感測的溫度圖同色）。沒有溫度歷史時顯示 unavailable 提示
+- 圖片載入失敗或資料中斷時不補假值；SoC 溫度與記憶體壓力的歷史只存在後端記憶體，最多 24 小時，後端重啟後重新累積
+- Demo 包含 Mac mini 模擬卡
 - 24h 範圍，X 軸從現在最近整點往前每 6 小時一個 tick；資料剛累積時圖會慢慢長滿
 - 60 秒 auto-refetch（跟 agent push 節奏對齊）
 

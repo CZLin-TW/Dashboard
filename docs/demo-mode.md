@@ -132,4 +132,4 @@ v1.54.0：模擬客廳支援彩色＋白光，臥室只有白光。白光／彩�
 
 ## macOS 電腦卡（v1.62.0，未部署）
 
-裝置頁下方與 Windows 模擬卡並列 Mac mini (demo)，假 IP 192.0.2.20；CPU 18%、RAM 56%、GPU 使用率與 CPU/GPU 溫度 null。驗證 unavailable 不能變成 0 或 —°C；無溫度歷史只顯示提示。離線情境保留歷史並標離線，空資料情境不生成卡。這不會接觸真實 collector／後端。
+裝置頁下方與 Windows 模擬卡並列 Mac mini (demo)，假 IP 192.0.2.20；CPU 18%、GPU 使用率有變化的假值、CPU/GPU 溫度為 null 而另有一條 SoC 溫度與連續的記憶體壓力（含一段警告／嚴重）。驗證 Mac 卡只畫一條 SoC 溫度線、CPU／GPU 行不顯示溫度，unavailable 不能變成 0 或 —°C。離線情境保留歷史並標離線，空資料情境不生成卡。這不會接觸真實 collector／後端。
