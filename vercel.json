@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run lint && env -i PATH=\"$PATH\" HOME=\"$HOME\" npm run test:demo && npm run build"
+}

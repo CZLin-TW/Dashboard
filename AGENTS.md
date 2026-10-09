@@ -95,6 +95,13 @@ Dashboard 不代理影像或設定——那些只在家中主機與瀏覽器之�
 
 本專案不使用 git tag / GitHub Releases；版本以 `package.json` 為準，git history 自己就是版本軌跡。
 
+# 部署前的把關
+
+Vercel 推 `main` 就建置並部署，**不會等 GitHub 的 CI**。所以 `vercel.json` 把建置指令改成先跑 lint 與 `test:demo`，
+任何一項失敗建置就失敗，Vercel 保留上一版不動。測試用 `env -i` 在只有 `PATH`／`HOME` 的環境跑：
+正式環境變數存在時有 18 項測試會失敗（它們假設那些變數不存在），而且測試也不該看得到正式金鑰。
+新增測試時維持這個前提——不要讓測試依賴建置環境的變數。改文件也會觸發部署，但不停機、沒有會被清掉的狀態。
+
 # Git push 環境差異
 
 這個 repo 會被多種 harness 操作（本機 VS Code、claude.ai/code web UI 等）。
