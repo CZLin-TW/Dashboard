@@ -281,7 +281,7 @@ test("demo enforces private visibility and stable IDs after renames", async () =
 });
 
 
-test("Mac telemetry uses existing status contract with null unavailable metrics", async () => {
+test("Mac telemetry uses existing status contract with a single SoC hotspot temperature", async () => {
   const simulator = createSimulator();
   const response = await simulator.handle(new Request("http://demo/api/computers/status"));
   const pcs = await response.json();
@@ -298,11 +298,11 @@ test("Mac telemetry uses existing status contract with null unavailable metrics"
   assert.ok(mac.history.some((point: { memory_pressure: { level: string } }) => point.memory_pressure.level === "critical"));
   assert.equal(pcs["192.0.2.10"].current.memory_pressure, undefined);
   assert.equal(mac.current.cpu_temp_c, null);
-  assert.equal(typeof mac.current.smc_temperature.tcmb_c, "number");
-  assert.equal(mac.current.smc_temperature.tcmz_c, null);
   assert.equal(mac.current.gpu_temp_c, null);
-  assert.equal(mac.current.gpu_pct, null);
-  assert.ok(mac.history.every((point: { cpu_temp_c: number | null }) => point.cpu_temp_c === null));
+  assert.equal(typeof mac.current.smc_temperature.tcmb_c, "number");
+  assert.equal(pcs["192.0.2.10"].current.smc_temperature, undefined);
+  assert.equal(typeof mac.current.gpu_pct, "number");
+  assert.ok(mac.history.every((point: { cpu_temp_c: number | null; smc_temperature: { tcmb_c: number } }) => point.cpu_temp_c === null && point.smc_temperature.tcmb_c > 0));
   assert.equal(monitoring(createDemoState("offline")).computers["192.0.2.20"].online, false);
   assert.deepEqual(monitoring(createDemoState("empty")).computers, {});
 });

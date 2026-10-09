@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatComputerMetric, toChartHistory, validSMCTemperature, memoryPressureDisplay, validMemoryPressure, memoryPressureColor } from "../src/lib/computer";
+import { formatComputerMetric, toChartHistory, validSocTemperature, memoryPressureDisplay, validMemoryPressure, memoryPressureColor } from "../src/lib/computer";
 
 test("computer metrics distinguish unavailable from real zero and preserve history gaps", () => {
   for (const value of [null, undefined, NaN, Infinity]) {
@@ -16,16 +16,15 @@ test("computer metrics distinguish unavailable from real zero and preserve histo
   assert.ok(result.every(p => p.cpuTemp === null && p.gpuTemp === null));
 });
 
-test("SMC values stay independent, missing max stays null, invalid values and gaps are unavailable", () => {
-  for (const bad of [0, -1, 151, NaN, Infinity, true, "44"]) assert.equal(validSMCTemperature(bad), null);
+test("SoC hotspot charts as its own series; invalid values and gaps are unavailable", () => {
+  for (const bad of [0, -1, 151, NaN, Infinity, true, "44", null, undefined]) assert.equal(validSocTemperature(bad), null);
   const point = { t: 1000, cpu_pct: 0, ram_pct: 50, gpu_pct: null, cpu_temp_c: null, gpu_temp_c: null,
-    smc_temperature: { tcmb_c: 44.5, tcmz_c: null } };
-  const points = toChartHistory([point, {...point, t: 1200}]);
-  assert.equal(points[0].tcmb, 44.5);
-  assert.equal(points[0].tcmz, null);
+    smc_temperature: { tcmb_c: 58.4, tcmz_c: null } };
+  const points = toChartHistory([point, {...point, t: 1200}, { ...point, t: 1260, smc_temperature: null }]);
+  assert.equal(points[0].socTemp, 58.4);
   assert.equal(points[0].cpuTemp, null);
-  assert.equal(points[1].tcmb, null);
-  assert.equal(points[1].tcmz, null);
+  assert.equal(points[1].socTemp, null);
+  assert.equal(points[3].socTemp, null);
 });
 
 

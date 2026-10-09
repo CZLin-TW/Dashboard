@@ -7,7 +7,7 @@ import { TheaterSection } from "@/components/devices/theater-section";
 import { ComputerCharts } from "@/components/devices/lazy-charts";
 import {
   PC_COLORS,
-  validSMCTemperature,
+  validSocTemperature,
   formatComputerMetric,
   memoryPressureDisplay,
   validMemoryPressure,
@@ -80,6 +80,8 @@ export function ComputerCard({
 }: Props) {
   const chartHistory = useMemo(() => toChartHistory(pc.history), [pc.history]);
   const hasHistory = chartHistory.length > 0;
+  // Mac 的 CPU／GPU 在同一顆晶片上，只有一個 SoC 熱點溫度，不分列在 CPU／GPU 行。
+  const isSoc = pc.current?.smc_temperature != null;
   const hasMemoryPressure = pc.current?.memory_pressure != null;
   const pressurePct = validMemoryPressure(pc.online ? pc.current?.memory_pressure?.pct : null);
   const pressure = memoryPressureDisplay(pc.online ? pc.current?.memory_pressure?.level : null);
@@ -113,35 +115,27 @@ export function ComputerCard({
           name="CPU"
           model={pc.cpu_model || ""}
           pctText={formatComputerMetric(pc.current?.cpu_pct, "%")}
-          tempText={pc.current?.smc_temperature ? null : formatComputerMetric(pc.current?.cpu_temp_c, "°C")}
+          tempText={isSoc ? null : formatComputerMetric(pc.current?.cpu_temp_c, "°C")}
           color={PC_COLORS.cpu}
         />
         <MetricBlock
           name="GPU"
           model={pc.gpu_model || ""}
           pctText={formatComputerMetric(pc.current?.gpu_pct, "%")}
-          tempText={pc.current?.smc_temperature ? null : formatComputerMetric(pc.current?.gpu_temp_c, "°C")}
+          tempText={isSoc ? null : formatComputerMetric(pc.current?.gpu_temp_c, "°C")}
           color={PC_COLORS.gpu}
         />
       </div>
+
+      {isSoc && (
+        <p className="px-1 text-sm text-mute">SoC 溫度：<span className="num font-semibold text-foreground">{formatComputerMetric(validSocTemperature(pc.current?.smc_temperature?.tcmb_c), "°C")}</span></p>
+      )}
 
       {hasMemoryPressure ? (
         <p className="px-1 text-sm text-mute">記憶體壓力：<span className={`font-semibold ${pressure.color}`}>{pressurePct == null ? "數值未知" : `${pressurePct}%`} · {pressure.label}</span></p>
       ) : (
         <p className="px-1 text-sm text-mute">RAM 使用率：<span className="num">{formatComputerMetric(pc.current?.ram_pct, "%")}</span></p>
       )}
-
-      {pc.current?.smc_temperature && <div className="space-y-1 px-1 text-sm">
-        <p className="flex flex-wrap gap-x-4">
-          <span>TCMb <span className="num">{formatComputerMetric(validSMCTemperature(pc.current.smc_temperature.tcmb_c), "°C")}</span></span>
-          <span>TCMz <span className="num">{formatComputerMetric(validSMCTemperature(pc.current.smc_temperature.tcmz_c), "°C")}</span></span>
-        </p>
-        <details className="text-xs text-mute">
-          <summary className="cursor-pointer">感測器資訊</summary>
-          <p>TCMb：CPU die 平均；TCMz：CPU die 最高。名稱依 AppleSMC／OSHI 定義，M6 對應未經 Apple 官方確認。</p>
-          <p>每分鐘採樣；溫度與記憶體壓力歷史最多保留本次後端執行期間的 24 小時。</p>
-        </details>
-      </div>}
 
       {!hasHistory ? (
         <p className="px-1 text-sm text-mute">等待 agent heartbeat 累積資料...</p>

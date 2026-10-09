@@ -26,7 +26,7 @@ import { Card } from "@/components/ui/card";
 import { HomeAssistantPanel } from "@/components/devices/home-assistant-panel";
 import { SensorChart } from "@/components/devices/lazy-charts";
 import { ScheduleSection } from "@/components/devices/schedule-section";
-import type { ComputerPC } from "@/lib/computer";
+import { validSocTemperature, type ComputerPC } from "@/lib/computer";
 import type { TheaterFlagKey, TheaterSummary } from "@/lib/theater";
 import { type Sensor, computeSensorDomains } from "@/lib/sensor";
 import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
@@ -201,9 +201,8 @@ export default function DevicesPage() {
     const temps: number[] = [];
     for (const c of computers) {
       for (const p of [...c.history, c.current]) {
-        for (const v of [p.smc_temperature?.tcmb_c, p.smc_temperature?.tcmz_c]) {
-          if (typeof v === "number" && Number.isFinite(v) && v > 0 && v <= 150) temps.push(v);
-        }
+        const soc = validSocTemperature(p.smc_temperature?.tcmb_c);
+        if (soc != null) temps.push(soc);
         if (p.cpu_temp_c != null) temps.push(p.cpu_temp_c);
         if (p.gpu_temp_c != null) temps.push(p.gpu_temp_c);
       }

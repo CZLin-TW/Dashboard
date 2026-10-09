@@ -8,6 +8,7 @@ export interface ComputerHistoryRaw {
   gpu_pct: number | null;
   cpu_temp_c: number | null;
   gpu_temp_c: number | null;
+  /** Mac：tcmb_c 是整顆 SoC 的熱點溫度（CPU／GPU 同一晶片，不分開）；tcmz_c 不使用。 */
   smc_temperature?: { tcmb_c: number | null; tcmz_c: number | null } | null;
   memory_pressure?: { level: "normal" | "warning" | "critical" | null; pct?: number | null } | null;
 }
@@ -40,8 +41,7 @@ export interface ComputerChartPoint {
   gpu: number | null;
   cpuTemp: number | null;
   gpuTemp: number | null;
-  tcmb: number | null;
-  tcmz: number | null;
+  socTemp: number | null;
   pressure: number | null;
   pressureColor: string;
 }
@@ -59,7 +59,7 @@ export function toChartHistory(raw: ComputerHistoryRaw[]): ComputerChartPoint[] 
     if (prevT !== null && tMs - prevT > PC_GAP_THRESHOLD_MS) {
       out.push({
         t: (prevT + tMs) / 2,
-        cpu: null, ram: null, gpu: null, cpuTemp: null, gpuTemp: null, tcmb: null, tcmz: null, pressure: null, pressureColor: "#94a3b8",
+        cpu: null, ram: null, gpu: null, cpuTemp: null, gpuTemp: null, socTemp: null, pressure: null, pressureColor: "#94a3b8",
       });
     }
     out.push({
@@ -69,8 +69,7 @@ export function toChartHistory(raw: ComputerHistoryRaw[]): ComputerChartPoint[] 
       gpu: p.gpu_pct,
       cpuTemp: p.cpu_temp_c,
       gpuTemp: p.gpu_temp_c,
-      tcmb: validSMCTemperature(p.smc_temperature?.tcmb_c),
-      tcmz: validSMCTemperature(p.smc_temperature?.tcmz_c),
+      socTemp: validSocTemperature(p.smc_temperature?.tcmb_c),
       pressure: validMemoryPressure(p.memory_pressure?.pct),
       pressureColor: memoryPressureColor(p.memory_pressure?.level),
     });
@@ -89,7 +88,7 @@ export function relativeFromHeartbeat(fromUnixSec: number, toMs: number = Date.n
   return `${h} 小時前回報`;
 }
 
-// 配色簡化：CPU = 深海藍（用量+溫度同色）、GPU = 陶土、RAM = 赭黃。
+// 配色簡化：CPU = 深海藍（用量+溫度同色）、GPU = 陶土、RAM = 赭黃、SoC 溫度 = 文字色。
 // ComputerCard 的數值區塊與 ComputerCharts 的折線共用同一組，兩邊視覺才對得起來——
 // charts 被拆成非同步 chunk（見 lazy-charts.tsx）後，放在這個不相依 recharts 的 lib
 // 是唯一能同時被兩邊 import 又不會把圖表拉回初始 bundle 的位置。
@@ -97,6 +96,7 @@ export const PC_COLORS = {
   cpu: "var(--color-chart-humidity)",
   gpu: "var(--color-chart-temperature)",
   ram: "var(--color-chart-co2)",
+  soc: "var(--color-foreground)",
 } as const;
 
 /** Missing or invalid metrics are unavailable, never zero or a unit-bearing placeholder. */
@@ -104,7 +104,7 @@ export function formatComputerMetric(value: number | null | undefined, unit: "%"
   return value == null || !Number.isFinite(value) ? "unavailable" : `${Math.round(value)}${unit}`;
 }
 
-export function validSMCTemperature(value: unknown): number | null {
+export function validSocTemperature(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 150 ? value : null;
 }
 

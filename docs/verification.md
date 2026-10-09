@@ -1,3 +1,7 @@
+## 2026-10-09 v1.73.0：Mac 卡改顯示單一 SoC 溫度
+
+89 項隔離測試、TypeScript、ESLint、demo build 通過。demo 模式（模擬家庭）以 375px 手機寬度確認 Mac 卡 CPU／GPU 行只有使用率、有「SoC 溫度」一行、溫度圖為單一 SoC 線、沒有 TCMb／TCMz 與感測器資訊、無水平溢出；Windows 卡不變。tcmb_c 的意義依據 2026-10-09 在 M6 Mac mini（macOS 27.0.1）的唯讀負載測試：閒置約 53°C、CPU 滿載 102°C、GPU 滿載 85°C，全程等於晶片上 CPU 與 GPU 兩個熱點值的較大者。此為 demo 驗證，未連正式後端。
+
 ## 2026-10-09 v1.71.1：精簡 Mac 電腦卡
 
 86 項既有隔離測試、ESLint、demo webpack build（含 TypeScript）通過。隔離 Chrome 桌機與 390px 手機確認僅兩張圖、CPU/GPU/記憶體壓力共用圖例、無獨立面積圖、感測器說明可展開、Windows RAM 保留、離線為未知且無水平溢出。此為 demo 驗證，未修改或重啟正式 agent。

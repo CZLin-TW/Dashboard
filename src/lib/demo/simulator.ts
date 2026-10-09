@@ -82,8 +82,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
           .map(([name, sensor]) => [name, value("include_history") === "false" ? { ...sensor, history: [] } : sensor])));
         case "/api/ac/status": return json(history().acs);
         case "/api/dehumidifier/history": return json(history().dehums);
-        // Shared Windows + Mac fixtures preserve null GPU/temperature readings.
-        // Fixture includes optional SMC temperature with missing TCMz.
+        // Shared Windows + Mac fixtures; the Mac reports one SoC hotspot instead of CPU/GPU temperatures.
         // Fixtures preserve independent memory_pressure.pct and level; missing values never become zero/normal.
         case "/api/computers/status": return json(history().computers);
         case "/api/dehumidifier/auto-rule": return json(state.rules);

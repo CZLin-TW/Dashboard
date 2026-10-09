@@ -113,7 +113,7 @@ export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = 
       </div>
 
       {/* ── 圖 2：溫度 °C ── */}
-      {!chartHistory.some((point) => point.cpuTemp != null || point.gpuTemp != null || point.tcmb != null || point.tcmz != null) ? (
+      {!chartHistory.some((point) => point.cpuTemp != null || point.gpuTemp != null || point.socTemp != null) ? (
         <p className="px-1 text-sm text-mute">溫度 unavailable · 無可用感測資料</p>
       ) : <div className="space-y-1.5">
         <ChartTitle label="溫度" unit="°C" />
@@ -152,8 +152,7 @@ export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = 
               iconType="plainline"
               wrapperStyle={{ fontSize: 11, paddingLeft: 8 }}
             />
-            {chartHistory.some(p => p.tcmb != null) && <Line type="monotone" dataKey="tcmb" name="TCMb" stroke={PC_COLORS.cpu} strokeWidth={2} dot={false} connectNulls={false} />}
-            {chartHistory.some(p => p.tcmz != null) && <Line type="monotone" dataKey="tcmz" name="TCMz" stroke={PC_COLORS.gpu} strokeWidth={2} dot={false} connectNulls={false} />}
+            {chartHistory.some(p => p.socTemp != null) && <Line type="monotone" dataKey="socTemp" name="SoC" stroke={PC_COLORS.soc} strokeWidth={2} dot={false} connectNulls={false} />}
             {chartHistory.some(p => p.cpuTemp != null) && <Line type="monotone" dataKey="cpuTemp" name="CPU" stroke={PC_COLORS.cpu} strokeWidth={2} dot={false} />}
             {chartHistory.some(p => p.gpuTemp != null) && <Line type="monotone" dataKey="gpuTemp" name="GPU" stroke={PC_COLORS.gpu} strokeWidth={2} dot={false} />}
           </LineChart>
