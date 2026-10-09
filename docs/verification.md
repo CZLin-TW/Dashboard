@@ -1,3 +1,7 @@
+## 2026-10-09 v1.73.1：電腦卡移除重複的文字數值
+
+89 項隔離測試、TypeScript、ESLint、demo build 通過。demo 模式 375px 確認 Mac 與 Windows 卡在 CPU／GPU 兩行之後直接接圖表，沒有 SoC 溫度、記憶體壓力、RAM 使用率文字列，無水平溢出。警告／嚴重時的提示列未在畫面上實測（demo 的當下狀態為正常）。此為 demo 驗證。
+
 ## 2026-10-09 v1.73.0：Mac 卡改顯示單一 SoC 溫度
 
 89 項隔離測試、TypeScript、ESLint、demo build 通過。demo 模式（模擬家庭）以 375px 手機寬度確認 Mac 卡 CPU／GPU 行只有使用率、有「SoC 溫度」一行、溫度圖為單一 SoC 線、沒有 TCMb／TCMz 與感測器資訊、無水平溢出；Windows 卡不變。tcmb_c 的意義依據 2026-10-09 在 M6 Mac mini（macOS 27.0.1）的唯讀負載測試：閒置約 53°C、CPU 滿載 102°C、GPU 滿載 85°C，全程等於晶片上 CPU 與 GPU 兩個熱點值的較大者。此為 demo 驗證，未連正式後端。

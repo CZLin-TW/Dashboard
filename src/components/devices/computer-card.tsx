@@ -7,10 +7,8 @@ import { TheaterSection } from "@/components/devices/theater-section";
 import { ComputerCharts } from "@/components/devices/lazy-charts";
 import {
   PC_COLORS,
-  validSocTemperature,
   formatComputerMetric,
   memoryPressureDisplay,
-  validMemoryPressure,
   type ComputerPC,
   relativeFromHeartbeat,
   toChartHistory,
@@ -83,8 +81,9 @@ export function ComputerCard({
   // Mac 的 CPU／GPU 在同一顆晶片上，只有一個 SoC 熱點溫度，不分列在 CPU／GPU 行。
   const isSoc = pc.current?.smc_temperature != null;
   const hasMemoryPressure = pc.current?.memory_pressure != null;
-  const pressurePct = validMemoryPressure(pc.online ? pc.current?.memory_pressure?.pct : null);
-  const pressure = memoryPressureDisplay(pc.online ? pc.current?.memory_pressure?.level : null);
+  // 當下數值都在圖上；只有系統回報記憶體壓力異常時才用文字提示（折線顏色看不出等級）。
+  const pressureLevel = pc.online ? pc.current?.memory_pressure?.level : null;
+  const pressureAlert = pressureLevel === "warning" || pressureLevel === "critical" ? memoryPressureDisplay(pressureLevel) : null;
 
   return (
     <Card>
@@ -127,14 +126,8 @@ export function ComputerCard({
         />
       </div>
 
-      {isSoc && (
-        <p className="px-1 text-sm text-mute">SoC 溫度：<span className="num font-semibold text-foreground">{formatComputerMetric(validSocTemperature(pc.current?.smc_temperature?.tcmb_c), "°C")}</span></p>
-      )}
-
-      {hasMemoryPressure ? (
-        <p className="px-1 text-sm text-mute">記憶體壓力：<span className={`font-semibold ${pressure.color}`}>{pressurePct == null ? "數值未知" : `${pressurePct}%`} · {pressure.label}</span></p>
-      ) : (
-        <p className="px-1 text-sm text-mute">RAM 使用率：<span className="num">{formatComputerMetric(pc.current?.ram_pct, "%")}</span></p>
+      {pressureAlert && (
+        <p className="px-1 text-sm text-mute">記憶體壓力：<span className={`font-semibold ${pressureAlert.color}`}>{pressureAlert.label}</span></p>
       )}
 
       {!hasHistory ? (
