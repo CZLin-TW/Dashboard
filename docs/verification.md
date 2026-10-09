@@ -422,3 +422,13 @@ verified TLS/WSS + fake Sheets suite13/13 passed against the updated HB. All own
 processes stopped and temporary fixture material removed. No real Sheets/native
 Keychain/signing/installation/production deployment tested. Dashboard code and
 version unchanged; docs diff checked.
+
+
+## 2026-10-09 zone editor entry (v1.72.0)
+
+`tests/zone-editor.test.ts` 3/3 (config validation, ticket contents and expiry,
+fragment-only entry address); full `tests/*.test.ts` 89/89; lint, typecheck and
+`next build` clean. A ticket produced by this code with a throwaway key was accepted
+once and refused the second time by the home machine's gateway code. Not verified:
+the deployed route with real environment variables, the redirect on iPhone Safari
+or the installed PWA, and the kid role against the deployed proxy.

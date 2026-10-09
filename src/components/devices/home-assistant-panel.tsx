@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { House, Sun, Users } from "lucide-react";
+import { House, SquarePen, Sun, Users } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
@@ -31,7 +31,16 @@ export function HomeAssistantPanel() {
         <h2 className="flex items-center gap-2 text-sm font-semibold text-mute">
           <House className="h-4 w-4" />空間感測
         </h2>
-        <span className={`text-xs ${fresh ? "text-cool" : "text-mute"}`}>{label}</span>
+        <div className="flex items-center gap-3">
+          {data?.zone_editor && (
+            // 一般連結即可：伺服器簽票後把這個新分頁導向家中主機的編輯工具。
+            <a href="/api/zone-editor/enter" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-foreground/5">
+              <SquarePen className="h-3.5 w-3.5" />編輯區域
+            </a>
+          )}
+          <span className={`text-xs ${fresh ? "text-cool" : "text-mute"}`}>{label}</span>
+        </div>
       </div>
       {error && <p role="status" className="text-xs text-warm">暫時無法更新，感測狀態顯示為未知。
         <button className="ml-2 underline" onClick={() => void refetch()}>重試</button>

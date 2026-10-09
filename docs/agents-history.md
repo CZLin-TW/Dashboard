@@ -211,3 +211,13 @@ Corrected zero-valid-identity inference: original self-signed camera identity ex
 and its installed app passes a pinned public-certificate requirement without trust
 changes. Source package codesign inline requirement syntax was corrected separately
 in Floor. No private key bytes/secret or identity metadata copied into fixtures.
+
+
+## 2026-10-09 zone editor entry (v1.72.0)
+
+Added the "編輯區域" link in the space-sensing panel and `/api/zone-editor/enter`,
+which signs a 60-second single-use ES256 ticket and redirects the new tab to the
+home machine's editor (`ZONE_EDITOR_URL`, `ZONE_EDITOR_SIGNING_KEY`). Removed the
+dead 視覺 navigation item; the earlier `/vision` pilot code is untouched and still
+flag-gated. Nothing about the user is put in the ticket; images and configuration
+never pass through Dashboard.

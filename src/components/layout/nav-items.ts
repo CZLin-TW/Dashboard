@@ -1,4 +1,4 @@
-import { ScanEye, Home, Plug, CheckSquare, Apple, Lightbulb, type LucideIcon } from "lucide-react";
+import { Home, Plug, CheckSquare, Apple, Lightbulb, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -12,5 +12,4 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/todos", label: "待辦", icon: CheckSquare },
   { href: "/food", label: "庫存", icon: Apple },
   { href: "/lighting", label: "照明", icon: Lightbulb },
-  { href: "/vision", label: "視覺", icon: ScanEye },
 ];

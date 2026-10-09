@@ -60,6 +60,7 @@ Sheet 讀回的 `7:00` 等未補零時間會在編輯時整理成 `07:00`，不�
 | 首頁總覽 | 天氣、室內溫濕度、釘選設備快速控制、未來 5 天 / 已過期的待辦與食品 |
 | 設備控制 | 空調（電源/溫度/模式/風速 + 送出後輪詢確認）、除濕機（模式/濕度 + 條件式自動模式 toggle + 即時可調的目標濕度門檻）、IR 設備（自訂按鈕）；環境感測器（溫度/濕度即時值，含 SwitchBot Meter Pro CO2 三合一） |
 | Vision (in development) | [Owner-only read-only HTTP health](docs/vision-owner-health.md), HB owner pin plus membership/grant authorization. No images or tuning controls. Default off; actual owner/native health/deployment unverified. See [release review](docs/vision-phase1-release.md). |
+| 區域編輯入口 | 裝置頁「空間感測」的「編輯區域」按鈕：Dashboard 替已登入的一般成員簽一張 60 秒、單次使用的通行票（ES256），把新分頁導向家中主機上的區域編輯工具。影像與設定都不經過 Dashboard；兩個環境變數都設好才顯示按鈕，kid 不開放 |
 | 設備釘選 | 常用設備（最多 4 個）+ 一個感測器釘選到首頁，快速存取 |
 | 空調控制來源 | 目標一律整數 16–30°C；HA 管理空調顯示 HA 狀態，支援經 HA 執行的手動排程與自動關機。半度目標與室溫回饋補償已於 v1.58.0 移除；IR 仍沒有真實狀態回讀 |
 | 待辦事項 | 新增、修改、完成、查看；支援週期任務（每天/每週/每月/間隔天的重複待辦，由模板自動生成當次待辦並以 🔁 標記）；隱私邏輯只顯示「自己負責 + 公開」項目；過期/今日提醒 highlight；有時間的待辦可勾選 Hue 燈光提醒並複選照明區域 |
@@ -337,6 +338,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | computer.ts | PC 監控相關型別 + helper：ComputerPC / ComputerHistoryRaw / toChartHistory（unix sec → ms + 欄位重命名給 Recharts dataKey）/ relativeFromHeartbeat |
 | butler.ts | HTTP 客戶端（butlerGet / butlerPost / butlerPatch / butlerDelete），25 秒 timeout |
 | jwt.ts | Session JWT 的 secret 解析 + 驗證，**edge-safe**（只用 jose，不碰 next/headers）：JWT_SECRET / verifyToken / assertCanIssueSession / SessionUser。secret 解析順序 `SESSION_JWT_SECRET ?? LINE_LOGIN_CHANNEL_SECRET ?? 'dev-secret'`，production 下兩個真 secret 都沒設時 fail-closed（verifyToken 回 null、assertCanIssueSession throw）。由 auth.ts(node) 與 proxy.ts(edge middleware) 共用，保證簽發與閘門驗簽用同一把金鑰 |
+| zone-editor.ts | 區域編輯入口：`zoneEditorConfig`（驗證兩個環境變數）、`zoneEditorTicket`（ES256、`iss=dashboard`、`aud`=編輯工具網址、60 秒、隨機 `jti`、選填 `ret`=本站網址，不含任何使用者資料）、`zoneEditorEntry`（票放在網址 fragment）。由 `/api/zone-editor/enter` 使用 |
 | auth.ts | node 端 Session 包裝：createSession / getSession / getSessionCookieOptions（簽發、讀 cookie、Cookie 設定）；secret 解析與驗證已移到 jwt.ts |
 | utils.ts | 通用工具（cn 等） |
 
@@ -351,6 +353,8 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | LINE_LOGIN_CHANNEL_ID | LINE Login Channel ID（OAuth 流程已淘汰，目前程式未使用） | 選用 |
 | LINE_LOGIN_CHANNEL_SECRET | LINE Login Channel Secret；登入改用驗證碼流程後，僅在未設 `SESSION_JWT_SECRET` 時作為 session JWT 的 fallback secret | 選用（建議改設 SESSION_JWT_SECRET） |
 | SESSION_JWT_SECRET | 簽 / 驗 session JWT 用，建議 `openssl rand -hex 32` 產生。未設定時 fallback 到 `LINE_LOGIN_CHANNEL_SECRET`；**production 下兩者皆無時 fail-closed**——不再以公開的 `dev-secret` 簽發或驗證 session（`createSession` 會 throw、`verifyToken` 一律回 null）。建議獨立設定，與 LINE Channel Secret 分離 | 建議 |
+| ZONE_EDITOR_URL | 家中主機區域編輯工具的對外網址，只能是純 https origin（例如 `https://name.tailnet.ts.net`，不含路徑與連接埠）。同時是通行票的 audience | 選用（與下一項成對） |
+| ZONE_EDITOR_SIGNING_KEY | 簽通行票的 ES256 私鑰（PKCS8 PEM，`-----BEGIN PRIVATE KEY-----`）。對應的公鑰放在家中主機；私鑰只應存在於部署平台的環境變數。任一項缺少或格式不對時整個功能關閉、按鈕不顯示 | 選用（與上一項成對） |
 
 > 登入已改用「裝置配對驗證碼」流程，不再需要 LINE Login OAuth 的 Callback URL；`LINE_LOGIN_CHANNEL_SECRET` 現在僅作為 session JWT 的 fallback secret。
 

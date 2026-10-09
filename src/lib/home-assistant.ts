@@ -7,6 +7,8 @@ export interface HaSnapshot {
   configured: boolean; connected: boolean; online: boolean;
   received_at: number | null; age_seconds: number | null;
   stale_after_seconds: number; observations: HaObservation[];
+  /** Dashboard 自己加的：區域編輯入口是否已設定。 */
+  zone_editor?: boolean;
 }
 
 /** Receipt age, not the date a quiet sensor last changed. No browser/server clock comparison. */
