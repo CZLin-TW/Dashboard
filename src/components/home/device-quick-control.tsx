@@ -7,6 +7,7 @@ import { LayoutGrid, ChevronUp, ChevronDown, ArrowUpRight, Pin } from "lucide-re
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { PANEL_BASE } from "@/components/ui/device-controls";
 import { DeviceController } from "@/components/ui/device-controller";
+import type { AcAutoOff } from "@/lib/ac";
 import { ScheduleSection } from "@/components/devices/schedule-section";
 import {
   type DeviceData,
@@ -47,6 +48,8 @@ interface Props {
   allDevices?: DeviceData[];
   /** 排程 CRUD 後呼叫，由父層 refetch /api/schedules。 */
   onSchedulesChange?: () => void;
+  /** 各空調自動關機設定的解讀（唯讀），key 是設備名稱。 */
+  acAutoOff?: Record<string, AcAutoOff>;
   onExpandedChange?: (expanded: boolean) => void;
   schedulesLoading?: boolean;
   schedulesHasData?: boolean;
@@ -77,6 +80,7 @@ export function DeviceQuickControl({
   allDevices,
   onSchedulesChange,
   onExpandedChange,
+  acAutoOff,
   schedulesLoading,
   schedulesHasData,
   schedulesError,
@@ -144,6 +148,7 @@ export function DeviceQuickControl({
             schedules={schedules.filter((s) => (s["設備名稱"] ?? "") === device.name)}
             allDevices={allDevices ?? devices}
             onSchedulesChange={onSchedulesChange}
+            autoOff={acAutoOff?.[device.name]}
           />
         )}
       </div>

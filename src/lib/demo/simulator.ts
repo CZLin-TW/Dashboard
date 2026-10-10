@@ -52,6 +52,10 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
           .filter(([name]) => !value("name") || name === value("name"))
           .map(([name, sensor]) => [name, value("include_history") === "false" ? { ...sensor, history: [] } : sensor])));
         case "/api/ac/status": return json(history().acs);
+        case "/api/ac/auto-off": return json({ devices: Object.fromEntries(state.devices
+          .filter(d => d.type === "空調" && d.controlProvider === "home_assistant")
+          .map(d => [d.name, { hours: 9, status: "counting", scheduled_at: `${dateAt(1)} 7:00`, problems: [],
+            hours_text: "9", window_text: "22:00-07:00", window: "22:00-07:00", preview_off_at: `${dateAt(1)} 07:00` }])) });
         case "/api/dehumidifier/history": return json(history().dehums);
         // Shared Windows + Mac fixtures; the Mac reports one SoC hotspot instead of CPU/GPU temperatures.
         // Fixtures preserve independent memory_pressure.pct and level; missing values never become zero/normal.

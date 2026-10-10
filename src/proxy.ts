@@ -20,6 +20,7 @@ const KID_ALLOWED_APIS = [
   "/api/dehumidifier/auto-rule",
   "/api/dehumidifier/history",
   "/api/schedules",            // 裝置排程
+  "/api/ac/auto-off",          // 排程區的自動關機設定摘要（唯讀）
   "/api/computers/status",     // 電腦監控
   "/api/theater/summary",      // 劇院狀態
   "/api/theater/flags",        // 劇院開關

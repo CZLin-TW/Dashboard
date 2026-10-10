@@ -29,7 +29,7 @@ import { ScheduleSection } from "@/components/devices/schedule-section";
 import { validSocTemperature, type ComputerPC } from "@/lib/computer";
 import type { TheaterFlagKey, TheaterSummary } from "@/lib/theater";
 import { type Sensor, computeSensorDomains } from "@/lib/sensor";
-import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
+import { type AcDevice, type AcAutoOffResponse, getAcSegmentsForLocation } from "@/lib/ac";
 import { type DehumDevice, getDehumSegmentsForLocation } from "@/lib/dehumidifier";
 import type { Schedule } from "@/lib/schedule";
 
@@ -170,6 +170,9 @@ export default function DevicesPage() {
   } = useCachedFetch<Schedule[]>("/api/schedules", []);
   // Pick up background-created or cancelled schedules without reloading the page.
   useAutoRefresh(refetchSchedules, 15_000, 0);
+  // 後端對 Sheet 自動關機設定的解讀；「若現在開機」的預覽隨時間變，所以定時重讀。
+  const { data: acAutoOff, refetch: refetchAcAutoOff } = useCachedFetch<AcAutoOffResponse>("/api/ac/auto-off", { devices: {} });
+  useAutoRefresh(refetchAcAutoOff, 60_000, 0);
   const schedulesByDevice = (() => {
     const map: Record<string, Schedule[]> = {};
     for (const s of schedules) {
@@ -287,7 +290,7 @@ export default function DevicesPage() {
                     <DeviceController
                       device={device}
                       options={options}
-                      onAcCommandSuccess={async () => { await Promise.all([refetchStatus(), refetchSchedules()]); }}
+                      onAcCommandSuccess={async () => { await Promise.all([refetchStatus(), refetchSchedules(), refetchAcAutoOff()]); }}
                       onDehumidifierCommandSuccess={refetchStatus}
                       dehumRule={device.type === "除濕機" ? (dehumRulesMap[device.name] ?? null) : undefined}
                       availableSensors={device.type === "除濕機" ? availableSensorNames : undefined}
@@ -302,6 +305,7 @@ export default function DevicesPage() {
                       schedules={schedulesByDevice[device.name] ?? []}
                       allDevices={controllable}
                       onSchedulesChange={refetchSchedules}
+                      autoOff={acAutoOff.devices?.[device.name]}
                     />
                   </div>
                 );

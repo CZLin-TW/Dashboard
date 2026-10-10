@@ -27,7 +27,7 @@ Dashboard 負責畫面、配對登入、Session 與 API 代理；設備控制來
 時數直接在 Sheet「自動關機小時數」管理，Dashboard 不提供時數設定面板。
 HB 偵測 HA 空調開機後依設定產生一筆關機排程，在空調卡原「排程」區顯示「自動產生」。
 首頁排程已有成功讀取資料時，背景更新與讀取失敗會保留排程區、新增／編輯表單及未儲存草稿，載入／重試提示另行顯示。首次讀取成功前不顯示表單。
-首頁展開設備控制面板與裝置頁停留前景時，每 15 秒自動讀取排程；回到分頁立即更新。首頁面板收合或分頁在背景時不輪詢排程。HB 每 60 秒觀察開機後建立排程，因此仍有後端觀察及下一次讀取的延遲，不需手動重新整理。
+首頁展開設備控制面板與裝置頁停留前景時，每 15 秒自動讀取排程；回到分頁立即更新。首頁面板收合或分頁在背景時不輪詢排程。從 Dashboard 操作空調時排程會隨指令完成立即更新；從其他入口開關則要等 HB 每 60 秒的觀察與下一次讀取。空調的排程區另有一行唯讀的自動關機設定摘要，試算表填錯時會顯示警告。
 可編輯時間與控制參數或刪除，只影響這一輪；背景檢查與後端重啟不會補回或改回。
 確認關機後清理本輪未執行的關機排程，不影響另建的未來排程；下次開機依 Sheet 重新產生。
 時數正值變更適用下輪，0 取消本輪。詳見後端 docs/ac-auto-off.md。不需更新 HA。
@@ -239,6 +239,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | /api/devices/control | POST | 控制裝置（空調/IR/除濕機）；除濕機自動模式啟用時拒收 |
 | /api/sensors/status | GET | 所有感測器當下值 + 24h history（溫度 / 濕度 / CO2），proxy 到 home-butler in-memory ring buffer |
 | /api/ac/status | GET | 所有空調當下狀態 + 24h history，給感測器 chart 背景畫 AC on 區段用 |
+| /api/ac/auto-off | GET | 唯讀：後端對 Sheet 自動關機時數與暫緩時段的解讀、問題代碼與「現在開機會排幾點」；排程區的設定摘要用 |
 | /api/dehumidifier/auto-rule | GET / POST | 除濕機條件式自動規則的讀寫；等待選項為立即、5、10、15、20、25、30 分鐘，POST 設定 toggle ON 時後端會立即評估 sensor 當下值決定 fire ON/OFF |
 | /api/lighting/areas | GET | 列出 Hue rooms / zones 對應的 grouped_light 區域，含 Dashboard 顯示名稱、各區當下 on/brightness、一般場景 / 全天場景、通知動作與可用燈效 |
 | /api/lighting/areas/[id] | PATCH | 更新 Hue 區域顯示名稱 |

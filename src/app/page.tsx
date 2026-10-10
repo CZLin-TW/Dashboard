@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
+import type { AcAutoOffResponse } from "@/lib/ac";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import {
@@ -74,6 +75,8 @@ export default function HomePage() {
   );
   // HB creates automatic shutdowns asynchronously; disabled queries remain idle.
   useAutoRefresh(refetchSchedules, 15_000, 0);
+  const { data: acAutoOff, refetch: refetchAcAutoOff } = useCachedFetch<AcAutoOffResponse>("/api/ac/auto-off", { devices: {} }, deviceExpanded);
+  useAutoRefresh(refetchAcAutoOff, 60_000, 0);
 
   // 首頁只顯示釘選的；裝置頁有完整列表
   const pinnedSensor = pin.pinnedSensor
@@ -131,7 +134,7 @@ export default function HomePage() {
       <DeviceQuickControl
         devices={controllableDevices}
         options={options}
-        onAcCommandSent={async () => { await Promise.all([refetchStatus(), refetchSchedules()]); }}
+        onAcCommandSent={async () => { await Promise.all([refetchStatus(), refetchSchedules(), refetchAcAutoOff()]); }}
         onDehumidifierCommandSent={refetchStatus}
         dehumRulesMap={dehumRulesMap}
         availableSensors={Object.keys(sensorsMap)}
@@ -144,6 +147,7 @@ export default function HomePage() {
         schedules={schedules}
         allDevices={allDevices.filter((d) => d.type !== "感應器")}
         onSchedulesChange={refetchSchedules}
+        acAutoOff={acAutoOff.devices}
       />
       <div className="grid items-start gap-4 lg:grid-cols-2 md:gap-5">
         <TodoListCard todos={visibleTodos} onCompleted={refetchDashboard} statusText={!hasLifeData ? (lifeLoading ? "載入中…" : "尚未取得待辦資料，請重新讀取。") : undefined} />

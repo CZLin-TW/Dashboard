@@ -30,7 +30,11 @@ SwitchBot Cloud 仍走雲端，IR 狀態是最後指令而非實體回讀。
 **「舊自動排程停用」指的是舊來源「自動」「防黴」已經移除**，
 不是說 HA 空調沒有自動關機——新來源「自動（HA）」是啟用的。兩者不要混為一談。
 首頁排程已有成功讀取資料時，背景更新與讀取失敗會保留排程區、新增／編輯表單及未儲存草稿，載入／重試提示另行顯示。首次讀取成功前不顯示表單。
-首頁展開設備控制面板與裝置頁停留前景時，每 15 秒自動讀取排程；回到分頁立即更新。首頁面板收合或分頁在背景時不輪詢排程。HB 每 60 秒觀察開機後建立排程，因此仍有後端觀察及下一次讀取的延遲，不需手動重新整理。
+首頁展開設備控制面板與裝置頁停留前景時，每 15 秒自動讀取排程；回到分頁立即更新。首頁面板收合或分頁在背景時不輪詢排程。
+從 Dashboard 送出的空調指令，HB 會在指令成功時就建立／取消自動關機排程，所以指令完成後那次立即重讀就看得到（2026-10-11 起）。其他入口（Apple Home、遙控器、HA 自動化、LINE）的開關仍要等 HB 每 60 秒的觀察與下一次讀取。
+
+排程區在空調卡多一行唯讀的「自動關機」設定摘要（v1.74.0），資料來自 `/api/ac/auto-off`：後端對 Sheet「自動關機小時數」「自動關機暫緩時段」的解讀、填錯時的警告，以及「若現在開機會排在幾點關」。
+預覽時間由後端用建立排程的同一段計算算出，**不要在前端重算**；`autoOffSummary`（`src/lib/ac.ts`）只負責排字。舊版後端沒有 `problems` 欄位時整行不顯示。這不是設定面板，設定仍只在 Sheet 改。
 
 時數只在 Sheet 管理，Dashboard 沒有時數設定面板。這不會建立或修改 HA 自動化。
 Sheet 回應的觸發時間可能省略前導零；`schedule.ts` 在編輯、排序與時間比較前補齊日期／小時，
@@ -133,4 +137,4 @@ Vercel 推 `main` 就建置並部署，**不會等 GitHub 的 CI**。所以 `ver
 
 # 電腦指標
 
-卡片使用既有 heartbeat/status 契約，文字只留 hostname（fallback IP）與 CPU／GPU 兩行（型號、使用率；Windows 另有溫度），其餘當下數值一律看圖，不另外寫成文字（v1.73.1 起移除 SoC 溫度、記憶體壓力、RAM 使用率的文字列）。有 memory_pressure 的 Mac 在百分比圖畫連續 pct（0–100）折線，與 CPU/GPU 共用固定系列顏色；折線看不出系統等級，所以只有在線且 level 為警告／嚴重時才多一行文字提示，正常、未知或離線不顯示，不能由三級狀態虛構百分比。Windows／舊 agent 的 RAM 畫在同一張圖。缺少指標顯示 unavailable；無溫度歷史不畫溫度圖。Mac collector 位於 home-butler `agent/macos_metrics.py`，與劇院／vision 分離。Mac 的 CPU／GPU 在同一顆晶片上，所以只顯示一個「SoC 溫度」：取 smc_temperature.tcmb_c（2026-10-09 在 M6 Mac mini 以負載測試確認它是整顆晶片的最高點，CPU 或 GPU 滿載都會跟著升；Apple 未公開此感測器），空值 unavailable。有 smc_temperature 的卡片 CPU／GPU 行不顯示溫度，SoC 溫度只在溫度圖畫單一 SoC 線；tcmz_c 不使用。Windows 仍用 cpu_temp_c／gpu_temp_c。SoC 溫度與記憶體壓力僅 bounded 24h 記憶體歷史，後端重啟後重累積。Demo 提供連續數值及三種系統狀態的假資料；Mac 正式 agent 已接入，由 home-butler 簽署更新器管理。
+卡片使用既有 heartbeat/status 契約，文字只留 hostname（fallback IP）與 CPU／GPU 兩行（型號、使用率；Windows 另有溫度），其餘當下數值一律看圖，不另外寫成文字（v1.73.1 起移除 SoC 溫度、記憶體壓力、RAM 使用率的文字列）。有 memory_pressure 的 Mac 在百分比圖畫連續 pct（0–100）折線，與 CPU/GPU 共用固定系列顏色；折線看不出系統等級，所以只有在線且 level 為警告／嚴重時才多一行文字提示，正常、未知或離線不顯示，不能由三級狀態虛構百分比。Windows／舊 agent 的 RAM 畫在同一張圖。缺少指標顯示 unavailable；無溫度歷史不畫溫度圖。Mac collector 位於 home-butler `agent/macos_metrics.py`，與劇院／vision 分離。Mac 的 CPU／GPU 在同一顆晶片上，所以只顯示一個「SoC 溫度」：取 smc_temperature.tcmb_c（2026-10-09 在 M6 Mac mini 以負載測試確認它是整顆晶片的最高點，CPU 或 GPU 滿載都會跟著升；Apple 未公開此感測器），空值 unavailable。有 smc_temperature 的卡片 CPU／GPU 行不顯示溫度，SoC 溫度只在溫度圖畫單一 SoC 線；tcmz_c 不使用。Windows 仍用 cpu_temp_c／gpu_temp_c。SoC 溫度與記憶體壓力的 24h 歷史自 2026-10-11 起由後端寫進試算表，後端重啟後會讀回（之前只留記憶體、重啟歸零）。Demo 提供連續數值及三種系統狀態的假資料；Mac 正式 agent 已接入，由 home-butler 簽署更新器管理。

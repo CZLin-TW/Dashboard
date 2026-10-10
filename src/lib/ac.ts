@@ -81,3 +81,50 @@ export function getAcSegmentsForLocation(
 }
 
 export { MODE_NEUTRAL };
+
+/** home-butler `GET /api/ac/auto-off` 的單台回應。`problems` 起的欄位是後端對 Sheet
+ *  兩個儲存格的解讀，舊版後端沒有；沒有就不顯示設定摘要。 */
+export interface AcAutoOff {
+  hours: number;
+  status: string;
+  scheduled_at: string | null;
+  problems?: string[];
+  hours_text?: string;
+  window_text?: string;
+  /** 正規化的 "HH:MM-HH:MM"；開始與結束相同表示全天。 */
+  window?: string | null;
+  /** 若此刻開機會排的關機時間 "YYYY-MM-DD HH:MM"，與後端建立排程用同一段計算。 */
+  preview_off_at?: string | null;
+}
+
+export interface AcAutoOffResponse {
+  devices: Record<string, AcAutoOff>;
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const localDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+function previewLabel(at: string, now: Date): string {
+  const [date, time = ""] = at.split(" ");
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (date === localDate(now)) return `今天 ${time}`;
+  if (date === localDate(tomorrow)) return `明天 ${time}`;
+  return `${date.slice(5).replace("-", "/")} ${time}`;
+}
+
+/** 排程區那一行「後端實際讀到的自動關機設定」。填錯的儲存格放進 warnings，
+ *  讓使用者不必等真的開機才發現設定沒有生效。 */
+export function autoOffSummary(info: AcAutoOff | undefined, now = new Date()): { text: string; warnings: string[] } | null {
+  if (!info || !Array.isArray(info.problems)) return null;
+  const warnings = info.problems.map((code) => {
+    if (code === "hours_unreadable") return `試算表的「自動關機小時數」填的是「${info.hours_text ?? ""}」，無法辨識（需為 0–168 的整數），目前不會自動關機。`;
+    if (code === "window_unreadable") return `試算表的「自動關機暫緩時段」填的是「${info.window_text ?? ""}」，無法辨識（格式如 22:00-07:00），目前不會暫緩。`;
+    if (code === "window_without_hours") return "已填暫緩時段，但「自動關機小時數」是 0 或空白，所以自動關機沒有啟用。";
+    return "自動關機設定有無法辨識的內容，請檢查試算表。";
+  });
+  if (!info.hours) return { text: "自動關機：未啟用", warnings };
+  const [start, end] = (info.window ?? "").split("-");
+  const wait = !info.window ? "" : start === end ? `，一律等到 ${end}` : `，落在 ${start}–${end} 之間延到 ${end}`;
+  const preview = info.preview_off_at ? `若現在開機，會排在${previewLabel(info.preview_off_at, now)} 關。` : "";
+  return { text: `自動關機：開機後 ${info.hours} 小時${wait}。${preview}`, warnings };
+}

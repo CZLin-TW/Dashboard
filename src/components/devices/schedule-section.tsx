@@ -16,6 +16,7 @@ import {
   deleteSchedule,
 } from "@/lib/schedule";
 import type { DeviceData, DeviceOptions } from "@/lib/types";
+import { autoOffSummary, type AcAutoOff } from "@/lib/ac";
 
 // 裝置卡內嵌的排程區段；所有排程操作都從裝置卡進入。
 // Pending schedules and attention records are separate: failed/unknown commands
@@ -31,9 +32,11 @@ interface Props {
   allDevices: DeviceData[];
   /** CRUD 後呼叫，由父層 refetch /api/schedules。 */
   onSchedulesChange: () => void;
+  /** 後端對這台空調自動關機設定的解讀（唯讀）；非空調或讀不到時不傳。 */
+  autoOff?: AcAutoOff;
 }
 
-export function ScheduleSection({ device, options, schedules, allDevices, onSchedulesChange }: Props) {
+export function ScheduleSection({ device, options, schedules, allDevices, onSchedulesChange, autoOff }: Props) {
   const { currentUser } = useUser();
   const [showAdd, setShowAdd] = useState(false);
   const [editKey, setEditKey] = useState<string | null>(null);
@@ -86,6 +89,7 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
     (a, b) => normalizeTriggerTime(a["觸發時間"] ?? "").localeCompare(normalizeTriggerTime(b["觸發時間"] ?? "")),
   );
 
+  const autoOffInfo = device.type === "空調" ? autoOffSummary(autoOff) : null;
   const attentionCount = sorted.filter(s => ["執行失敗", "待確認"].includes(s["狀態"])).length;
   return (
     <ControlDetails title="排程" keepMounted summary={attentionCount ? `${attentionCount} 筆待確認` : sorted.length ? `${sorted.length} 筆` : "尚未設定"}>
@@ -96,6 +100,15 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
           <Plus className="h-3.5 w-3.5" />新增排程
         </button>}
       </div>
+
+      {autoOffInfo && (
+        <div className="min-w-0 space-y-1">
+          <p className="text-xs leading-relaxed text-mute">{autoOffInfo.text}</p>
+          {autoOffInfo.warnings.map((warning) => (
+            <p key={warning} role="status" className="text-xs leading-relaxed text-warm">{warning}</p>
+          ))}
+        </div>
+      )}
 
       {showAdd && (
         <div className="min-w-0 rounded-[14px] border border-line/70 bg-surface-2 p-3">

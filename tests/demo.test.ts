@@ -81,7 +81,7 @@ test("demo requires server opt-in, rejects production and real credentials", () 
 
 test("cold start has useful charts, identity and all page data contracts", async () => {
   const sim = createSimulator();
-  for (const path of ["auth/me", "dashboard", "devices", "devices/options", "devices/status", "sensors/status", "ac/status", "dehumidifier/history", "computers/status", "dehumidifier/auto-rule", "todos", "food", "schedules", "recurring-todos", "lighting/areas", "lighting/auto/rules", "lighting/auto/sensors", "theater/summary"]) {
+  for (const path of ["auth/me", "dashboard", "devices", "devices/options", "devices/status", "sensors/status", "ac/status", "ac/auto-off", "dehumidifier/history", "computers/status", "dehumidifier/auto-rule", "todos", "food", "schedules", "recurring-todos", "lighting/areas", "lighting/auto/rules", "lighting/auto/sensors", "theater/summary"]) {
     assert.equal((await sim.handle(request(`/api/${path}`))).status, 200, path);
   }
   const data = monitoring(sim.snapshot());
