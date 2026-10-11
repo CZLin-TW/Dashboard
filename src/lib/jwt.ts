@@ -46,15 +46,25 @@ export function assertCanIssueSession(): void {
 export async function verifyToken(
   token: string | undefined,
 ): Promise<SessionUser | null> {
+  return (await verifySession(token))?.user ?? null;
+}
+
+/** 同 verifyToken，另外回簽發時間（秒）；加上簽發時間之前的舊 session 回 null。延長 session 用。 */
+export async function verifySession(
+  token: string | undefined,
+): Promise<{ user: SessionUser; issuedAt: number | null } | null> {
   if (!token) return null;
   if (INSECURE_IN_PROD) return null; // fail-closed：拒絕用 dev-secret 驗證任何 token
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     return {
-      lineUserId: payload.lineUserId as string,
-      name: payload.name as string,
-      picture: payload.picture as string | undefined,
-      role: payload.role === "kid" ? "kid" : "member",
+      user: {
+        lineUserId: payload.lineUserId as string,
+        name: payload.name as string,
+        picture: payload.picture as string | undefined,
+        role: payload.role === "kid" ? "kid" : "member",
+      },
+      issuedAt: typeof payload.iat === "number" ? payload.iat : null,
     };
   } catch {
     return null;

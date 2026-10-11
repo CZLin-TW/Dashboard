@@ -69,7 +69,7 @@ Sheet 讀回的 `7:00` 等未補零時間會在編輯時整理成 `07:00`，不�
 | 照明自動化 | HB 自動夜燈已退役；夜燈在 HA 設定，待辦燈光提醒仍由 HB 決定、經 HA 執行 |
 | PC 監控 | 家中 PC 跑 agent 推指標到後端，Dashboard 顯示當下值（CPU/GPU 用量+溫度）+ 24h 折線圖（CPU/GPU/RAM 用量、CPU/GPU 溫度） |
 | 劇院 agent 監控 | 提供三個自動化開關：KEF 喇叭連動、電視畫面自動關閉、AVR 隨電視開啟；顯示兩程序版本、Apple TV 健康、設備過時提示與兩份 log。依 agent_id 掛在 PC 卡或獨立劇院卡。資料由 HB 經 HA 或既有 PC 中繼到本地 theater-agent；寫入期間鎖定開關、完成後回讀，失敗不反向操作。 |
-| 裝置配對登入 | 登入頁顯示 6 位驗證碼，在 LINE Bot 輸入「登入 <6位數字>」核准後前端輪詢取得 session，全程不離開 PWA 容器；僅限家庭成員使用 |
+| 裝置配對登入 | 登入頁顯示 6 位驗證碼，在 LINE Bot 傳送這六位數字（或「登入 <6位數字>」）核准後前端輪詢取得 session，全程不離開 PWA 容器；僅限家庭成員使用 |
 | PWA 主畫面 | 提供 manifest、standalone display、iOS web app meta 與 app icons，讓手機加入主畫面後更接近獨立 app |
 
 ---
@@ -222,8 +222,8 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | 路徑 | 方法 | 說明 |
 |------|------|------|
 | /api/auth/device-code | POST | 裝置配對登入：proxy 到 home-butler `POST /api/auth/device/create`，回 `user_code`（6 位）+ `device_token` |
-| /api/auth/device-poll | GET | 輪詢配對狀態（query `token`）：proxy 到 home-butler `GET /api/auth/device/status`，回 `approved` 時於此容器直接簽發 JWT Session（7 天效期）並寫入 `dashboard_session` cookie |
-| /api/auth/me | GET | 取得當前登入使用者 |
+| /api/auth/device-poll | GET | 輪詢配對狀態（query `token`）：proxy 到 home-butler `GET /api/auth/device/status`，回 `approved` 時於此容器直接簽發 JWT Session（成員 90 天、有在用就延長；見下方「Session 效期」）並寫入 `dashboard_session` cookie |
+| /api/auth/me | GET | 取得當前登入使用者；成員 session 簽發超過一天時在此向後端確認成員資格並重簽（延長效期），確認已停用則清除 cookie |
 | /api/auth/logout | POST | 登出，清除 Session |
 | /api/auth/login | GET | （已淘汰、dormant）舊 LINE OAuth 授權導向，目前無前端引用 |
 | /api/auth/callback | GET | （已淘汰、dormant）舊 OAuth 回調，目前無前端引用 |
@@ -395,8 +395,15 @@ npm run start
 登入已改用「裝置配對驗證碼」流程，**不再需要設定 LINE Login OAuth 的 Callback URL**。舊的 `/api/auth/login`、`/api/auth/callback` 仍保留但 dormant（已無前端引用）。
 
 - 設一組 `SESSION_JWT_SECRET`（`openssl rand -hex 32`）用來簽 / 驗 session JWT；未設時 fallback 到 `LINE_LOGIN_CHANNEL_SECRET`（見「環境變數」）
-- 配對核准在 home-butler 的 LINE Bot 端進行：使用者在家庭管家 Bot 輸入「登入 <6 位驗證碼>」，由 webhook 的 user_id 決定登入身分（須為「家庭成員」分頁中狀態啟用者）
+- 配對核准在 home-butler 的 LINE Bot 端進行：使用者在家庭管家 Bot 傳送六位驗證碼（只傳數字即可，也接受「登入 <6 位驗證碼>」），由 webhook 的 user_id 決定登入身分（須為「家庭成員」分頁中狀態啟用者）
 - 流程細節見 home-butler README 的「Dashboard 登入（裝置配對）」與 `/api/auth/device/*` 端點說明
+
+### Session 效期
+
+- 成員：90 天，而且有在用就延長。每次載入頁面會打 `/api/auth/me`；session 簽發超過一天時，該路由向 home-butler 的 `GET /api/auth/member` 確認這個 LINE 身分仍是啟用中的家庭成員，是就重簽（期限重新起算）。常用的裝置因此不必重登。
+- 在「家庭成員」分頁把某人改成停用，他的裝置最慢一天內會被登出。後端連不上時不延長也不登出，下次載入再試。
+- 兒童遙控器：1 年，不延長。
+- 仍是無狀態 JWT：除了停用成員，唯一的全面作廢手段是輪替 `SESSION_JWT_SECRET`。
 
 ---
 

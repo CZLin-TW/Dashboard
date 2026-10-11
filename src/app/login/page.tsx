@@ -164,7 +164,9 @@ function LoginContent() {
   }, [router, requestCode, stopPoll]);
 
   const codeDisplay = code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
-  const loginCommand = code ? `${isKid ? "配對兒童" : "登入"} ${codeDisplay}` : "";
+  // 一般登入只要傳六位數字，後端把「整則訊息就是六位數字」當成登入碼（仍相容「登入 123456」）。
+  // 兒童入口保留前綴，讓家長看得出自己核准的是遙控器。
+  const loginCommand = code ? (isKid ? `配對兒童 ${codeDisplay}` : codeDisplay) : "";
 
   const copyLoginCommand = useCallback(async () => {
     if (!loginCommand) return;
@@ -273,7 +275,7 @@ function LoginContent() {
 
             {phase === "code" && (
               <>
-                <p className="text-sm text-mute mb-6">打開 LINE，把下面這行訊息傳給家庭管家：</p>
+                <p className="text-sm text-mute mb-6">打開 LINE，把下面這行傳給家庭管家：</p>
 
                 <div className="mb-6 rounded-[14px] bg-elevated border border-line px-4 py-5">
                   <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-mute mb-2">

@@ -11,7 +11,7 @@ async function butler(method: Method, path: string, body?: unknown, userId?: str
   // X-API-Key required by home-butler /api/*, /notify*, /switchbot/* endpoints.
   // The environment value is captured at module load; redeploy after rotating it.
   const headers: Record<string, string> = { "X-API-Key": HOME_BUTLER_API_KEY };
-  if (/^\/api\/(dashboard|todos|recurring-todos)(?:[/?]|$)/.test(path)) {
+  if (/^\/api\/(dashboard|todos|recurring-todos|auth\/member)(?:[/?]|$)/.test(path)) {
     if (!userId) throw new RequestError("請先登入。", 401);
     // Only server-verified JWT identity is forwarded; client headers/body cannot override it.
     headers["X-Dashboard-User"] = userId;
