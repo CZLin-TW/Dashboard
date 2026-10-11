@@ -37,7 +37,7 @@ test("a session used within a day is returned as is, without asking the backend"
   assert.equal(result.cookie, "");
 });
 
-test("an older session of an active member is reissued for 90 days with the roster name", async () => {
+test("an older session of an active member is reissued for 30 days with the roster name", async () => {
   for (const issuedAgo of [2 * DAY, null]) {   // null: a session signed before issue times existed
     const result = await visit(await token({}, issuedAgo), () => Response.json({ active: true, name: "Alice Chen" }));
     assert.equal(result.response.status, 200);
@@ -47,8 +47,8 @@ test("an older session of an active member is reissued for 90 days with the rost
     const claims = issued(result.cookie);
     assert.equal(claims.lineUserId, "alice-id");
     assert.equal(claims.name, "Alice Chen");
-    assert.ok(Math.abs(claims.iat! - now()) < 5 && Math.abs(claims.exp! - now() - 90 * DAY) < 5);
-    assert.match(result.cookie, /Max-Age=7776000/i);
+    assert.ok(Math.abs(claims.iat! - now()) < 5 && Math.abs(claims.exp! - now() - 30 * DAY) < 5);
+    assert.match(result.cookie, /Max-Age=2592000/i);
     assert.match(result.cookie, /HttpOnly/i);
   }
 });
@@ -75,11 +75,35 @@ test("an unreachable or confused backend neither extends nor revokes", async () 
   }
 });
 
-test("kid remotes, expired and missing sessions are never renewed", async () => {
-  const kid = await visit(await token({ role: "kid", name: "小朋友" }, 30 * DAY, 365 * DAY), () => { throw new Error("must not be called"); });
-  assert.equal(kid.response.status, 200);
-  assert.equal(kid.body.role, "kid");
-  assert.equal(kid.cookie, "");
+test("a remote slides for 14 days while its row is enabled, and is signed out once it is not", async () => {
+  const remote = () => token({ lineUserId: "remote", role: "kid", name: "客廳 平板" }, 3 * DAY, 14 * DAY);
+  const kept = await visit(await remote(), () => Response.json({ active: true, name: "ignored" }));
+  assert.equal(kept.response.status, 200);
+  assert.equal(kept.seen[0].user, null);
+  assert.ok(kept.seen[0].url.endsWith("/api/auth/remote/status?name=" + encodeURIComponent("客廳 平板")));
+  const claims = issued(kept.cookie);
+  assert.deepEqual([claims.role, claims.name, claims.lineUserId], ["kid", "客廳 平板", "remote"]);
+  assert.ok(Math.abs(claims.exp! - now() - 14 * DAY) < 5);
+  assert.match(kept.cookie, /Max-Age=1209600/i);
+  const off = await visit(await remote(), () => Response.json({ active: false }));
+  assert.equal(off.response.status, 401);
+  assert.match(off.cookie, /dashboard_session=;/);
+  const unsure = await visit(await remote(), () => new Response("bad gateway", { status: 502 }));
+  assert.equal(unsure.response.status, 200);
+  assert.equal(unsure.cookie, "");
+  const fresh = await visit(await token({ lineUserId: "remote", role: "kid", name: "客廳 平板" }, 600, 14 * DAY), () => { throw new Error("must not be called"); });
+  assert.equal(fresh.body.role, "kid");
+  assert.equal(fresh.cookie, "");
+});
+
+test("a restricted session from the removed LINE pairing ends without asking the backend", async () => {
+  const legacy = await visit(await token({ lineUserId: "parent-id", role: "kid", name: "小朋友" }, 30 * DAY, 365 * DAY), () => { throw new Error("must not be called"); });
+  assert.equal(legacy.response.status, 401);
+  assert.equal(legacy.seen.length, 0);
+  assert.match(legacy.cookie, /dashboard_session=;/);
+});
+
+test("expired and missing sessions are never renewed", async () => {
   for (const session of [await token({}, 8 * DAY, -60), null, "garbage"]) {
     const result = await visit(session, () => Response.json({ active: true, name: "Alice" }));
     assert.equal(result.response.status, 401);
@@ -88,10 +112,32 @@ test("kid remotes, expired and missing sessions are never renewed", async () => 
   }
 });
 
-test("new sessions carry an issue time; kid sessions keep their one-year life", async () => {
+test("new sessions carry an issue time: members 30 days, remotes 14", async () => {
   const member = decodeJwt(await createSession({ lineUserId: "a", name: "A", role: "member" }));
-  assert.ok(member.iat && member.exp! - member.iat === 90 * DAY);
-  const kid = decodeJwt(await createSession({ lineUserId: "k", name: "小朋友", role: "kid" }));
-  assert.ok(kid.exp! - kid.iat! === 365 * DAY);
+  assert.ok(member.iat && member.exp! - member.iat === 30 * DAY);
+  const kid = decodeJwt(await createSession({ lineUserId: "remote", name: "平板", role: "kid" }));
+  assert.ok(kid.exp! - kid.iat! === 14 * DAY);
   assert.equal((await verifyToken(await token({}, null)))?.lineUserId, "alice-id");
+});
+
+test("pairing signs in members only and refuses any other role from the backend", async () => {
+  const { GET: pollGET } = await import("../src/app/api/auth/device-poll/route");
+  const { POST: codePOST } = await import("../src/app/api/auth/device-code/route");
+  const original = globalThis.fetch;
+  let answer: unknown = {};
+  const bodies: unknown[] = [];
+  globalThis.fetch = async (_input, init) => { bodies.push(init?.body); return Response.json(answer); };
+  try {
+    answer = { user_code: "123456", device_token: "t", expires_in: 300 };
+    assert.equal((await codePOST()).status, 200);
+    assert.equal(bodies[0], "{}");
+    answer = { status: "approved", user: { lineUserId: "alice-id", name: "Alice", role: "member" } };
+    const ok = await pollGET(new Request("http://dashboard.test/api/auth/device-poll?token=t"));
+    assert.equal(ok.status, 200);
+    assert.equal(issued(ok.headers.get("set-cookie")!).role, "member");
+    answer = { status: "approved", user: { lineUserId: "parent-id", name: "Parent", role: "kid" } };
+    const refused = await pollGET(new Request("http://dashboard.test/api/auth/device-poll?token=t"));
+    assert.equal(refused.status, 500);
+    assert.equal(refused.headers.get("set-cookie"), null);
+  } finally { globalThis.fetch = original; }
 });

@@ -17,16 +17,16 @@ export async function GET(request: Request) {
     )) as DeviceStatus;
 
     if (data?.status === "approved" && data.user) {
-      const role = data.user.role === "kid" ? "kid" : "member";
+      // 配對只發成員身分。後端若回了別的角色（不該發生），寧可不登入也不要發錯權限。
+      if (data.user.role && data.user.role !== "member") return NextResponse.json({ status: "error" }, { status: 500 });
       const sessionToken = await createSession({
         lineUserId: data.user.lineUserId,
-        // 兒童 session 顯示「小朋友」而非核准它的家長名字（核准者身分只用來確認是家庭成員）。
-        name: role === "kid" ? "小朋友" : data.user.name,
+        name: data.user.name,
         picture: data.user.picture || undefined,
-        role,
+        role: "member",
       });
-      const res = NextResponse.json({ status: "approved", role });
-      const opts = getSessionCookieOptions(role);
+      const res = NextResponse.json({ status: "approved", role: "member" });
+      const opts = getSessionCookieOptions("member");
       res.cookies.set(opts.name, sessionToken, opts);
       return res;
     }

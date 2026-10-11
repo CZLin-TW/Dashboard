@@ -21,7 +21,7 @@ const POLL_GIVE_UP_AFTER = Math.ceil(300_000 / POLL_INTERVAL_MS);
 type Phase = "checking" | "code" | "expired" | "error";
 // 登入方式：pair = 裝置配對（在 LINE 輸入碼，家庭成員 / 兒童）；remote = 遙控器模式（輸入共用密碼）。
 // 遙控器模式把「模式選擇」放在 UI 上而非網址，所以加到主畫面後的獨立 PWA 容器也能用
-// （網址參數 ?kid=1 在 PWA 啟動時會遺失，這條才是可靠的）。
+// 受限身分只有遙控器這一條路；舊的 ?kid=1 兒童入口（要家長在 LINE 核准）已於 v1.75.0 移除。
 type Mode = "pair" | "remote";
 
 async function writeTextToClipboard(text: string) {
@@ -50,9 +50,6 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const error = searchParams.get("error");
-  // 兒童遙控器入口：?kid=1 → 螢幕顯示「配對兒童 XXX」、要碼時標記 kid、核准後落在裝置頁。
-  // 角色綁在這個入口上，家長照螢幕指令打即可（且後端「最嚴格者勝」，誤打「登入」也鎖不開）。
-  const isKid = searchParams.get("kid") === "1";
 
   const [mode, setMode] = useState<Mode>("pair");
   const [phase, setPhase] = useState<Phase>("checking");
@@ -87,7 +84,7 @@ function LoginContent() {
       const res = await fetch("/api/auth/device-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kid: isKid }),
+        body: "{}",
       });
       if (!res.ok) throw new Error("device-code failed");
       const data = await res.json();
@@ -111,7 +108,7 @@ function LoginContent() {
           const d = await r.json();
           if (d.status === "approved") {
             stopPoll();
-            router.replace(isKid ? "/devices" : "/");
+            router.replace("/");
             return;
           }
           if (d.status === "expired" || d.status === "not_found" || d.status === "consumed") {
@@ -142,7 +139,7 @@ function LoginContent() {
       setErrMsg(DEFAULT_ERR);
       setPhase("error");
     }
-  }, [router, stopPoll, isKid]);
+  }, [router, stopPoll]);
 
   useEffect(() => {
     let cancelled = false;
@@ -164,9 +161,8 @@ function LoginContent() {
   }, [router, requestCode, stopPoll]);
 
   const codeDisplay = code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
-  // 一般登入只要傳六位數字，後端把「整則訊息就是六位數字」當成登入碼（仍相容「登入 123456」）。
-  // 兒童入口保留前綴，讓家長看得出自己核准的是遙控器。
-  const loginCommand = code ? (isKid ? `配對兒童 ${codeDisplay}` : codeDisplay) : "";
+  // 只要傳六位數字：後端把「整則訊息就是六位數字」當成登入碼（仍相容「登入 123456」）。
+  const loginCommand = code ? codeDisplay : "";
 
   const copyLoginCommand = useCallback(async () => {
     if (!loginCommand) return;

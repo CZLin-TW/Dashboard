@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { butlerPost } from "@/lib/butler";
-import { createSession, getSessionCookieOptions } from "@/lib/auth";
+import { createSession, getSessionCookieOptions, REMOTE_USER_ID } from "@/lib/auth";
 
 // 遙控器模式：用共用密碼換取受限的 kid session（不需 LINE / 不需家長核准）。
 // 在 /api/auth/* 之下 → 已在 proxy.ts 的 PUBLIC_PATHS（登入前可用）。
@@ -27,12 +27,12 @@ export async function POST(request: Request) {
 
     if (data?.ok && data.user) {
       const sessionToken = await createSession({
-        lineUserId: "remote",
+        lineUserId: REMOTE_USER_ID,
         name: data.user.name || "遙控器",
         role: "kid",
       });
       const res = NextResponse.json({ ok: true });
-      const opts = getSessionCookieOptions("kid"); // kid：長效 1 年
+      const opts = getSessionCookieOptions("kid"); // 遙控器：14 天，有在用就延長
       res.cookies.set(opts.name, sessionToken, opts);
       return res;
     }

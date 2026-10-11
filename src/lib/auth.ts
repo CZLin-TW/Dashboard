@@ -7,15 +7,17 @@ import { JWT_SECRET, verifyToken, assertCanIssueSession, type SessionUser } from
 
 const COOKIE_NAME = "dashboard_session";
 
-// member：90 天，而且有在用就延長（/api/auth/me 每天最多重簽一次，見該路由）。常用的裝置
-// 因此不必重登；放著 90 天沒開的才會過期。重簽前會向後端確認仍是啟用中的家庭成員，
-// 所以在試算表停用某位成員後，他的裝置最慢一天內失效——這是成員 session 唯一的遠端作廢途徑
-// （另一個是輪替 SESSION_JWT_SECRET，全家重登）。
-// 兒童遙控器是固定 kiosk 裝置：1 年、不延長，也沒有對應的成員可以查。
-const MEMBER_MAX_AGE = 60 * 60 * 24 * 90; // 90 天
-const KID_MAX_AGE = 60 * 60 * 24 * 365; // 1 年
-/** member session 簽發超過這麼久就重簽一次（同時重新確認成員資格）。 */
+// 兩種身分都是滑動效期：有在用就延長（/api/auth/me 每天最多重簽一次，見該路由），
+// 放著超過期限沒開的才要重登。重簽前向後端確認資格，所以在試算表停用之後最慢一天內失效；
+// 另一個作廢途徑是輪替 SESSION_JWT_SECRET（全家重登）。
+// - member（家庭成員）：30 天；資格＝「家庭成員」分頁中啟用。
+// - kid（遙控器，受限身分；role 的值沿用舊名）：14 天；資格＝「遙控器」分頁那一列仍啟用。
+const MEMBER_MAX_AGE = 60 * 60 * 24 * 30; // 30 天
+const KID_MAX_AGE = 60 * 60 * 24 * 14; // 14 天
+/** session 簽發超過這麼久就重簽一次（同時重新確認資格）。 */
 export const SESSION_RENEW_AFTER = 60 * 60 * 24; // 1 天
+/** 遙控器 session 的 lineUserId；它不是任何成員。 */
+export const REMOTE_USER_ID = "remote";
 
 function maxAgeFor(role: SessionUser["role"]): number {
   return role === "kid" ? KID_MAX_AGE : MEMBER_MAX_AGE;
@@ -46,6 +48,6 @@ export function getSessionCookieOptions(role?: SessionUser["role"]) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax" as const,
     path: "/",
-    maxAge: maxAgeFor(role), // kid: 1 年；member: 90 天
+    maxAge: maxAgeFor(role), // kid（遙控器）: 14 天；member: 30 天
   };
 }

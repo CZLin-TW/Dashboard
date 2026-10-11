@@ -5,7 +5,7 @@ import { isDemoMode } from "@/lib/demo/config";
 
 const PUBLIC_PATHS = ["/login", "/api/auth", "/api/debug", "/api/version", "/manifest.webmanifest", "/icons"];
 
-// 兒童遙控器（role==="kid"）只准用裝置頁 + 它實際 fetch 的這些 API；其餘一律擋。
+// 遙控器（role==="kid"，受限身分）只准用裝置頁 + 它實際 fetch 的這些 API；其餘一律擋。
 // 預設拒絕（allowlist），不是黑名單——新功能不會無意間對兒童開放。
 // ⚠️ 維護點：這份清單 = /devices 子樹真正呼叫的端點集合。裝置頁日後新增資料來源／
 // 控制端點時，要同步加進來，否則兒童頁那個區塊會壞掉（API 被 403）。
@@ -66,7 +66,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=unauthorized", request.url));
   }
 
-  // 兒童遙控器：server 端強制只能用裝置頁 + 其所需 API。這層是真正的權限閘門，
+  // 遙控器：server 端強制只能用裝置頁 + 其所需 API。這層是真正的權限閘門，
   // 前端藏導覽列只是化妝——Dashboard 是公開 URL，光藏 UI 擋不住直接打 API。
   if (user.role === "kid" && !kidPathAllowed(pathname)) {
     if (pathname.startsWith("/api/")) {

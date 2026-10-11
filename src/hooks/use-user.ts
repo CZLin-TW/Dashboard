@@ -75,10 +75,26 @@ function fetchSession(): Promise<void> {
   return inflight;
 }
 
+// 開著不重新整理的頁面（例如當遙控器的平板）不會再載入一次，session 就不會被延長、
+// 期限一到會在使用中被登出。所以定期再問一次 /api/auth/me：延長由那支路由決定，
+// 這裡只在它明確回 401 時當成登出；網路錯誤或其他狀態一律不動畫面上的身分。
+const KEEP_ALIVE_MS = 6 * 60 * 60 * 1000;
+let lastKeepAlive = 0;
+function keepSessionAlive(): void {
+  if (!state.currentUser || Date.now() - lastKeepAlive < KEEP_ALIVE_MS) return;
+  lastKeepAlive = Date.now();
+  fetch("/api/auth/me")
+    .then((res) => { if (res.status === 401) window.dispatchEvent(new Event("session:expired")); })
+    .catch(() => { /* 下次再試 */ });
+}
+
 let listeningForLogout = false;
 function subscribe(onStoreChange: () => void): () => void {
   if (!listeningForLogout && typeof window !== "undefined") {
     listeningForLogout = true;
+    lastKeepAlive = Date.now();   // 載入時那次 fetchSession 已經算一次
+    window.setInterval(keepSessionAlive, 30 * 60 * 1000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) keepSessionAlive(); });
     window.addEventListener("session:expired", () => {
       sessionGeneration++;
       state = { currentUser: null, isLoaded: true };

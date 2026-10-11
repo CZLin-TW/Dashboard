@@ -55,7 +55,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // 兒童遙控器：藏掉所有導覽（去其他頁的入口）。純化妝——真正的閘門在 proxy.ts，
+  // 遙控器（role kid）：藏掉所有導覽（去其他頁的入口）。純化妝——真正的閘門在 proxy.ts，
   // 即使這裡誤渲染，middleware 仍會把兒童擋在裝置頁外。
   const session = await getSession();
   const isKid = session?.role === "kid";

@@ -222,8 +222,8 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | 路徑 | 方法 | 說明 |
 |------|------|------|
 | /api/auth/device-code | POST | 裝置配對登入：proxy 到 home-butler `POST /api/auth/device/create`，回 `user_code`（6 位）+ `device_token` |
-| /api/auth/device-poll | GET | 輪詢配對狀態（query `token`）：proxy 到 home-butler `GET /api/auth/device/status`，回 `approved` 時於此容器直接簽發 JWT Session（成員 90 天、有在用就延長；見下方「Session 效期」）並寫入 `dashboard_session` cookie |
-| /api/auth/me | GET | 取得當前登入使用者；成員 session 簽發超過一天時在此向後端確認成員資格並重簽（延長效期），確認已停用則清除 cookie |
+| /api/auth/device-poll | GET | 輪詢配對狀態（query `token`）：proxy 到 home-butler `GET /api/auth/device/status`，回 `approved` 時於此容器直接簽發成員的 JWT Session（30 天、有在用就延長；見下方「Session 效期」）並寫入 `dashboard_session` cookie |
+| /api/auth/me | GET | 取得當前登入使用者；session 簽發超過一天時在此向後端確認資格並重簽（延長效期），確認已停用則清除 cookie |
 | /api/auth/logout | POST | 登出，清除 Session |
 | /api/auth/login | GET | （已淘汰、dormant）舊 LINE OAuth 授權導向，目前無前端引用 |
 | /api/auth/callback | GET | （已淘汰、dormant）舊 OAuth 回調，目前無前端引用 |
@@ -400,10 +400,13 @@ npm run start
 
 ### Session 效期
 
-- 成員：90 天，而且有在用就延長。每次載入頁面會打 `/api/auth/me`；session 簽發超過一天時，該路由向 home-butler 的 `GET /api/auth/member` 確認這個 LINE 身分仍是啟用中的家庭成員，是就重簽（期限重新起算）。常用的裝置因此不必重登。
-- 在「家庭成員」分頁把某人改成停用，他的裝置最慢一天內會被登出。後端連不上時不延長也不登出，下次載入再試。
-- 兒童遙控器：1 年，不延長。
-- 仍是無狀態 JWT：除了停用成員，唯一的全面作廢手段是輪替 `SESSION_JWT_SECRET`。
+兩種身分都是「有在用就延長」。載入頁面時、以及開著的頁面每 6 小時，會打 `/api/auth/me`；session 簽發超過一天時，該路由先向 home-butler 確認資格，通過就重簽（期限重新起算）。常用的裝置因此不必重登。
+
+- 成員：30 天。資格是「家庭成員」分頁中啟用（`GET /api/auth/member`）；改成停用後最慢一天內被登出。
+- 遙控器（受限身分，只能用裝置頁）：14 天。只能在登入頁用「遙控器」分頁的密碼登入；資格是那個名稱的列仍啟用（`GET /api/auth/remote/status`），取消啟用或改名後最慢一天內被登出。只改密碼不會登出已登入的裝置。
+- 後端連不上時不延長也不登出，下次再試。
+- 原本經 LINE「配對兒童」取得受限身分的入口已移除。
+- 仍是無狀態 JWT：除了上述停用，唯一的全面作廢手段是輪替 `SESSION_JWT_SECRET`。
 
 ---
 
