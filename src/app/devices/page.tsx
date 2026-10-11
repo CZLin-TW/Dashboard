@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { LayoutGrid, Activity, Cpu, Clapperboard, RefreshCw } from "lucide-react";
+import { LayoutGrid, Activity, Cpu, Clapperboard, RefreshCw, Zap } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
@@ -22,6 +22,8 @@ import {
 import { DeviceController } from "@/components/ui/device-controller";
 import { ComputerCard } from "@/components/devices/computer-card";
 import { TheaterSection } from "@/components/devices/theater-section";
+import { AutomationCard } from "@/components/devices/automation-card";
+import type { HaAutomationLog } from "@/lib/home-assistant";
 import { Card } from "@/components/ui/card";
 import { HomeAssistantPanel } from "@/components/devices/home-assistant-panel";
 import { SensorChart } from "@/components/devices/lazy-charts";
@@ -170,6 +172,10 @@ export default function DevicesPage() {
   } = useCachedFetch<Schedule[]>("/api/schedules", []);
   // Pick up background-created or cancelled schedules without reloading the page.
   useAutoRefresh(refetchSchedules, 15_000, 0);
+  // HA 的自動化清單與最近執行記錄（唯讀），給「自動化」區塊的 Home Assistant 卡。
+  const { data: automations, loading: automationsLoading, error: automationsError, refetch: refetchAutomations } =
+    useCachedFetch<HaAutomationLog | null>("/api/home-assistant/automations", null);
+  useAutoRefresh(refetchAutomations, 30_000, 0);
   // 後端對 Sheet 自動關機設定的解讀；「若現在開機」的預覽隨時間變，所以定時重讀。
   const { data: acAutoOff, refetch: refetchAcAutoOff } = useCachedFetch<AcAutoOffResponse>("/api/ac/auto-off", { devices: {} });
   useAutoRefresh(refetchAcAutoOff, 60_000, 0);
@@ -389,17 +395,21 @@ export default function DevicesPage() {
         )}
       </section>
 
-      {/* ── 劇院 ──
+      {/* ── 自動化：在背景依規則自己動作的東西（HA 的自動化、劇院連動）都在這裡 ──
+          HA 卡一直顯示。劇院卡的規則不變：
           有 summary 且 agent_id 對不上任何一台 PC（走 HA 中繼，或 PC agent 已移除）→ 獨立成卡。
           完全讀不到又沒有快取 → 仍然出現這張卡，只是內容換成錯誤訊息：靜靜不渲染會讓
           「中繼壞掉」跟「這個家沒有劇院」長得一模一樣，那正是 v1.58.1 查了很久的症狀。 */}
-      {(theater ? !computers.some((c) => c.hostname === theater.agent_id) : theaterOffline) && (
-        <section className="space-y-3">
-          <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
-            <Clapperboard className="h-4 w-4" strokeWidth={2} />
-            劇院
-          </h1>
-          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="space-y-3">
+        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
+          <Zap className="h-4 w-4" strokeWidth={2} />
+          自動化
+        </h1>
+        <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Card>
+            <AutomationCard data={automations} failed={!!automationsError} refreshing={automationsLoading} onRefresh={refetchAutomations} />
+          </Card>
+          {(theater ? !computers.some((c) => c.hostname === theater.agent_id) : theaterOffline) && (
             <Card>
               {theater ? (
                 <TheaterSection
@@ -437,9 +447,9 @@ export default function DevicesPage() {
                 </div>
               )}
             </Card>
-          </div>
-        </section>
-      )}
+          )}
+        </div>
+      </section>
 
       {/* ── 電腦 ── */}
       <section className="space-y-3">

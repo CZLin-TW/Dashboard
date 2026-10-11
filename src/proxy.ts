@@ -24,6 +24,7 @@ const KID_ALLOWED_APIS = [
   "/api/computers/status",     // 電腦監控
   "/api/theater/summary",      // 劇院狀態
   "/api/theater/flags",        // 劇院開關
+  "/api/home-assistant/automations", // 「自動化」區塊的 HA 卡（唯讀記錄）
 ];
 
 function kidPathAllowed(pathname: string): boolean {

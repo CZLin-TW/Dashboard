@@ -145,6 +145,18 @@ Vercel 推 `main` 就建置並部署，**不會等 GitHub 的 CI**。所以 `ver
 - 待辦修改／完成傳後端「待辦ID」，同名事項不能靠畫面 index 選取。新增 schema 請同步 demo fixtures／simulator。部署順序先 home-butler 再 Dashboard；回復時先退 Dashboard。
 - `npm run test:demo` 現在執行 tests 目錄所有測試，含 query store 並行、失敗、登出隔離及真實 route 的 JWT 邊界測試（後端呼叫為 fake）。
 
+# 「自動化」區塊（v1.76.0）
+
+裝置頁原本的「劇院」區塊改名為「自動化」：在背景依規則自己動作的東西都放這裡，目前是 Home Assistant 卡與劇院 Agent 卡。
+用意是家人看到某個東西自己動了，只有一個地方要找（使用者 2026-10-11 的決定；區塊名稱用「自動化」而不是「Agent」，因為後者是開發用語）。
+
+- **Home Assistant 卡**（`automation-card.tsx`）一直顯示，資料來自 `/api/home-assistant/automations`：最近的執行記錄與全部規則的上次執行時間。
+  空清單一定要說明原因（後端未設定／HA 未勾選分享／HA 離線／HA 重啟後還沒執行過），不能讓「沒接上」看起來像「今天沒事發生」。
+- **純顯示。** 那支路由只有 GET，測試會檢查它沒有匯出其他方法。之後若要加「暫停／恢復某條規則」的開關，位置預留在規則清單每一列右側；
+  那是開關不是編輯，但仍要走後端的白名單指令，不是讓 Dashboard 直接碰 HA。
+- 遙控器看得到這張卡（`proxy.ts` 白名單有這支 API）；`/api/home-assistant/observations` 仍然只給成員。
+- 劇院卡的顯示規則沒有變，只是從自己的區塊搬進這個區塊（見下一節）。
+
 # 劇院整合
 
 - 劇院 summary 已使用共用 query store；保留上次資料、顯示過時／離線，不再另建版本專用快取。開關写入期間鎖定，完成後替換讀取以免舊輪詢蓋回設定；不以反向值假裝回復。

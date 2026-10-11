@@ -1,5 +1,5 @@
 import { encodeLightAreaIds } from "../todo-light-areas";
-import { createDemoState, dateAt, monitoring, haObservations, OPTIONS, weather, type DemoState, type Row } from "./fixtures";
+import { createDemoState, dateAt, monitoring, haObservations, haAutomations, OPTIONS, weather, type DemoState, type Row } from "./fixtures";
 
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { "Cache-Control": "no-store", "X-Dashboard-Demo": "1" } });
 const error = (message: string, status = 400) => json({ error: message }, status);
@@ -42,6 +42,7 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       const history = () => monitoring(state);
       switch (path) {
         case "/api/home-assistant/observations": return json(haObservations(state.scenario));
+        case "/api/home-assistant/automations": return json(haAutomations(state.scenario));
         case "/api/dashboard": return json(value("include_weather") === "false"
           ? { todos: visibleTodos, food: state.food }
           : { weatherToday: weather(), weatherTomorrow: weather(), todos: visibleTodos, food: state.food });

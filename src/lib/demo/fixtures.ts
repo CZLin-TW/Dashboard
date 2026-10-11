@@ -6,10 +6,29 @@ import type { AcDevice } from "../ac";
 import type { DehumDevice } from "../dehumidifier";
 import type { ComputerPC } from "../computer";
 import type { TheaterSummary } from "../theater";
-import type { HaSnapshot } from "../home-assistant";
+import type { HaAutomationLog, HaSnapshot } from "../home-assistant";
 
 export type Scenario = "normal" | "empty" | "offline" | "error";
 export type Row = Record<string, unknown>;
+
+export function haAutomations(scenario: Scenario, now = Date.now()): HaAutomationLog {
+  const online = scenario !== "offline";
+  const at = (minutesAgo: number) => Math.round(now / 1000) - minutesAgo * 60;
+  if (scenario === "empty") return { configured: true, online, shared: false, received_at: now / 1000, rules: [], runs: [] };
+  const rules = [
+    { entity_id: "automation.demo_light_on", name: "有人就開燈", enabled: true, last_triggered: at(12) },
+    { entity_id: "automation.demo_light_off", name: "沒人就關燈", enabled: true, last_triggered: at(95) },
+    { entity_id: "automation.demo_ac_off", name: "沒人就關冷氣", enabled: true, last_triggered: at(26 * 60) },
+    { entity_id: "automation.demo_alarm", name: "燈光鬧鐘", enabled: false, last_triggered: null },
+  ];
+  return { configured: true, online, shared: true, received_at: now / 1000 - (online ? 0 : 180),
+    rules: rules.map(rule => ({ ...rule, enabled: online ? rule.enabled : null })),
+    runs: [
+      { entity_id: "automation.demo_ac_off", name: "沒人就關冷氣", at: at(26 * 60), source: "state of binary_sensor.fp2_sofa" },
+      { entity_id: "automation.demo_light_off", name: "沒人就關燈", at: at(95), source: "state of binary_sensor.fp2_sofa" },
+      { entity_id: "automation.demo_light_on", name: "有人就開燈", at: at(12), source: "state of binary_sensor.fp2_sofa" },
+    ] };
+}
 
 export function haObservations(scenario: Scenario, now = Date.now()): HaSnapshot {
   const online = scenario !== "offline";
