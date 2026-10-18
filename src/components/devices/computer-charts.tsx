@@ -122,7 +122,7 @@ export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = 
       ) : <div className="space-y-1.5">
         <ChartTitle label={hasPower ? "溫度／整機功耗" : "溫度"} unit={hasPower ? "°C／W" : "°C"} />
         <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-          <LineChart data={chartHistory} margin={{ top: 6, right: hasPower ? -16 : 8, left: -16, bottom: 0 }}>
+          <LineChart data={chartHistory} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
             <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="t"
@@ -145,6 +145,9 @@ export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = 
               <YAxis
                 yAxisId="power"
                 orientation="right"
+                // 刻度畫在圖內側、不佔寬度，繪圖區才和上方使用率圖一樣寬、左右對齊。
+                mirror
+                width={1}
                 domain={[0, powerMax]}
                 ticks={powerTicks}
                 interval={0}
