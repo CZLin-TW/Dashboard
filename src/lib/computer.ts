@@ -102,8 +102,7 @@ export const PC_COLORS = {
   gpu: "var(--color-chart-temperature)",
   ram: "var(--color-chart-memory)",
   soc: "var(--color-chart-temperature)",
-  // 整機功耗只出現在 Mac 的溫度圖（那張圖只有 SoC 一條線），用右側 Y 軸。取深海藍：
-  // 與 SoC 陶土的 OKLab 色差 19.7；赭黃（CO2）只有 7.7，就是先前判定太像的那一對。
+  // 整機功耗是 Mac 才有的獨立一張圖（收在「更多圖表」），用深海藍。
   power: "var(--color-chart-humidity)",
 } as const;
 
