@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatComputerMetric, toChartHistory, validSocTemperature, memoryPressureDisplay, validMemoryPressure, memoryPressureColor } from "../src/lib/computer";
+import { formatComputerMetric, toChartHistory, validSocTemperature, memoryPressureDisplay, validMemoryPressure, memoryPressureColor, validSystemPower, powerAxisMax } from "../src/lib/computer";
 
 test("computer metrics distinguish unavailable from real zero and preserve history gaps", () => {
   for (const value of [null, undefined, NaN, Infinity]) {
@@ -47,4 +47,15 @@ test("continuous pressure is independent of severity and RAM, preserving unknown
   assert.deepEqual(points.map(p => p.pressure), [null, 37, null, 81, 0, null]);
   assert.equal(points[1].ram, 99);
   assert.equal(points[4].pressureColor, "#94a3b8");
+});
+
+test("whole-machine power charts on its own axis; invalid values and gaps are unavailable", () => {
+  for (const bad of [0, -1, 501, NaN, Infinity, true, "3", null, undefined]) assert.equal(validSystemPower(bad), null);
+  const point = { t: 1000, cpu_pct: 0, ram_pct: 50, gpu_pct: null, cpu_temp_c: null, gpu_temp_c: null, system_power_w: 3.24 };
+  const points = toChartHistory([point, { ...point, t: 1200 }, { ...point, t: 1260, system_power_w: null }, { ...point, t: 1320, system_power_w: undefined }]);
+  assert.deepEqual(points.map(p => p.power), [3.24, null, 3.24, null, null]);
+  assert.equal(powerAxisMax([]), 10);
+  assert.equal(powerAxisMax([{ power: 3.2 }, { power: null }]), 10);
+  assert.equal(powerAxisMax([{ power: 12.1 }]), 15);
+  assert.equal(powerAxisMax([{ power: 40 }]), 40);
 });

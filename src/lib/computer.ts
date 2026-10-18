@@ -11,6 +11,8 @@ export interface ComputerHistoryRaw {
   /** Mac：tcmb_c 是整顆 SoC 的熱點溫度（CPU／GPU 同一晶片，不分開）；tcmz_c 不使用。 */
   smc_temperature?: { tcmb_c: number | null; tcmz_c: number | null } | null;
   memory_pressure?: { level: "normal" | "warning" | "critical" | null; pct?: number | null } | null;
+  /** Mac：整機功耗（SMC PSTR，瓦），每分鐘取約一秒的平均。 */
+  system_power_w?: number | null;
 }
 
 export interface ComputerCurrentRaw extends ComputerHistoryRaw {
@@ -42,6 +44,7 @@ export interface ComputerChartPoint {
   cpuTemp: number | null;
   gpuTemp: number | null;
   socTemp: number | null;
+  power: number | null;
   pressure: number | null;
   pressureColor: string;
 }
@@ -59,7 +62,7 @@ export function toChartHistory(raw: ComputerHistoryRaw[]): ComputerChartPoint[] 
     if (prevT !== null && tMs - prevT > PC_GAP_THRESHOLD_MS) {
       out.push({
         t: (prevT + tMs) / 2,
-        cpu: null, ram: null, gpu: null, cpuTemp: null, gpuTemp: null, socTemp: null, pressure: null, pressureColor: "#94a3b8",
+        cpu: null, ram: null, gpu: null, cpuTemp: null, gpuTemp: null, socTemp: null, power: null, pressure: null, pressureColor: "#94a3b8",
       });
     }
     out.push({
@@ -70,6 +73,7 @@ export function toChartHistory(raw: ComputerHistoryRaw[]): ComputerChartPoint[] 
       cpuTemp: p.cpu_temp_c,
       gpuTemp: p.gpu_temp_c,
       socTemp: validSocTemperature(p.smc_temperature?.tcmb_c),
+      power: validSystemPower(p.system_power_w),
       pressure: validMemoryPressure(p.memory_pressure?.pct),
       pressureColor: memoryPressureColor(p.memory_pressure?.level),
     });
@@ -98,6 +102,9 @@ export const PC_COLORS = {
   gpu: "var(--color-chart-temperature)",
   ram: "var(--color-chart-memory)",
   soc: "var(--color-chart-temperature)",
+  // 整機功耗只出現在 Mac 的溫度圖（那張圖只有 SoC 一條線），用右側 Y 軸。取深海藍：
+  // 與 SoC 陶土的 OKLab 色差 19.7；赭黃（CO2）只有 7.7，就是先前判定太像的那一對。
+  power: "var(--color-chart-humidity)",
 } as const;
 
 /** Missing or invalid metrics are unavailable, never zero or a unit-bearing placeholder. */
@@ -107,6 +114,16 @@ export function formatComputerMetric(value: number | null | undefined, unit: "%"
 
 export function validSocTemperature(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 150 ? value : null;
+}
+
+export function validSystemPower(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 500 ? value : null;
+}
+
+/** 功耗軸的上限：至少 10 W，往上取到 5 W 的倍數，讓閒置時的幾瓦不會貼在底部也不會被放大成雜訊。 */
+export function powerAxisMax(points: { power: number | null }[]): number {
+  const peak = Math.max(0, ...points.map((p) => p.power ?? 0));
+  return Math.max(10, Math.ceil(peak / 5) * 5);
 }
 
 /** Severity is independent of the continuous numeric reading. */

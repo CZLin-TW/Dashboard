@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { PC_COLORS, type ComputerChartPoint } from "@/lib/computer";
+import { PC_COLORS, powerAxisMax, type ComputerChartPoint } from "@/lib/computer";
 
 // ComputerCard 的兩張 recharts 圖，從卡片本體拆出來單獨成一個非同步 chunk
 // （見 lazy-charts.tsx 的說明）。卡片的 IP / 在線燈 / CPU-GPU 數值 / 劇院區塊
@@ -64,6 +64,10 @@ export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = 
   const tempStart = Math.ceil(tempDomain[0] / tempStep) * tempStep;
   const tempYTicks: number[] = [];
   for (let v = tempStart; v <= tempDomain[1] + 1e-9; v += tempStep) tempYTicks.push(v);
+  // Mac：整機功耗畫在溫度圖上，用右側 Y 軸（瓦）；沒有功耗資料的電腦照舊只有溫度。
+  const hasPower = chartHistory.some((p) => p.power != null);
+  const powerMax = powerAxisMax(chartHistory);
+  const powerTicks = [0, powerMax / 2, powerMax];
 
   return (
     <>
@@ -113,12 +117,12 @@ export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = 
       </div>
 
       {/* ── 圖 2：溫度 °C ── */}
-      {!chartHistory.some((point) => point.cpuTemp != null || point.gpuTemp != null || point.socTemp != null) ? (
+      {!chartHistory.some((point) => point.cpuTemp != null || point.gpuTemp != null || point.socTemp != null || point.power != null) ? (
         <p className="px-1 text-sm text-mute">溫度 unavailable · 無可用感測資料</p>
       ) : <div className="space-y-1.5">
-        <ChartTitle label="溫度" unit="°C" />
+        <ChartTitle label={hasPower ? "溫度／整機功耗" : "溫度"} unit={hasPower ? "°C／W" : "°C"} />
         <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-          <LineChart data={chartHistory} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
+          <LineChart data={chartHistory} margin={{ top: 6, right: hasPower ? -16 : 8, left: -16, bottom: 0 }}>
             <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="t"
@@ -130,12 +134,24 @@ export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = 
               stroke="var(--color-line)"
             />
             <YAxis
+              yAxisId="temp"
               domain={tempDomain}
               ticks={tempYTicks}
               interval={0}
               tick={{ fontSize: 10, fill: "var(--color-mute)" }}
               stroke="var(--color-line)"
             />
+            {hasPower && (
+              <YAxis
+                yAxisId="power"
+                orientation="right"
+                domain={[0, powerMax]}
+                ticks={powerTicks}
+                interval={0}
+                tick={{ fontSize: 10, fill: "var(--color-mute)" }}
+                stroke="var(--color-line)"
+              />
+            )}
             <Tooltip
               contentStyle={{
                 background: "var(--color-surface)",
@@ -144,7 +160,7 @@ export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = 
                 fontSize: 12,
               }}
               labelFormatter={(t) => formatHHMM(Number(t))}
-              formatter={(v) => `${v}°C`}
+              formatter={(v, name) => (name === "功耗" ? `${Number(v).toFixed(1)} W` : `${v}°C`)}
             />
             <Legend
               verticalAlign="top"
@@ -152,9 +168,10 @@ export function ComputerCharts({ chartHistory, tempDomain, showMemoryPressure = 
               iconType="plainline"
               wrapperStyle={{ fontSize: 11, paddingLeft: 8 }}
             />
-            {chartHistory.some(p => p.socTemp != null) && <Line type="monotone" dataKey="socTemp" name="SoC" stroke={PC_COLORS.soc} strokeWidth={2} dot={false} connectNulls={false} />}
-            {chartHistory.some(p => p.cpuTemp != null) && <Line type="monotone" dataKey="cpuTemp" name="CPU" stroke={PC_COLORS.cpu} strokeWidth={2} dot={false} />}
-            {chartHistory.some(p => p.gpuTemp != null) && <Line type="monotone" dataKey="gpuTemp" name="GPU" stroke={PC_COLORS.gpu} strokeWidth={2} dot={false} />}
+            {chartHistory.some(p => p.socTemp != null) && <Line yAxisId="temp" type="monotone" dataKey="socTemp" name="SoC" stroke={PC_COLORS.soc} strokeWidth={2} dot={false} connectNulls={false} />}
+            {chartHistory.some(p => p.cpuTemp != null) && <Line yAxisId="temp" type="monotone" dataKey="cpuTemp" name="CPU" stroke={PC_COLORS.cpu} strokeWidth={2} dot={false} />}
+            {chartHistory.some(p => p.gpuTemp != null) && <Line yAxisId="temp" type="monotone" dataKey="gpuTemp" name="GPU" stroke={PC_COLORS.gpu} strokeWidth={2} dot={false} />}
+            {hasPower && <Line yAxisId="power" type="monotone" dataKey="power" name="功耗" stroke={PC_COLORS.power} strokeWidth={2} dot={false} connectNulls={false} />}
           </LineChart>
         </ResponsiveContainer>
       </div>}
