@@ -1,213 +1,114 @@
-import { SignJWT } from "jose";
-import { JWT_SECRET } from "../src/lib/jwt";
-import { GET as todosGET, PATCH as todosPATCH } from "../src/app/api/todos/route";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { NextRequest } from "next/server";
+import { SignJWT, jwtVerify } from "jose";
+import { JWT_SECRET } from "../src/lib/jwt";
 import { isDemoMode } from "../src/lib/demo/config";
-import { createDemoState, monitoring } from "../src/lib/demo/fixtures";
+import { createDemoState } from "../src/lib/demo/fixtures";
 import { createSimulator, demoFetch } from "../src/lib/demo/simulator";
 import { proxy } from "../src/proxy";
-import { butlerGet, butlerPost } from "../src/lib/butler";
-import { GET as dashboardGET } from "../src/app/api/dashboard/route";
-import { GET as sensorsGET } from "../src/app/api/sensors/status/route";
-import { acPendingFromDevice } from "../src/lib/types";
-import { haIsFresh, observationText, type HaSnapshot } from "../src/lib/home-assistant";
-import { GET as haGET } from "../src/app/api/home-assistant/observations/route";
+import { hb } from "../src/lib/hb";
+import { findRule } from "../src/lib/hb-rules";
+import { haIsFresh, observationText } from "../src/lib/home-assistant";
+import { devicesOf, presenceOf, sensorHistory, acSegments } from "../src/lib/devices";
+import type { DevicesPage, History, TodoPage } from "../src/lib/api";
 
-test("lighting exposes the HA provider and keeps Hub level separate from lux", async () => {
-  const simulator = createSimulator();
-  const areas = await simulator.handle(new Request("http://demo/api/lighting/areas"));
-  assert.equal((await areas.json()).agent_id, "home_assistant");
-  const level = await simulator.handle(new Request("http://demo/api/lighting/auto/sensors/demo/light-level"));
-  assert.deepEqual(await level.json(), { light_level: 4, source: "home_assistant", age_seconds: 5 });
-  const normal = monitoring(createDemoState()).sensors["客廳感測器"];
-  const offline = monitoring(createDemoState("offline")).sensors["客廳感測器"];
-  assert.equal(normal.source, "home_assistant");
-  assert.equal(offline.current.temp, null);
-  assert.equal(offline.online, false);
-  assert.ok(offline.history.length > 0);
-});
-
-test("HA ACs use integer targets and become unavailable offline", async () => {
-  const simulator = createSimulator();
-  const request = (params: object) => new Request("http://demo/api/devices/control", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ deviceName: "HA 測試空調", action: "setAll", params }),
-  });
-  const result = await simulator.handle(request({ power: true, temperature: 26.5, mode: "冷氣", fanSpeed: "自動" }));
-  assert.equal(result.status, 200);
-  assert.equal((await result.json()).state.lastTemperature, 27);
-  const offline = createDemoState("offline").devices.find(d => d.name === "HA 測試空調")!;
-  assert.equal(offline.available, false);
-  assert.equal(offline.lastPower, "");
-  assert.equal(acPendingFromDevice({ ...offline, lastTemperature: 26.5 }).temperature, 27);
-});
-
-test("HA observations preserve false, unknown and freshness without clock skew", async () => {
-  const live = await (await createSimulator().handle(new Request("http://demo/api/home-assistant/observations"))).json() as HaSnapshot;
-  assert.equal(haIsFresh(live, 1000, 1001, false), true);
-  assert.equal(haIsFresh(live, 1000, 990, false), true); // display timer precedes a just-completed poll
-  assert.equal(observationText(live.observations[0], true), "有人");
-  assert.equal(observationText(live.observations[1], true), "無人");
-  assert.equal(haIsFresh(live, 1000, 92000, false), false);
-  assert.equal(haIsFresh(live, 1000, 1001, true), false);
-  assert.equal(observationText(live.observations[1], false), "未知");
-  const offline = await (await createSimulator(createDemoState("offline")).handle(new Request("http://demo/api/home-assistant/observations"))).json() as HaSnapshot;
-  assert.equal(offline.online, false);
-  assert.ok(offline.observations.every(item => item.value === null && !item.available));
-});
-
-test("HA observation route rejects unauthenticated and kid access", async () => {
-  assert.equal((await haGET(new Request("http://demo/api/home-assistant/observations"))).status, 401);
-  const kid = await new SignJWT({lineUserId:"kid",role:"kid"}).setProtectedHeader({alg:"HS256"}).setExpirationTime("5m").sign(JWT_SECRET);
-  assert.equal((await haGET(new Request("http://demo/api/home-assistant/observations", {headers:{cookie:`dashboard_session=${kid}`}}))).status, 403);
-});
-
-const origin = "http://127.0.0.1:3001";
-function request(path: string, method = "GET", body?: unknown) {
-  return new Request(origin + path, { method, ...(body === undefined ? {} : { body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }) });
-}
+const origin = "http://dashboard.test";
+const request = (path: string, method = "GET", body?: unknown) =>
+  new Request(`http://demo${path}`, { method, body: body === undefined ? undefined : JSON.stringify(body) });
+const page = async (sim = createSimulator()) => (await (await sim.handle(request("/api/hb/devices"))).json()) as DevicesPage;
 
 test("demo requires server opt-in, rejects production and real credentials", () => {
   assert.equal(isDemoMode({}), false);
   assert.equal(isDemoMode({ DASHBOARD_DEMO_MODE: "true" }), false);
   assert.equal(isDemoMode({ DASHBOARD_DEMO_MODE: "1", VERCEL_ENV: "preview" }), true);
   assert.throws(() => isDemoMode({ DASHBOARD_DEMO_MODE: "1", VERCEL_ENV: "production" }));
-  for (const name of ["HOME_BUTLER_API_KEY", "SESSION_JWT_SECRET", "LINE_LOGIN_CHANNEL_SECRET"]) {
+  for (const name of ["HOME_BUTLER_API_KEY", "HOME_BUTLER_DASHBOARD_KEY", "DASHBOARD_ASSERTION_KEY", "SESSION_JWT_SECRET", "LINE_LOGIN_CHANNEL_SECRET"]) {
     assert.throws(() => isDemoMode({ DASHBOARD_DEMO_MODE: "1", [name]: "fixture-not-a-secret" }));
   }
 });
 
-test("cold start has useful charts, identity and all page data contracts", async () => {
+test("the devices page is one read with everything the cards need", async () => {
+  const data = await page();
+  const devices = devicesOf(data);
+  assert.deepEqual(devices.map(d => d.kind), ["ac", "ac", "dehumidifier", "dehumidifier", "ir", "sensor", "sensor"]);
+  assert.ok(data.schedules.some(s => s.source === "auto_off") && data.schedules.some(s => s.status === "unknown"));
+  assert.ok(data.auto_off.length > 0 && data.options.ac.modes.some(m => m.value === "cool"));
+  const history = (await (await createSimulator().handle(request("/api/hb/history"))).json()) as History;
+  assert.ok(sensorHistory(history, "客廳感測器").length > 200);
+  assert.ok(acSegments(history, data, "客廳").length > 0);
+  const presence = presenceOf(data)!;
+  assert.equal(haIsFresh(presence, 1000, 1001, false), true);
+  assert.equal(observationText(presence.observations[0], true), "有人");
+  assert.equal(observationText(presence.observations[1], true), "無人");
+  const offline = await page(createSimulator(createDemoState("offline")));
+  assert.ok(offline.acs.every(a => !a.available && a.power === null));
+  assert.ok(presenceOf(offline)!.observations.every(o => o.value === null));
+});
+
+test("AC targets are whole degrees; offline refuses commands", async () => {
   const sim = createSimulator();
-  for (const path of ["auth/me", "dashboard", "devices", "devices/options", "devices/status", "sensors/status", "ac/status", "ac/auto-off", "home-assistant/automations", "dehumidifier/history", "computers/status", "dehumidifier/auto-rule", "todos", "food", "schedules", "recurring-todos", "lighting/areas", "lighting/auto/rules", "lighting/auto/sensors", "theater/summary"]) {
-    assert.equal((await sim.handle(request(`/api/${path}`))).status, 200, path);
-  }
-  const data = monitoring(sim.snapshot());
-  assert.equal(data.sensors["客廳感測器"].history.length, 289);
-  assert.equal(Object.values(data.computers)[0].history.length, 1441);
-  assert.equal((await (await sim.handle(request("/api/auth/me"))).json()).name, "測試成員");
+  assert.equal((await sim.handle(request("/api/hb/devices/ac/客廳冷氣", "POST", { power: "on", temperature: 25.5, mode: "heat" }))).status, 200);
+  const ac = sim.snapshot().acs.find(a => a.name === "客廳冷氣")!;
+  assert.deepEqual([ac.temperature, ac.mode], [26, "暖氣"]);
+  assert.equal((await sim.handle(request("/api/hb/devices/ac/客廳冷氣", "POST", { power: "on", temperature: 40 }))).status, 409);
+  const offline = createSimulator(createDemoState("offline"));
+  assert.equal((await offline.handle(request("/api/hb/devices/ac/客廳冷氣", "POST", { power: "off" }))).status, 503);
 });
 
-test("homepage summaries omit history and weather while preserving current readings and legacy responses", async () => {
+test("dehumidifier auto mode locks manual control and switching it on decides at once", async () => {
   const sim = createSimulator();
-  const get = async (path: string) => (await sim.handle(request(path))).json();
-  const life = await get("/api/dashboard?include_weather=false");
-  assert.deepEqual(Object.keys(life).sort(), ["food", "todos"]);
-  assert.ok((await get("/api/dashboard")).weatherToday);
-  const summary = await get("/api/sensors/status?include_history=false");
-  const full = await get("/api/sensors/status");
-  assert.equal(summary["客廳感測器"].current.co2, full["客廳感測器"].current.co2);
-  assert.equal(summary["客廳感測器"].history.length, 0);
-  assert.ok(full["客廳感測器"].history.length > 0);
-  assert.ok(JSON.stringify(summary).length < JSON.stringify(full).length / 20);
-  const selected = await get(`/api/sensors/status?name=${encodeURIComponent("客廳感測器")}`);
-  assert.deepEqual(Object.keys(selected), ["客廳感測器"]);
-  assert.ok(selected["客廳感測器"].history.length > 0);
-  assert.deepEqual(await get("/api/sensors/status?name=missing"), {});
+  assert.equal((await sim.handle(request("/api/hb/dehumidifiers/客廳除濕機/control", "POST", { power: "off" }))).status, 409);
+  assert.equal((await sim.handle(request("/api/hb/dehumidifiers/臥室除濕機/rule", "PUT", { auto_mode: true, threshold: 50 }))).status, 200);
+  const unit = sim.snapshot().dehumidifiers.find(d => d.name === "臥室除濕機")!;
+  assert.deepEqual([unit.rule.auto_mode, unit.status.power, unit.rule.last_event], [true, true, "toggled_immediate_on"]);
+  assert.equal((await sim.handle(request("/api/hb/dehumidifiers/臥室除濕機/rule", "PUT", { auto_mode: true, threshold: 99 }))).status, 422);
 });
 
-test("proxy forwards explicit light queries and encoded sensor names, preserving legacy defaults", async () => {
-  const native = globalThis.fetch;
-  const previous = process.env.DASHBOARD_DEMO_MODE;
-  const seen: string[] = [];
-  delete process.env.DASHBOARD_DEMO_MODE;
-  globalThis.fetch = async (input) => { seen.push(String(input)); return Response.json({}); };
-  try {
-    const token = await new SignJWT({ lineUserId: "fake-member", name: "測試成員", role: "member" }).setProtectedHeader({ alg: "HS256" }).setExpirationTime("5m").sign(JWT_SECRET);
-    const signed = (path: string) => new Request(origin + path, { headers: { cookie: `dashboard_session=${token}` } });
-    await dashboardGET(signed("/api/dashboard"));
-    await dashboardGET(signed("/api/dashboard?include_weather=false"));
-    await sensorsGET(request("/api/sensors/status"));
-    await sensorsGET(request(`/api/sensors/status?include_history=false&name=${encodeURIComponent("客廳 & 臥室")}`));
-    assert.equal(new URL(seen[0]).search, "");
-    assert.equal(new URL(seen[1]).searchParams.get("include_weather"), "false");
-    assert.equal(new URL(seen[2]).search, "");
-    assert.equal(new URL(seen[3]).searchParams.get("name"), "客廳 & 臥室");
-    assert.equal(new URL(seen[3]).searchParams.get("include_history"), "false");
-  } finally {
-    globalThis.fetch = native;
-    if (previous === undefined) delete process.env.DASHBOARD_DEMO_MODE; else process.env.DASHBOARD_DEMO_MODE = previous;
-  }
-});
-
-test("AC writes are confirmed by status polling, survive reload, and isolate sessions", async () => {
-  let saved = createDemoState();
-  const sim = createSimulator(saved, state => { saved = state; });
-  const other = createSimulator();
-  const body = { deviceName: "客廳冷氣", action: "setAll", params: { power: true, temperature: 24, mode: "冷氣", fanSpeed: "高" } };
-  assert.equal((await sim.handle(request("/api/devices/control", "POST", body))).status, 200);
-  const reloaded = createSimulator(JSON.parse(JSON.stringify(saved)));
-  const statuses = await (await reloaded.handle(request("/api/devices/status?name=" + encodeURIComponent("客廳冷氣")))).json();
-  assert.equal(statuses["客廳冷氣"].lastTemperature, 24);
-  assert.equal(other.snapshot().devices[0].lastTemperature, 26);
-  assert.equal((await sim.handle(request("/api/devices/control", "POST", { ...body, params: { ...body.params, temperature: 100 } }))).status, 400);
-  assert.equal((await sim.handle(request("/api/devices/control", "POST", { deviceName: "客廳除濕機", action: "dehumidifier", params: { power: false } }))).status, 409);
-});
-
-test("todo and food CRUD change data; readonly entries reject edits", async () => {
+test("schedules by id: add, change, cancel; failed and unknown can only be dismissed", async () => {
   const sim = createSimulator();
-  await sim.handle(request("/api/todos", "POST", { item: "測試事項", date: "2026-10-01" }));
-  await sim.handle(request("/api/todos", "PATCH", { item: "測試事項", item_new: "修改事項" }));
-  assert.ok(sim.snapshot().todos.some(t => t.事項 === "修改事項"));
-  await sim.handle(request("/api/todos?item=" + encodeURIComponent("修改事項"), "DELETE"));
-  assert.ok(!sim.snapshot().todos.some(t => t.事項 === "修改事項"));
-  const readonly = sim.snapshot().todos.find(t => t.屬性 === "唯讀")!;
-  assert.equal((await sim.handle(request("/api/todos", "PATCH", { item: readonly.事項, item_new: "不可改" }))).status, 403);
-  await sim.handle(request("/api/food", "POST", { name: "測試優格", expiry: "2026-10-02", quantity: 2 }));
-  await sim.handle(request("/api/food", "PATCH", { name: "測試優格", quantity: 3 }));
-  assert.equal(sim.snapshot().food.find(f => f.品名 === "測試優格")?.數量, "3");
-  await sim.handle(request("/api/food?name=" + encodeURIComponent("測試優格"), "DELETE"));
-  assert.ok(!sim.snapshot().food.some(f => f.品名 === "測試優格"));
+  const made = await (await sim.handle(request("/api/hb/schedules", "POST", { target_kind: "ac", target_name: "書房冷氣", params: { power: "off" }, due_local: "2026-12-01 23:00" }))).json();
+  assert.equal((await sim.handle(request(`/api/hb/schedules/${made.id}`, "PATCH", { due_local: "2026-12-01 23:30" }))).status, 200);
+  assert.equal(sim.snapshot().schedules.find(s => s.id === made.id)!.due_local, "2026-12-01 23:30");
+  assert.equal((await sim.handle(request(`/api/hb/schedules/${made.id}`, "DELETE"))).status, 200);
+  assert.ok(!(await page(sim)).schedules.some(s => s.id === made.id));
+  const unknown = sim.snapshot().schedules.find(s => s.status === "unknown")!;
+  assert.equal((await sim.handle(request(`/api/hb/schedules/${unknown.id}`, "PATCH", { due_local: "2026-12-01 08:00" }))).status, 409);
+  assert.equal((await sim.handle(request(`/api/hb/schedules/${unknown.id}`, "DELETE"))).status, 200);
+  assert.equal((await sim.handle(request("/api/hb/schedules", "POST", { target_kind: "ac", target_name: "沒有", due_local: "2026-12-01 23:00" }))).status, 409);
 });
 
-test("lighting, auto-rule, theater and schedule writes read back", async () => {
+test("to-dos: private ones of others are not shown, read-only refuse edits, completion by id", async () => {
   const sim = createSimulator();
-  await sim.handle(request("/api/lighting/areas/demo-living/state", "PATCH", { on: false }));
-  assert.equal(sim.snapshot().areas[0].on, false);
-  await sim.handle(request("/api/lighting/scenes/demo-scene-0-night/recall", "POST", {}));
-  assert.equal(sim.snapshot().areas[0].brightness, 20);
-  const retired = await sim.handle(request("/api/lighting/auto/rules/demo-living", "PATCH", { enabled: true, threshold: 5 }));
-  assert.equal(retired.status, 410);
-  assert.equal(sim.snapshot().lightingRules["demo-living"], undefined);
-  await sim.handle(request("/api/theater/flags", "POST", { kef_link: false }));
-  assert.equal(sim.snapshot().theater.flags.kef_link, false);
-  // Relayed through HA, so agent_id matches no PC hostname and the devices page
-  // must render the theater card on its own instead of inside a computer card.
-  assert.equal(sim.snapshot().theater.agent_id, "home_assistant");
-  const pcs = await (await sim.handle(request("/api/computers/status"))).json();
-  assert.ok(!Object.values(pcs as Record<string, { hostname: string }>).some((pc) => pc.hostname === "home_assistant"));
-  assert.equal(sim.snapshot().theater.health?.appletv?.stale, false);
-  await sim.handle(request("/api/dehumidifier/auto-rule", "POST", { device_name: "客廳除濕機", auto_mode: false }));
-  assert.equal((await sim.handle(request("/api/devices/control", "POST", { deviceName: "客廳除濕機", action: "dehumidifier", params: { power: false } }))).status, 200);
-  await sim.handle(request("/api/schedules", "POST", { device_name: "循環扇", trigger_time: "2026-10-01 20:00", target_action: "control_ir", params: { button: "電源" } }));
-  await sim.handle(request("/api/schedules", "PATCH", { device_name: "循環扇", trigger_time: "2026-10-01 20:00", trigger_time_new: "2026-10-01 21:00" }));
-  assert.ok(sim.snapshot().schedules.some(s => s.觸發時間 === "2026-10-01 21:00"));
-  await sim.handle(request("/api/schedules", "DELETE", { device_name: "循環扇", trigger_time: "2026-10-01 21:00" }));
-  assert.deepEqual(sim.snapshot().schedules, createDemoState().schedules);
+  const data = (await (await sim.handle(request("/api/hb/todos"))).json()) as TodoPage;
+  assert.ok(!data.todos.some(t => t.title === "另一位成員的私人事項"));
+  assert.ok(!("owner" in data.todos[0]));
+  const notion = data.todos.find(t => t.read_only)!;
+  assert.equal((await sim.handle(request(`/api/hb/todos/${notion.id}`, "PATCH", { title: "x" }))).status, 409);
+  const made = await (await sim.handle(request("/api/hb/todos", "POST", { title: "買菜", due_date: "2026-12-01", due_time: "18:00",
+    light_reminder: true, light_area_ids: [1] }))).json();
+  assert.equal((await sim.handle(request(`/api/hb/todos/${made.item.id}`, "PATCH", { light_area_ids: [99] }))).status, 409);
+  assert.equal((await sim.handle(request(`/api/hb/todos/${made.item.id}/complete`, "POST"))).status, 200);
+  assert.equal((await sim.handle(request(`/api/hb/todos/${made.item.id}/complete`, "POST"))).status, 409);
+  assert.equal((await sim.handle(request("/api/hb/todo-templates", "POST", { title: "澆花", rule: "weekly", weekdays: [1] }))).status, 200);
+  assert.equal(((await (await sim.handle(request("/api/hb/todos"))).json()) as TodoPage).templates.length, 2);
 });
 
-test("attention records stay visible and removal targets only the specified attempt", async () => {
+test("food by id; using it all up removes it", async () => {
   const sim = createSimulator();
-  const failed = sim.snapshot().schedules.find(s => s.狀態 === "執行失敗")!;
-  const body = { device_name: failed.設備名稱, trigger_time: failed.觸發時間 };
-  assert.equal((await sim.handle(request("/api/schedules", "PATCH", { ...body, trigger_time_new: "2026-10-01 22:00" }))).status, 404);
-  await sim.handle(request("/api/schedules", "POST", { ...body, target_action: "control_ac", params: { power: "on" } }));
-  await sim.handle(request("/api/schedules", "DELETE", { ...body, execution_id: failed.執行識別碼 }));
-  const rows = await (await sim.handle(request("/api/schedules"))).json();
-  assert.ok(rows.some((s: Record<string, string>) => s.設備名稱 === failed.設備名稱 && s.觸發時間 === failed.觸發時間 && s.狀態 === "待執行"));
-  assert.ok(rows.some((s: Record<string, string>) => s.狀態 === "待確認"));
-  assert.ok(!rows.some((s: Record<string, string>) => s.執行識別碼 === failed.執行識別碼));
+  const first = sim.snapshot().food[0];
+  assert.equal((await sim.handle(request(`/api/hb/food/${first.id}`, "PATCH", { quantity: 0 }))).status, 200);
+  assert.ok(!sim.snapshot().food.some(f => f.id === first.id));
+  assert.equal((await sim.handle(request("/api/hb/food", "POST", { name: "牛奶", quantity: 2, expires_on: "2026-12-01" }))).status, 200);
 });
 
-test("empty/offline/error scenarios are deterministic; failed writes do not persist", async () => {
+test("scenarios are deterministic; failed writes do not persist", async () => {
   assert.deepEqual(createDemoState("empty").todos, []);
   const offline = createSimulator(createDemoState("offline"));
-  assert.equal((await offline.handle(request("/api/theater/summary"))).status, 503);
+  assert.equal((await offline.handle(request("/api/hb/theater"))).status, 503);
   let persisted = false;
   const fail = createSimulator(createDemoState("error"), () => { persisted = true; });
-  assert.equal((await fail.handle(request("/api/food", "POST", { name: "測試" }))).status, 503);
+  assert.equal((await fail.handle(request("/api/hb/food", "POST", { name: "測試" }))).status, 503);
   assert.equal(persisted, false);
   assert.equal((await fail.handle(request("/api/auth/me"))).status, 200);
 });
@@ -216,15 +117,26 @@ test("fetch interception never forwards unknown API paths, external calls or abo
   let networkCalls = 0;
   const original: typeof fetch = async () => { networkCalls++; return Response.json({}); };
   const mock = demoFetch(createSimulator(), origin, original);
-  assert.equal((await mock("/api/future-feature", { method: "POST", body: "{}" })).status, 501);
-  assert.equal((await mock("https://example.com/api/devices")).status, 403);
+  assert.equal((await mock("/api/hb/future-feature", { method: "POST", body: "{}" })).status, 501);
+  assert.equal((await mock("/api/old-endpoint")).status, 501);
+  assert.equal((await mock("https://example.com/api/hb/devices")).status, 403);
   assert.equal((await mock("/api/auth/device-code", { method: "POST" })).status, 403);
-  assert.equal((await mock("/api/food", { method: "POST", body: "broken" })).status, 400);
+  assert.equal((await mock("/api/hb/food", { method: "POST", body: "broken" })).status, 400);
   const controller = new AbortController(); controller.abort();
-  await assert.rejects(() => mock("/api/food", { signal: controller.signal }));
+  await assert.rejects(() => mock("/api/hb/food", { signal: controller.signal }));
   assert.equal(networkCalls, 0);
   await mock("/_next/static/test.js");
   assert.equal(networkCalls, 1);
+});
+
+test("the door to HomeButler lists every path and role; the tablet gets the devices page only", () => {
+  assert.notEqual(findRule("GET", "devices", "kid"), null);
+  assert.notEqual(findRule("POST", "devices/ac/客廳冷氣", "kid"), "forbidden");
+  assert.equal(findRule("GET", "todos", "kid"), "forbidden");
+  assert.equal(findRule("PATCH", "lighting/areas/1", "kid"), "forbidden");
+  assert.equal(findRule("GET", "system/status", "member"), null);
+  assert.equal(findRule("DELETE", "devices", "member"), null);
+  assert.equal(findRule("PATCH", "todos/abc", "member"), null);
 });
 
 test("server gate blocks every demo API and backend egress; normal auth stays enforced", async () => {
@@ -234,15 +146,13 @@ test("server gate blocks every demo API and backend egress; normal auth stays en
   globalThis.fetch = async () => { networkCalls++; return Response.json({}); };
   try {
     process.env.DASHBOARD_DEMO_MODE = "1";
-    for (const path of ["/api/devices/control", "/api/auth/device-code", "/api/auth/remote-login", "/api/future-feature", "/api/version"]) {
-      const response = await proxy(new NextRequest(origin + path, { method: "POST" }));
-      assert.equal(response.status, 503, path);
+    for (const path of ["/api/hb/devices", "/api/auth/device-code", "/api/auth/remote-login", "/api/future-feature", "/api/version"]) {
+      assert.equal((await proxy(new NextRequest(origin + path, { method: "POST" }))).status, 503, path);
     }
-    await assert.rejects(() => butlerGet("/api/devices"), /blocks/);
-    await assert.rejects(() => butlerPost("/api/devices/control/ac", {}), /blocks/);
+    await assert.rejects(() => hb("GET", "/v2/devices"), /blocks/);
     assert.equal(networkCalls, 0);
     delete process.env.DASHBOARD_DEMO_MODE;
-    const anonymous = await proxy(new NextRequest(origin + "/api/devices?demo=1", { headers: { "X-Demo-Mode": "1", cookie: "dashboard_session=demo-local-only" } }));
+    const anonymous = await proxy(new NextRequest(origin + "/api/hb/devices", { headers: { cookie: "dashboard_session=demo-local-only" } }));
     assert.equal(anonymous.status, 401);
   } finally {
     if (previous === undefined) delete process.env.DASHBOARD_DEMO_MODE; else process.env.DASHBOARD_DEMO_MODE = previous;
@@ -250,59 +160,46 @@ test("server gate blocks every demo API and backend egress; normal auth stays en
   }
 });
 
-
-test("private routes reject forged headers and forward only the verified member ID", async () => {
+test("the door signs who is asking and never passes on what the browser claims", async () => {
+  const { GET, PATCH } = await import("../src/app/api/hb/[...path]/route");
   const original = globalThis.fetch;
-  const seen: RequestInit[] = [];
-  globalThis.fetch = async (_input, init) => { seen.push(init || {}); return Response.json([]); };
+  const ASSERTION = "test-assertion-key-0123456789abcdef";
+  process.env.HOME_BUTLER_DASHBOARD_KEY = "test-dashboard-key";
+  process.env.DASHBOARD_ASSERTION_KEY = ASSERTION;
+  const seen: { url: string; headers: Headers; body: string | null }[] = [];
+  globalThis.fetch = async (input, init) => {
+    seen.push({ url: String(input), headers: new Headers(init?.headers), body: (init?.body as string) ?? null });
+    return Response.json({ acs: [], presence: [{ name: "沙發區" }] });
+  };
+  const session = (claims: Record<string, unknown>) => new SignJWT(claims).setProtectedHeader({ alg: "HS256" }).setExpirationTime("5m").sign(JWT_SECRET);
+  const ctx = (...path: string[]) => ({ params: Promise.resolve({ path }) });
   try {
-    assert.equal((await todosGET(new Request(origin + "/api/todos", { headers: { "X-Dashboard-User": "victim" } }))).status, 401);
-    assert.equal(seen.length, 0);
-    const token = await new SignJWT({ lineUserId: "alice-id", name: "Alice", role: "member" }).setProtectedHeader({ alg: "HS256" }).setExpirationTime("5m").sign(JWT_SECRET);
-    const req = new Request(origin + "/api/todos", { method: "PATCH", headers: { cookie: `dashboard_session=${token}`, "X-Dashboard-User": "victim", "Content-Type": "application/json" }, body: JSON.stringify({ item: "x", todo_id: "id-x", requester: "victim" }) });
-    assert.equal((await todosPATCH(req)).status, 200);
-    assert.equal(new Headers(seen[0].headers).get("X-Dashboard-User"), "alice-id");
-    const kid = await new SignJWT({ lineUserId: "kid-id", role: "kid" }).setProtectedHeader({ alg: "HS256" }).setExpirationTime("5m").sign(JWT_SECRET);
-    assert.equal((await todosGET(new Request(origin + "/api/todos", { headers: { cookie: `dashboard_session=${kid}` } }))).status, 403);
-    assert.equal(seen.length, 1);
-  } finally { globalThis.fetch = original; }
-});
-
-test("demo enforces private visibility and stable IDs after renames", async () => {
-  const sim = createSimulator();
-  const hidden = sim.snapshot().todos.find(t => t.負責人 === "其他成員")!;
-  const visible = await (await sim.handle(request("/api/todos"))).json();
-  assert.ok(!visible.some((t: Record<string, string>) => t.待辦ID === hidden.待辦ID));
-  assert.equal((await sim.handle(request("/api/todos", "PATCH", { todo_id: hidden.待辦ID, item: hidden.事項, requester: "其他成員" }))).status, 404);
-  const own = sim.snapshot().todos[0];
-  await sim.handle(request("/api/todos", "PATCH", { todo_id: own.待辦ID, item_new: "renamed" }));
-  await sim.handle(request("/api/todos?todo_id=" + encodeURIComponent(own.待辦ID!), "DELETE"));
-  assert.ok(!sim.snapshot().todos.some(t => t.待辦ID === own.待辦ID));
-});
-
-
-test("Mac telemetry uses existing status contract with a single SoC hotspot temperature", async () => {
-  const simulator = createSimulator();
-  const response = await simulator.handle(new Request("http://demo/api/computers/status"));
-  const pcs = await response.json();
-  const mac = pcs["192.0.2.20"];
-  assert.equal(mac.hostname, "Mac mini (demo)");
-  assert.equal(mac.online, true);
-  assert.equal(mac.current.cpu_pct, 18);
-  assert.equal(mac.current.ram_pct, 56);
-  assert.equal(mac.current.memory_pressure.level, "normal");
-  assert.ok(Number.isInteger(mac.current.memory_pressure.pct));
-  assert.ok(new Set(mac.history.map((point: { memory_pressure: { pct: number } }) => point.memory_pressure.pct)).size > 10);
-  assert.ok(mac.history.every((point: { memory_pressure: { pct: number } }) => point.memory_pressure.pct >= 0 && point.memory_pressure.pct <= 100));
-  assert.ok(mac.history.some((point: { memory_pressure: { level: string } }) => point.memory_pressure.level === "warning"));
-  assert.ok(mac.history.some((point: { memory_pressure: { level: string } }) => point.memory_pressure.level === "critical"));
-  assert.equal(pcs["192.0.2.10"].current.memory_pressure, undefined);
-  assert.equal(mac.current.cpu_temp_c, null);
-  assert.equal(mac.current.gpu_temp_c, null);
-  assert.equal(typeof mac.current.smc_temperature.tcmb_c, "number");
-  assert.equal(pcs["192.0.2.10"].current.smc_temperature, undefined);
-  assert.equal(typeof mac.current.gpu_pct, "number");
-  assert.ok(mac.history.every((point: { cpu_temp_c: number | null; smc_temperature: { tcmb_c: number } }) => point.cpu_temp_c === null && point.smc_temperature.tcmb_c > 0));
-  assert.equal(monitoring(createDemoState("offline")).computers["192.0.2.20"].online, false);
-  assert.deepEqual(monitoring(createDemoState("empty")).computers, {});
+    assert.equal((await GET(new Request(origin + "/api/hb/todos"), ctx("todos"))).status, 401);
+    const alice = await session({ lineUserId: "alice-id", name: "Alice", role: "member" });
+    const forged = new Request(origin + "/api/hb/todos/5", { method: "PATCH", headers: { cookie: `dashboard_session=${alice}`,
+      "X-Dashboard-Assertion": "forged", Authorization: "Bearer forged" }, body: JSON.stringify({ title: "x" }) });
+    assert.equal((await PATCH(forged, ctx("todos", "5"))).status, 200);
+    assert.ok(seen[0].url.endsWith("/v2/todos/5"));
+    assert.equal(seen[0].body, JSON.stringify({ title: "x" }));
+    const claims = (await jwtVerify(seen[0].headers.get("X-Dashboard-Assertion")!, new TextEncoder().encode(ASSERTION))).payload;
+    assert.deepEqual([claims.sub, claims.role, claims.aud], ["alice-id", "member", "homebutler"]);
+    assert.ok((claims.exp! - claims.iat!) <= 300);
+    const tablet = await session({ lineUserId: "remote", name: "平板", role: "kid", remoteId: 3 });
+    const asTablet = (path: string[]) => GET(new Request(origin + "/api/hb/" + path.join("/"), { headers: { cookie: `dashboard_session=${tablet}` } }), ctx(...path));
+    assert.equal((await asTablet(["todos"])).status, 403);
+    const devices = await (await asTablet(["devices"])).json();
+    assert.equal(devices.presence, undefined);                     // who is where stays with members
+    assert.equal((await jwtVerify(seen.at(-1)!.headers.get("X-Dashboard-Assertion")!, new TextEncoder().encode(ASSERTION))).payload.sub, "3");
+    assert.equal((await asTablet(["..", "system"])).status, 404);
+    const oldTablet = await session({ lineUserId: "remote", name: "平板", role: "kid" });
+    assert.equal((await GET(new Request(origin + "/api/hb/devices", { headers: { cookie: `dashboard_session=${oldTablet}` } }), ctx("devices"))).status, 401);
+    assert.equal(seen.every(s => s.headers.get("Authorization") === "Bearer test-dashboard-key"), true);
+    delete process.env.DASHBOARD_ASSERTION_KEY;
+    const unset = await GET(new Request(origin + "/api/hb/todos", { headers: { cookie: `dashboard_session=${alice}` } }), ctx("todos"));
+    assert.equal(unset.status, 503);                                // never signs with an empty key
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.HOME_BUTLER_DASHBOARD_KEY;
+    delete process.env.DASHBOARD_ASSERTION_KEY;
+  }
 });

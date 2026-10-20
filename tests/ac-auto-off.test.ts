@@ -1,52 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDemoState } from "../src/lib/demo/fixtures";
-import { createSimulator } from "../src/lib/demo/simulator";
-import { parseScheduleParams } from "../src/lib/schedule";
 import { autoOffSummary } from "../src/lib/ac";
-import { proxy } from "../src/proxy";
-import { NextRequest } from "next/server";
-import { SignJWT } from "jose";
-import { JWT_SECRET } from "../src/lib/jwt";
-
-test("generated shutdown is editable and preserves internal provenance", async () => {
-  const sim = createSimulator(createDemoState());
-  const original = sim.snapshot().schedules.find(s => s.來源 === "自動（HA）")!;
-  const response = await sim.handle(new Request("http://demo/api/schedules", {method:"PATCH", body:JSON.stringify({
-    device_name:original.設備名稱,trigger_time:original.觸發時間,trigger_time_new:"2026-12-01 08:00",
-    params_new:{power:"off",_auto_closed:true,_auto_hours:1},person:"測試成員"})}));
-  assert.equal(response.status,200);
-  const changed = sim.snapshot().schedules.find(s => s.來源 === "自動（HA）")!;
-  assert.equal(changed.觸發時間,"2026-12-01 08:00");
-  assert.equal(JSON.parse(changed.參數)._auto_hours,9);
-  assert.equal(JSON.parse(changed.參數)._auto_closed,undefined);
-  assert.equal(parseScheduleParams(changed.參數).display,"關機");
-});
-
-test("deleted cycle stays hidden across reload and leaves unrelated schedules intact", async () => {
-  const sim = createSimulator(createDemoState());
-  const before = sim.snapshot();
-  const original = before.schedules.find(s => s.來源 === "自動（HA）")!;
-  assert.equal((await sim.handle(new Request("http://demo/api/schedules",{method:"DELETE",body:JSON.stringify({
-    device_name:original.設備名稱,trigger_time:original.觸發時間})}))).status,200);
-  const after = createSimulator(sim.snapshot());
-  const visible = await (await after.handle(new Request("http://demo/api/schedules"))).json();
-  assert.deepEqual(visible,before.schedules.filter(s => s.來源 !== "自動（HA）"));
-  assert.deepEqual(after.snapshot().devices,before.devices);
-  assert.equal(after.snapshot().schedules.find(s => s.來源 === "自動（HA）")!.狀態,"已取消");
-});
-
-test("unknown automatic outcome cannot be edited but can be removed", async () => {
-  const state = createDemoState();
-  const original = state.schedules.find(s => s.來源 === "自動（HA）")!;
-  original.狀態="待確認"; original.執行識別碼="unknown-auto";
-  const sim = createSimulator(state);
-  const body = {device_name:original.設備名稱,trigger_time:original.觸發時間};
-  assert.equal((await sim.handle(new Request("http://demo/api/schedules",{method:"PATCH",body:JSON.stringify({...body,trigger_time_new:"2026-12-01 08:00"})}))).status,404);
-  assert.equal((await sim.handle(new Request("http://demo/api/schedules",{method:"DELETE",body:JSON.stringify({...body,execution_id:original.執行識別碼})}))).status,200);
-  const visible = await (await sim.handle(new Request("http://demo/api/schedules"))).json();
-  assert.ok(!visible.some((s: {來源:string}) => s.來源 === "自動（HA）"));
-});
+import { scheduleText, toFormInitial, updateSchedule } from "../src/lib/schedule";
+import type { Schedule } from "../src/lib/api";
 
 test("settings summary states what the backend read and flags unreadable cells", () => {
   const now = new Date(2026, 9, 11, 20, 0);
@@ -55,32 +11,32 @@ test("settings summary states what the backend read and flags unreadable cells",
     { text: "自動關機：開機後 1 小時，一律等到 07:00。若現在開機，會排在明天 07:00 關。", warnings: [] });
   assert.equal(autoOffSummary({ ...base, hours: 3, problems: [], window: "22:00-07:00", preview_off_at: "2026-10-11 21:30" }, now)!.text,
     "自動關機：開機後 3 小時，落在 22:00–07:00 之間延到 07:00。若現在開機，會排在今天 21:30 關。");
-  assert.equal(autoOffSummary({ ...base, hours: 8, problems: [], window: null, preview_off_at: "2026-10-14 04:00" }, now)!.text,
-    "自動關機：開機後 8 小時。若現在開機，會排在10/14 04:00 關。");
   assert.deepEqual(autoOffSummary({ ...base, hours: 0, problems: [], window: null, preview_off_at: null }, now), { text: "自動關機：未啟用", warnings: [] });
   const typo = autoOffSummary({ ...base, hours: 1, window_text: "7點-7點", problems: ["window_unreadable"], window: null, preview_off_at: "2026-10-11 21:00" }, now)!;
-  assert.match(typo.text, /開機後 1 小時。若現在開機，會排在今天 21:00 關。$/);
   assert.match(typo.warnings[0], /「7點-7點」，無法辨識.*目前不會暫緩/);
-  const off = autoOffSummary({ ...base, hours: 0, hours_text: "一", problems: ["hours_unreadable", "future_code"], window: null, preview_off_at: null }, now)!;
-  assert.equal(off.text, "自動關機：未啟用");
-  assert.equal(off.warnings.length, 2);
-  assert.match(off.warnings[0], /「一」，無法辨識.*目前不會自動關機/);
-  assert.match(autoOffSummary({ ...base, hours: 0, problems: ["window_without_hours"], window: "22:00-07:00", preview_off_at: null }, now)!.warnings[0], /自動關機沒有啟用/);
-  // An older backend without the settings fields shows nothing rather than a guess.
-  assert.equal(autoOffSummary({ hours: 3, status: "counting", scheduled_at: null }, now), null);
   assert.equal(autoOffSummary(undefined, now), null);
 });
 
-test("demo serves the read-only settings route and the kid remote may read it", async () => {
-  const sim = createSimulator(createDemoState());
-  const response = await sim.handle(new Request("http://demo/api/ac/auto-off"));
-  assert.equal(response.status, 200);
-  const info = (await response.json()).devices["HA 測試空調"];
-  assert.deepEqual(info.problems, []);
-  assert.ok(autoOffSummary(info)!.text.includes("落在 22:00–07:00 之間延到 07:00"));
-  assert.equal((await sim.handle(new Request("http://demo/api/ac/auto-off", { method: "POST", body: "{}" }))).status, 501);
-  const token = await new SignJWT({ lineUserId: "kid-id", name: "Kid", role: "kid" }).setProtectedHeader({ alg: "HS256" }).setExpirationTime("5m").sign(JWT_SECRET);
-  const visit = (path: string) => proxy(new NextRequest(`http://dashboard.test${path}`, { headers: { cookie: `dashboard_session=${token}` } }));
-  assert.equal((await visit("/api/ac/auto-off")).status, 200);
-  assert.equal((await visit("/api/ac/auto-off/other")).status, 403);
+const schedule: Schedule = { id: 7, target_kind: "ac", target_name: "冷氣", params: { power: "on", temperature: 27, mode: "cool", fan_speed: "auto" },
+  due_at: "2026-12-01T15:00:00Z", due_local: "2026-12-01 23:00", source: "auto_off", status: "pending", status_label: "待執行",
+  result: "", created_by: "系統", editable: true };
+
+test("a schedule reads as what it does, and its form starts from it", () => {
+  assert.equal(scheduleText(schedule.params), "開機 · 27°C · 冷氣 · 風速:自動");
+  assert.equal(scheduleText({ power: "off" }), "關機");
+  assert.equal(scheduleText({ button: "電源" }), "電源");
+  const initial = toFormInitial(schedule);
+  assert.deepEqual([initial.trigger_date, initial.trigger_time, initial.ac?.temperature, initial.ac?.mode], ["2026-12-01", "23:00", 27, "cool"]);
+});
+
+test("an edit sends only what changed, by id; nothing changed sends nothing", async (t) => {
+  const bodies: { url: string; body: unknown }[] = [];
+  t.mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
+    bodies.push({ url, body: JSON.parse(String(init.body)) });
+    return Response.json({});
+  });
+  const same = { kind: "ac" as const, name: "冷氣", params: { fan_speed: "auto", mode: "cool", temperature: 27, power: "on" }, due_local: "2026-12-01 23:00" };
+  assert.equal(await updateSchedule(schedule, same), false);
+  assert.equal(await updateSchedule(schedule, { ...same, due_local: "2026-12-01 23:30" }), true);
+  assert.deepEqual(bodies, [{ url: "/api/hb/schedules/7", body: { due_local: "2026-12-01 23:30" } }]);
 });

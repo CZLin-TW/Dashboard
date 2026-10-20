@@ -7,53 +7,20 @@ import { LayoutGrid, ChevronUp, ChevronDown, ArrowUpRight, Pin } from "lucide-re
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { PANEL_BASE } from "@/components/ui/device-controls";
 import { DeviceController } from "@/components/ui/device-controller";
-import type { AcAutoOff } from "@/lib/ac";
 import { ScheduleSection } from "@/components/devices/schedule-section";
-import {
-  type DeviceData,
-  type DeviceOptions,
-  type DehumidifierAutoRule,
-  DEVICE_ICONS,
-  DEVICE_ICON_FALLBACK,
-} from "@/lib/types";
-import type { Sensor } from "@/lib/sensor";
-import type { DehumDevice } from "@/lib/dehumidifier";
-import type { Schedule } from "@/lib/schedule";
-
-// Tile active 狀態用單一 cool 色，跟 Segment active / link / scroll-target ring
-// 一樣的「被選中」語義；不依 device type 換色——icon 形狀本身就足夠辨識類型，
-// 而且 IR=warm 紅、除濕=fresh 綠 在這套 palette 的其他語義（OFF/ON）會混淆。
+import type { DevicesPage, History } from "@/lib/api";
+import { KIND_ICON, KIND_LABEL, type UiDevice } from "@/lib/devices";
+import { schedulesFor } from "@/lib/schedule";
 
 interface Props {
-  /** 已釘選且要顯示的可控設備（不含感應器）。順序依釘選順序。 */
-  devices: DeviceData[];
-  options: DeviceOptions;
-  /** AC 指令送出且輪詢確認後呼叫，由父層 refetch dashboard。 */
-  onAcCommandSent: () => Promise<void> | void;
-  /** 除濕機指令送出且輪詢確認後呼叫，由父層 refetch /api/devices/status。 */
-  onDehumidifierCommandSent: () => Promise<void> | void;
-  /** 除濕機自動規則 map（key=device_name），給展開後的 controller 用。 */
-  dehumRulesMap?: Record<string, DehumidifierAutoRule>;
-  /** 可選的感測器名稱清單，給自動規則下拉用。 */
-  availableSensors?: string[];
-  /** 自動規則異動後呼叫，由父層 refetch /api/dehumidifier/auto-rule。 */
-  onDehumRuleUpdate?: () => Promise<void> | void;
-  /** 感測器 map（含歷史），給自動模式 chart 撈綁定 sensor 24h 濕度用。 */
-  sensorsMap?: Record<string, Sensor>;
-  /** 除濕機 power 歷史 map，給自動模式 chart 背景畫綠色 on-segments 用。 */
-  dehumHistoryMap?: Record<string, DehumDevice>;
-  /** 排程清單（未 filter），ScheduleSection 自己按 device.name 取。 */
-  schedules?: Schedule[];
-  /** 全部可控裝置（含未釘選），給排程表單 deviceMap 用。釘選列表通常是子集。 */
-  allDevices?: DeviceData[];
-  /** 排程 CRUD 後呼叫，由父層 refetch /api/schedules。 */
-  onSchedulesChange?: () => void;
-  /** 各空調自動關機設定的解讀（唯讀），key 是設備名稱。 */
-  acAutoOff?: Record<string, AcAutoOff>;
+  /** 首頁釘選的可控制裝置（感應器除外）。 */
+  devices: UiDevice[];
+  page: DevicesPage | null;
+  /** 任何指令或設定改變後呼叫，父層重讀裝置頁。 */
+  onChanged: () => Promise<void> | void;
+  history?: History | null;
+  allDevices: UiDevice[];
   onExpandedChange?: (expanded: boolean) => void;
-  schedulesLoading?: boolean;
-  schedulesHasData?: boolean;
-  schedulesError?: string | null;
 }
 
 /**
@@ -66,25 +33,7 @@ interface Props {
  * 會清空。實際 UX：使用者「展開 → 改 → 收合 → 再展開」會看到原本草稿
  * 消失。可接受（draft 跨 collapse 持久不是必要功能）。
  */
-export function DeviceQuickControl({
-  devices,
-  options,
-  onAcCommandSent,
-  onDehumidifierCommandSent,
-  dehumRulesMap,
-  availableSensors,
-  onDehumRuleUpdate,
-  sensorsMap,
-  dehumHistoryMap,
-  schedules,
-  allDevices,
-  onSchedulesChange,
-  onExpandedChange,
-  acAutoOff,
-  schedulesLoading,
-  schedulesHasData,
-  schedulesError,
-}: Props) {
+export function DeviceQuickControl({ devices, page, onChanged, history = null, allDevices, onExpandedChange }: Props) {
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
   // 實際渲染面板的設備。切換到另一台時先設 null 讓舊面板收合，
   // 收合動畫結束（onExitComplete）再換成新設備展開，呈現「收起 → 展開」的換過去感。
@@ -103,8 +52,8 @@ export function DeviceQuickControl({
     selectDevice(expandedDevice === name ? null : name);
   }
 
-  function renderPanel(device: DeviceData) {
-    const Icon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
+  function renderPanel(device: UiDevice) {
+    const Icon = KIND_ICON[device.kind];
     return (
       <div className={PANEL_BASE}>
         <div className="flex items-center justify-between gap-2.5">
@@ -126,30 +75,10 @@ export function DeviceQuickControl({
             <ChevronUp className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </div>
-        <DeviceController
-          loadHistoryOnExpand
-          device={device}
-          options={options}
-          onAcCommandSuccess={onAcCommandSent}
-          onDehumidifierCommandSuccess={onDehumidifierCommandSent}
-          dehumRule={device.type === "除濕機" ? (dehumRulesMap?.[device.name] ?? null) : undefined}
-          availableSensors={device.type === "除濕機" ? availableSensors : undefined}
-          onDehumRuleUpdate={onDehumRuleUpdate}
-          sensorsMap={device.type === "除濕機" ? sensorsMap : undefined}
-          dehumHistoryMap={device.type === "除濕機" ? dehumHistoryMap : undefined}
-        />
-        {schedulesError ? <p role="status" className="text-sm text-mute">暫時無法讀取排程。<button type="button" onClick={onSchedulesChange} className="ml-2 min-h-9 rounded-full bg-cool-bg px-3 text-cool">重試</button></p>
-        : schedulesLoading ? <p role="status" className="text-sm text-mute">正在讀取排程…</p> : null}
-        {/* Background refreshes retain the mounted editor and its unsaved draft. */}
-        {schedulesHasData && schedules && onSchedulesChange && (
-          <ScheduleSection
-            device={device}
-            options={options}
-            schedules={schedules.filter((s) => (s["設備名稱"] ?? "") === device.name)}
-            allDevices={allDevices ?? devices}
-            onSchedulesChange={onSchedulesChange}
-            autoOff={acAutoOff?.[device.name]}
-          />
+        {page && <DeviceController device={device} page={page} onChanged={onChanged} history={history} />}
+        {page && (
+          <ScheduleSection device={device} page={page} schedules={schedulesFor(page, device.name)} allDevices={allDevices}
+            onSchedulesChange={() => void onChanged()} autoOff={page.auto_off.find((a) => a.name === device.name)} />
         )}
       </div>
     );
@@ -180,28 +109,29 @@ export function DeviceQuickControl({
 
   const expandedDev = shownDevice ? devices.find((d) => d.name === shownDevice) : null;
 
-  function renderTile(device: DeviceData) {
-    const isRunning =
-      (device.type === "空調" && device.lastPower === "on") ||
-      (device.type === "除濕機" && device.power === true);
+  function renderTile(device: UiDevice) {
     const isActive = expandedDevice === device.name;
-    const Icon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
-    const rule = dehumRulesMap?.[device.name];
-    const sensor = rule?.sensor_name ? sensorsMap?.[rule.sensor_name] : undefined;
-    const humidity = sensor?.online ? sensor.current?.humidity : null;
-    const target = rule?.auto_mode ? rule.effective_threshold ?? rule.threshold : device.targetHumidity;
-    const known = device.type === "空調" ? ["on", "off"].includes(device.lastPower ?? "") : typeof device.power === "boolean";
-    const status = device.type === "IR" ? "紅外線" : !known ? "待更新" : device.type === "空調" ? (isRunning ? "上次開啟" : "上次關閉") : isRunning ? "運轉中" : "已關閉";
+    const Icon = KIND_ICON[device.kind];
+    let isRunning = false;
+    let status = "紅外線";
     let readout = "遙控器";
-    let detail = `${(device.buttons ?? "").split(",").filter(s => s.trim()).length} 個按鈕 · 點擊操作`;
-    if (device.type === "空調") {
-      readout = !known ? "—" : !isRunning ? "關閉" : `${device.lastTemperature || "—"}°`;
-      detail = known ? `上次設定 · ${device.lastMode || "空調"}` : "等待裝置狀態";
-    } else if (device.type === "除濕機") {
-      readout = humidity != null ? `${Math.round(humidity)}%` : target != null ? `${String(target).replace("%", "")}%` : "—";
-      detail = humidity != null
-        ? `目前濕度 · ${rule?.auto_mode ? `自動 ${target}%` : "手動"}`
-        : `目標濕度 · ${rule?.auto_mode ? "自動" : "手動"}`;
+    let detail = "點擊操作";
+    if (device.kind === "ac") {
+      const ac = device.ac;
+      isRunning = ac.power === "on";
+      status = ac.power === null ? "待更新" : isRunning ? "開啟中" : "已關閉";
+      readout = ac.power === null ? "—" : !isRunning ? "關閉" : `${ac.temperature ?? "—"}°`;
+      detail = ac.power === null ? "等待裝置狀態" : `HA 狀態 · ${ac.mode || "空調"}`;
+    } else if (device.kind === "dehumidifier") {
+      const d = device.dehumidifier;
+      isRunning = d.status.power === true;
+      status = d.status.power === null ? "待更新" : isRunning ? "運轉中" : "已關閉";
+      const humidity = d.sensor_humidity;
+      const target = d.rule.auto_mode ? `${d.rule.effective_threshold}%` : d.status.target;
+      readout = humidity != null ? `${Math.round(humidity)}%` : target || "—";
+      detail = humidity != null ? `目前濕度 · ${d.rule.auto_mode ? `自動 ${target}` : "手動"}` : `目標濕度 · ${d.rule.auto_mode ? "自動" : "手動"}`;
+    } else if (device.kind === "ir") {
+      detail = `${device.ir.buttons.length} 個按鈕 · 點擊操作`;
     }
     return (
       <motion.button
@@ -223,8 +153,8 @@ export function DeviceQuickControl({
           <span className={`flex items-center gap-1.5 text-[10px] font-medium md:text-xs ${isRunning ? "text-fresh" : "text-mute"}`}><span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isRunning ? "bg-fresh" : "bg-faint"}`} />{status}</span>
         </span>
         <span className="mt-4 truncate text-[15px] font-semibold text-soft" title={device.name}>{device.name}</span>
-        <span className="mt-0.5 text-[11px] text-mute">{device.location || device.type}</span>
-        <span className={`mt-4 font-semibold tracking-tight text-foreground ${device.type === "IR" ? "text-[24px] leading-[38px]" : "num text-[32px] leading-[38px]"}`}>{readout}</span>
+        <span className="mt-0.5 text-[11px] text-mute">{device.location || KIND_LABEL[device.kind]}</span>
+        <span className={`mt-4 font-semibold tracking-tight text-foreground ${device.kind === "ir" ? "text-[24px] leading-[38px]" : "num text-[32px] leading-[38px]"}`}>{readout}</span>
         <span className="mt-2 flex items-center justify-between gap-2 text-[11px] leading-relaxed text-mute"><span>{detail}</span><ChevronDown className={`h-3.5 w-3.5 shrink-0 text-cool transition-transform ${isActive ? "rotate-180" : ""}`} /></span>
       </motion.button>
     );
@@ -234,7 +164,7 @@ export function DeviceQuickControl({
   // 但 mobile（2 欄）跟 desktop（4 欄）的 row 拆法不同 → 兩套各自渲染。
   // panel 放在每組 row 的後面（grid 外），避免 CSS grid `gap` 在 height: 0 ↔ unmount 時造成 12px snap。
   function renderRows(cols: 2 | 4, viewportClass: string) {
-    const rows: DeviceData[][] = [];
+    const rows: UiDevice[][] = [];
     for (let i = 0; i < devices.length; i += cols) rows.push(devices.slice(i, i + cols));
     const gridCols = cols === 2 ? "grid-cols-2" : "grid-cols-4";
     return (

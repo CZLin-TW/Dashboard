@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSession, getSession, getSessionCookieOptions, REMOTE_USER_ID, SESSION_RENEW_AFTER } from "@/lib/auth";
-import { butlerGet } from "@/lib/butler";
+import { createSession, getSession, getSessionCookieOptions, SESSION_RENEW_AFTER } from "@/lib/auth";
+import { hb } from "@/lib/hb";
 import { isDemoMode } from "@/lib/demo/config";
 import { verifySession, type SessionUser } from "@/lib/jwt";
 
@@ -9,12 +9,11 @@ type Standing = { active?: unknown; name?: unknown } | null;
 /** 向後端問這個身分還算不算數。連不上或回錯誤一律當「沒有答案」（null）。 */
 async function standing(user: SessionUser): Promise<Standing> {
   if (user.role !== "kid") {
-    return butlerGet("/api/auth/member", user.lineUserId).then((v) => v as Standing).catch(() => null);
+    return hb("POST", "/v2/sign-in/member", { body: { line_user_id: user.lineUserId } }).then((v) => v as Standing).catch(() => null);
   }
-  // 受限身分現在只有遙控器密碼一條路；更早由 LINE「配對兒童」取得的 session 沒有對應的遙控器可查，直接結束。
-  if (user.lineUserId !== REMOTE_USER_ID) return { active: false };
-  return butlerGet(`/api/auth/remote/status?name=${encodeURIComponent(user.name)}`)
-    .then((v) => v as Standing).catch(() => null);
+  // 受限身分只有遙控器密碼一條路；沒有遙控器編號的是 v2 之前簽的 session，請重新以密碼登入。
+  if (!user.remoteId) return { active: false };
+  return hb("GET", `/v2/sign-in/remote/${user.remoteId}`).then((v) => v as Standing).catch(() => null);
 }
 
 // 載入頁面與開著的頁面定期都會打這支，所以 session 的延長做在這裡：簽發超過一天就向後端確認

@@ -4,7 +4,8 @@ export function isDemoMode(env: Record<string, string | undefined> = process.env
   if (env.VERCEL_ENV === "production") {
     throw new Error("Demo mode must use a separate local or Preview deployment.");
   }
-  if (env.HOME_BUTLER_API_KEY || env.SESSION_JWT_SECRET || env.LINE_LOGIN_CHANNEL_SECRET) {
+  if (env.HOME_BUTLER_API_KEY || env.HOME_BUTLER_DASHBOARD_KEY || env.DASHBOARD_ASSERTION_KEY || env.SESSION_JWT_SECRET
+      || env.LINE_LOGIN_CHANNEL_SECRET) {
     throw new Error("Remove real backend and session credentials from the demo deployment.");
   }
   return true;

@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { CheckSquare, Check, Lightbulb } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { type TodoData, todoLightNotify, todoUrgency, urgencyRowClass, relativeDateLabel } from "@/lib/types";
+import { todoUrgency, urgencyRowClass, relativeDateLabel } from "@/lib/types";
+import type { Todo } from "@/lib/api";
 import { useCompleteTodo } from "@/hooks/use-complete-todo";
 
 interface Props {
   statusText?: string;
-  todos: TodoData[];
+  todos: Todo[];
   /** 標記完成成功後呼叫，由父層 refetch 資料；失敗時不會被呼叫。
    *  回傳 Promise 讓 useCompleteTodo 等 todos prop 真的更新後再清 completing
    *  → React 同一輪 batch render，避免「動畫結束 → 項目還沒消失」的閃爍。 */
@@ -37,15 +38,15 @@ export function TodoListCard({ todos, onCompleted, statusText }: Props) {
       </CardHeader>
       {statusText ? <p className="text-sm text-mute">{statusText}</p> : todos.length > 0 ? (
         <ul className="flex flex-col gap-2">
-          {todos.map((todo, i) => {
+          {todos.map((todo) => {
             const completing = isCompleting(todo);
-            const lightNotify = todoLightNotify(todo);
-            const urgency = todoUrgency(todo["日期"], todo["時間"]);
+            const lightNotify = todo.light_reminder;
+            const urgency = todoUrgency(todo.due_date ?? "", todo.due_time ?? "");
             const urgencyCls = urgencyRowClass(urgency);
             const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
             return (
               <li
-                key={i}
+                key={todo.id}
                 className={`flex items-center gap-2 rounded-2xl px-2 py-2 transition-all duration-500 ${urgencyCls} ${hoverCls} ${
                   completing ? "opacity-40 line-through scale-95" : ""
                 }`}
@@ -67,14 +68,14 @@ export function TodoListCard({ todos, onCompleted, statusText }: Props) {
                 </button>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-foreground">
-                  {todo["事項"]}
-                  {todo["時間"] && <span className="num ml-1.5 text-xs text-mute">{todo["時間"]}</span>}
+                  {todo.title}
+                  {todo.due_time && <span className="num ml-1.5 text-xs text-mute">{todo.due_time}</span>}
                   {lightNotify && <Lightbulb className="ml-1.5 inline h-3 w-3 text-amber" strokeWidth={2} />}
                   </span>
                 <span className="num mt-1 block text-[11px] leading-relaxed text-mute">
-                  {todo["日期"]}
+                  {todo.due_date}
                   {(() => {
-                    const rel = relativeDateLabel(todo["日期"]);
+                    const rel = relativeDateLabel(todo.due_date ?? "");
                     return rel ? ` (${rel})` : "";
                   })()}
                 </span>

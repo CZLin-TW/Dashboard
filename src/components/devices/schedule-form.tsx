@@ -8,37 +8,14 @@ import {
   Field,
 } from "@/components/ui/device-controls";
 
-interface DeviceData {
-  name: string;
-  type: string;
-  brand?: string;
-  buttons?: string;
-}
-
-interface DeviceOptions {
-  ac: {
-    modes: Array<{ value: string; label: string }>;
-    fan_speeds: Array<{ value: string; label: string }>;
-    temperature: { min: number; max: number };
-  };
-  dehumidifier: {
-    modes: Array<{ value: string; label: string }>;
-    humidity: number[];
-    byBrand?: Record<string, { modes: Array<{ value: string; label: string }>; humidity: number[] }>;
-  };
-}
-
-const ACTION_MAP: Record<string, string> = {
-  "空調": "control_ac",
-  "IR": "control_ir",
-  "除濕機": "control_dehumidifier",
-};
+import type { DevicesPage } from "@/lib/api";
+import type { UiDevice } from "@/lib/devices";
 
 export interface ScheduleFormState {
-  device_name: string;
-  target_action: string;
+  kind: "ac" | "ir" | "dehumidifier";
+  name: string;
   params: Record<string, unknown>;
-  trigger_time: string; // "YYYY-MM-DD HH:MM"
+  due_local: string; // "YYYY-MM-DD HH:MM"
 }
 
 export interface ScheduleFormInitial {
@@ -53,8 +30,8 @@ export interface ScheduleFormInitial {
 interface Props {
   mode: "add" | "edit";
   initial?: ScheduleFormInitial;
-  devices: DeviceData[];
-  options: DeviceOptions | null;
+  devices: UiDevice[];
+  options: DevicesPage["options"] | null;
   /** Add 模式：成功後呼叫；Edit 模式：caller 自己處理 PATCH。
    *  payload 是當前 form 完整狀態，caller 自己套上 person / 比對原值。 */
   onSubmit: (state: ScheduleFormState) => Promise<void> | void;
@@ -70,7 +47,7 @@ interface Props {
  *  跨類型切換策略：device 改成不同類型時，所有 params state 被重設（AC↔IR 沒共通欄位，
  *  硬保留會混亂）。同類型切換也重設—簡化邏輯、與「重填表單」語意一致。 */
 export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCancel, lockedDevice }: Props) {
-  const controllable = devices.filter((d) => d.type !== "感應器");
+  const controllable = devices.filter((d) => d.kind !== "sensor");
 
   const [selectedDevice, setSelectedDevice] = useState(lockedDevice ?? initial?.device_name ?? "");
   const [triggerDate, setTriggerDate] = useState(initial?.trigger_date ?? "");
@@ -92,15 +69,12 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
   const [error, setError] = useState<string | null>(null);
 
   const selectedDeviceData = controllable.find((d) => d.name === selectedDevice);
-  const selectedType = selectedDeviceData?.type ?? "";
-  const irButtons = (selectedDeviceData?.buttons ?? "")
-    .split(",")
-    .map((b) => b.trim())
-    .filter(Boolean);
-  // 除濕機排程：依選到裝置的品牌取對應模式/濕度選項（缺值 fallback 到頂層 = Panasonic）
-  const dhOptions =
-    options?.dehumidifier.byBrand?.[selectedDeviceData?.brand || "Panasonic"] ??
-    options?.dehumidifier ?? { modes: [], humidity: [] };
+  const selectedType = selectedDeviceData?.kind ?? "";
+  const irButtons = selectedDeviceData?.kind === "ir" ? selectedDeviceData.ir.buttons.map((b) => b.label) : [];
+  // 除濕機排程：依那台的品牌取可選的模式與濕度（後端提供）
+  const dhOptions = selectedDeviceData?.kind === "dehumidifier"
+    ? { modes: selectedDeviceData.dehumidifier.options.modes.map((m) => ({ value: m, label: m })), humidity: selectedDeviceData.dehumidifier.options.humidity }
+    : { modes: [], humidity: [] as number[] };
 
   function handleDeviceChange(name: string) {
     setSelectedDevice(name);
@@ -116,34 +90,28 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
 
   function buildPayload(): ScheduleFormState | null {
     if (!selectedDevice || !triggerDate || !triggerTime) return null;
-    const targetAction = ACTION_MAP[selectedType];
-    if (!targetAction) return null;
+    if (selectedType !== "ac" && selectedType !== "ir" && selectedType !== "dehumidifier") return null;
 
     let params: Record<string, unknown> = {};
-    if (selectedType === "空調") {
+    if (selectedType === "ac") {
       params = { power: acPower ? "on" : "off" };
       if (acPower) {
         if (acTemp) params.temperature = acTemp;
         if (acMode) params.mode = acMode;
         if (acFan) params.fan_speed = acFan;
       }
-    } else if (selectedType === "除濕機") {
+    } else if (selectedType === "dehumidifier") {
       params = { power: dhPower ? "on" : "off" };
       if (dhPower) {
         if (dhMode) params.mode = dhMode;
         if (dhHumidity) params.humidity = dhHumidity;
       }
-    } else if (selectedType === "IR") {
+    } else if (selectedType === "ir") {
       if (!irButton) return null;
       params = { button: irButton };
     }
 
-    return {
-      device_name: selectedDevice,
-      target_action: targetAction,
-      params,
-      trigger_time: `${triggerDate} ${triggerTime}`,
-    };
+    return { kind: selectedType, name: selectedDevice, params, due_local: `${triggerDate} ${triggerTime}` };
   }
 
   async function handleSubmit() {
@@ -169,12 +137,12 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
     <fieldset disabled={submitting} className="min-w-0 space-y-4 border-0 p-0">
       {!lockedDevice && (
         <Field label="裝置">
-          <Dropdown ariaLabel="排程裝置" options={controllable.map(d => ({value:d.name,label:`${d.name}（${d.type}）`}))}
+          <Dropdown ariaLabel="排程裝置" options={controllable.map(d => ({value:d.name,label:`${d.name}`}))}
             value={selectedDevice || undefined} onSelect={handleDeviceChange} placeholder="選擇裝置" className="w-full" />
         </Field>
       )}
 
-      {selectedType === "空調" && options && (
+      {selectedType === "ac" && options && (
         <div className="space-y-3">
           <Field label="電源">
             <Toggle2 value={acPower} onChange={setAcPower} />
@@ -199,7 +167,7 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
         </div>
       )}
 
-      {selectedType === "除濕機" && options && (
+      {selectedType === "dehumidifier" && options && (
         <div className="space-y-3">
           <Field label="電源">
             <Toggle2 value={dhPower} onChange={setDhPower} />
@@ -222,7 +190,7 @@ export function ScheduleForm({ mode, initial, devices, options, onSubmit, onCanc
         </div>
       )}
 
-      {selectedType === "IR" && selectedDeviceData && irButtons.length > 0 && (
+      {selectedType === "ir" && selectedDeviceData && irButtons.length > 0 && (
         <div className="space-y-3">
           <Field label="按鈕">
             <Dropdown

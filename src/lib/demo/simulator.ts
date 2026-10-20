@@ -1,24 +1,28 @@
-import { encodeLightAreaIds } from "../todo-light-areas";
-import { createDemoState, dateAt, monitoring, haObservations, haAutomations, OPTIONS, weather, type DemoState, type Row } from "./fixtures";
+import { createDemoState, dateAt, devicesPage, history, weather, DEMO_MEMBER, type DemoState, type Row } from "./fixtures";
+import type { Schedule } from "../api";
+
+// Simulates HomeButler's /v2 API as the browser sees it (/api/hb/...). Same answers and refusals as the
+// real one in the cases the pages rely on; anything not simulated is refused, never sent anywhere.
 
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers: { "Cache-Control": "no-store", "X-Dashboard-Demo": "1" } });
 const error = (message: string, status = 400) => json({ error: message }, status);
-const str = (value: unknown, fallback = "") => value === undefined ? fallback : String(value);
-const row = (value: unknown): Row => value !== null && typeof value === "object" && !Array.isArray(value) ? value as Row : {};
-const success = () => json({ ok: true, message: "模擬操作完成" });
+const str = (value: unknown, fallback = "") => value === undefined || value === null ? fallback : String(value);
+const AC_LABEL: Record<string, string> = { cool: "冷氣", heat: "暖氣", dry: "除濕", fan_only: "送風", heat_cool: "自動" };
+const FAN_LABEL: Record<string, string> = { auto: "自動", low: "低", medium: "中", high: "高" };
+const STATUS_LABEL: Record<Schedule["status"], string> = { pending: "待執行", claimed: "處理中", done: "已執行", failed: "執行失敗",
+  unknown: "待確認", expired: "已過期", cancelled: "已取消" };
 
 /** An independent store per browser tab. Unknown requests never fall through to a backend. */
 export function createSimulator(initial = createDemoState(), persist: (state: DemoState) => void = () => {}) {
   const state = structuredClone(initial);
-  let sequence = 0;
+  const nextId = () => state.nextId++;
 
   async function dispatch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const path = decodeURIComponent(url.pathname);
     const method = request.method;
-    const read = method === "GET";
     let b: Row = {};
-    if (!read && method !== "HEAD") {
+    if (method !== "GET" && method !== "HEAD") {
       const text = await request.text();
       if (text) {
         try {
@@ -28,205 +32,231 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         } catch { return error("JSON 格式錯誤"); }
       }
     }
-    const value = (key: string) => b[key] ?? url.searchParams.get(key) ?? undefined;
 
-    if (path === "/api/auth/me" && read) return json({ lineUserId: "demo-local-only", name: "測試成員", role: "member" });
-    if (path === "/api/auth/logout" && method === "POST") return success();
+    if (path === "/api/auth/me" && method === "GET") return json({ lineUserId: "demo-local-only", name: DEMO_MEMBER, role: "member" });
+    if (path === "/api/auth/logout" && method === "POST") return json({ ok: true });
     if (path.startsWith("/api/auth/")) return error("測試模式使用模擬身分，不提供正式登入", 403);
+    if (!path.startsWith("/api/hb/")) return error(`測試模式尚未模擬：${method} ${path}`, 501);
     if (state.scenario === "error") return error("模擬 API 失敗：請切回正常情境重試", 503);
-    if (state.scenario === "offline" && (path.startsWith("/api/lighting/") || path.startsWith("/api/theater/") || (!read && path === "/api/devices/control"))) return error("模擬設備離線", 503);
+    const p = path.slice("/api/hb/".length);
+    const offline = state.scenario === "offline";
+    const deviceCommand = /^(devices\/(ac|ir)|dehumidifiers\/[^/]+\/control|lighting\/|theater)/.test(p) && method !== "GET";
+    if (offline && (deviceCommand || p === "lighting" || p === "theater")) return error("模擬設備離線", 503);
+    const visible = state.todos.filter(t => t.status === "open" && (t.visibility === "public" || t.owner === DEMO_MEMBER));
+    const clean = <T extends { owner?: string }>(t: T) => { const { owner, ...rest } = t; void owner; return rest; };
 
-    const visibleTodo = (t: { 類型?: string; 負責人?: string }) => t.類型 === "公開" || t.負責人 === "測試成員";
-    const visibleTodos = state.todos.filter(t => t.狀態 === "待辦" && visibleTodo(t));
-    if (read) {
-      const history = () => monitoring(state);
-      switch (path) {
-        case "/api/home-assistant/observations": return json(haObservations(state.scenario));
-        case "/api/home-assistant/automations": return json(haAutomations(state.scenario));
-        case "/api/dashboard": return json(value("include_weather") === "false"
-          ? { todos: visibleTodos, food: state.food }
-          : { weatherToday: weather(), weatherTomorrow: weather(), todos: visibleTodos, food: state.food });
-        case "/api/devices": return json(state.devices);
-        case "/api/devices/options": return json(OPTIONS);
-        case "/api/devices/status": return json(Object.fromEntries(state.devices.filter(d => !value("name") || d.name === value("name")).map(d => [d.name, d])));
-        case "/api/sensors/status": return json(Object.fromEntries(Object.entries(history().sensors)
-          .filter(([name]) => !value("name") || name === value("name"))
-          .map(([name, sensor]) => [name, value("include_history") === "false" ? { ...sensor, history: [] } : sensor])));
-        case "/api/ac/status": return json(history().acs);
-        case "/api/ac/auto-off": return json({ devices: Object.fromEntries(state.devices
-          .filter(d => d.type === "空調" && d.controlProvider === "home_assistant")
-          .map(d => [d.name, { hours: 9, status: "counting", scheduled_at: `${dateAt(1)} 7:00`, problems: [],
-            hours_text: "9", window_text: "22:00-07:00", window: "22:00-07:00", preview_off_at: `${dateAt(1)} 07:00` }])) });
-        case "/api/dehumidifier/history": return json(history().dehums);
-        // Shared Windows + Mac fixtures; the Mac reports one SoC hotspot instead of CPU/GPU temperatures.
-        // Fixtures preserve independent memory_pressure.pct and level; missing values never become zero/normal.
-        case "/api/computers/status": return json(history().computers);
-        case "/api/dehumidifier/auto-rule": return json(state.rules);
-        case "/api/todos": return json(visibleTodos);
-        case "/api/food": return json(state.food);
-        case "/api/schedules": return json(state.schedules.filter(s => ["待執行", "待確認", "執行失敗"].includes(s.狀態)));
-        case "/api/recurring-todos": return json(state.recurring.filter(r => r.狀態 === "啟用" && visibleTodo(r)));
-        case "/api/lighting/areas": return json({ agent_id: "home_assistant", areas: state.areas });
-        case "/api/lighting/auto/rules": return json({ rules: {}, retired: true });
-        case "/api/lighting/auto/sensors": return json({ sensors: state.devices.filter(d => d.type === "感應器").map(d => ({ name: d.name, location: d.location, device_id: `demo-${d.name}` })) });
-        case "/api/theater/summary": return json(state.theater);
-        case "/api/weather": return json(weather());
+    if (method === "GET") {
+      switch (p) {
+        case "devices": return json(devicesPage(state));
+        case "history": return json(history(state));
+        case "home": return json({ todos: visible.filter(t => t.due_date && t.due_date <= dateAt(5)).slice(0, 5).map(clean),
+          food: state.food.filter(f => f.expires_on && f.expires_on <= dateAt(5)) });
+        case "todos": return json({ todos: visible.map(clean), templates: state.templates.filter(t => t.active).map(({ active, ...t }) => { void active; return t; }),
+          light_areas: state.areas.filter(a => a.reminders).map(a => ({ id: a.area_id, name: a.display_name || a.hue_name, is_default: a.is_default })),
+          members: [DEMO_MEMBER, "其他成員"] });
+        case "food": return json({ food: state.food });
+        case "weather": return json(weather());
+        case "lighting": return json({ areas: state.areas });
+        case "theater": return json(state.theater);
       }
-      if (/^\/api\/lighting\/auto\/sensors\/[^/]+\/light-level$/.test(path)) return json({ light_level: 4, source: "home_assistant", age_seconds: 5 });
+      if (p.startsWith("history")) return json(history(state));
+      return error(`測試模式尚未模擬：${method} ${path}`, 501);
     }
 
-    if (path === "/api/devices/control" && method === "POST") {
-      const device = state.devices.find(d => d.name === b.deviceName);
-      if (!device) return error("找不到模擬設備", 404);
-      if (state.rules[device.name]?.auto_mode) return error("自動模式啟用中，請先關閉自動模式", 409);
-      const p = row(b.params);
-      if (b.action === "setAll" && device.type === "空調") {
-        if (device.controlProvider === "home_assistant" && !device.available) return error("HA 空調狀態未知", 503);
-        const requested = Number(p.temperature);
-        if (!Number.isFinite(requested) || requested < 16 || requested > 30 || !Number.isInteger(requested * 2) || typeof p.power !== "boolean") return error("空調設定無效");
-        const temp = Math.floor(requested + 0.5);   // 半度輸入 half-up 收整；目標一律整數
-        Object.assign(device, { lastPower: p.power ? "on" : "off", lastTemperature: temp, lastMode: str(p.mode), lastFanSpeed: str(p.fanSpeed), lastUpdatedAt: new Date().toISOString() });
-        return json({ ok: true, message: "模擬操作完成", state: device });
-      } else if (b.action === "dehumidifier" && device.type === "除濕機") {
-        if (typeof p.power === "boolean") device.power = p.power;
-        if (typeof p.mode === "string") device.mode = p.mode;
-        if (p.humidity !== undefined) device.targetHumidity = str(p.humidity);
-      } else if (b.action !== "ir" || device.type !== "IR") return error("不支援此設備動作");
-      return success();
-    }
-    if (path === "/api/dehumidifier/auto-rule" && method === "POST") {
-      const device = state.devices.find(d => d.name === b.device_name && d.type === "除濕機");
-      if (!device) return error("找不到除濕機", 404);
-      const previous = state.rules[device.name] ?? { auto_mode: false, sensor_name: "", duration_min: 5, threshold: 55, on_mode: "連續除濕" };
-      const rule = { ...previous };
-      if (typeof b.auto_mode === "boolean") rule.auto_mode = b.auto_mode;
-      if (b.sensor_name !== undefined) rule.sensor_name = str(b.sensor_name);
-      if (b.duration_min !== undefined) rule.duration_min = Number(b.duration_min);
-      if (b.threshold !== undefined) rule.threshold = Number(b.threshold);
-      if (b.threshold_source !== undefined) rule.threshold_source = str(b.threshold_source);
-      const sensor = state.devices.find(d => d.name === rule.sensor_name && d.type === "感應器");
-      if (rule.auto_mode && !sensor) return error("請選擇感測器");
-      if (!Number.isFinite(rule.threshold) || rule.threshold < 45 || rule.threshold > 65) return error("濕度門檻需介於 45–65");
-      rule.effective_threshold = rule.threshold_source === "自訂" ? 55 : rule.threshold;
-      rule.humidity_curve = rule.threshold_source === "自訂" ? [{ hour: 7, threshold: 55 }, { hour: 23, threshold: 60 }] : [];
-      rule.humidity_on_threshold = rule.effective_threshold + 2;
-      rule.humidity_off_threshold = rule.effective_threshold - 1;
-      rule.auto_phase = rule.auto_mode ? "idle_humid" : "disabled";
-      rule.countdown_min = null;
-      if (rule.auto_mode) {
-        device.power = (sensor?.humidity ?? 0) >= rule.effective_threshold;
-        device.mode = device.brand === "LG" ? "智慧除濕" : "連續除濕";
+    // ── devices ──
+    let m = p.match(/^devices\/ac\/(.+)$/);
+    if (m && method === "POST") {
+      const ac = state.acs.find(a => a.name === m![1]);
+      if (!ac) return error("找不到「" + m[1] + "」", 409);
+      if (b.power === "off") Object.assign(ac, { power: "off", mode: null, temperature: null, fan: null });
+      else {
+        const t = Number(b.temperature ?? ac.temperature ?? 26);
+        if (!Number.isFinite(t) || t < 16 || t > 30) return error("空調溫度需介於 16 至 30 度", 409);
+        Object.assign(ac, { power: "on", temperature: Math.floor(t + 0.5), mode: AC_LABEL[str(b.mode, "cool")] ?? "冷氣", fan: FAN_LABEL[str(b.fan_speed, "auto")] ?? "自動" });
       }
-      state.rules[device.name] = rule;
-      return json({ rule });
+      ac.updated_at = Date.now() / 1000;
+      return json({ status: "success", message: "HA 已執行" });
+    }
+    m = p.match(/^devices\/ir\/(.+)$/);
+    if (m && method === "POST") {
+      const ir = state.irs.find(i => i.name === m![1]);
+      if (!ir || !ir.buttons.some(x => x.label === b.button)) return error("找不到這個按鈕", 409);
+      return json({ status: "success", message: "已送出" });
     }
 
-    if (path === "/api/food") {
-      if (method === "POST") {
-        if (!str(b.name).trim() || !b.expiry) return error("品名與過期日必填");
-        state.food.push({ 品名: str(b.name).trim(), 數量: str(b.quantity, "1"), 單位: str(b.unit, "個"), 過期日: str(b.expiry), 狀態: "有效", 新增日: dateAt(0), 新增者: "測試成員" });
-        return success();
+    // ── dehumidifiers ──
+    m = p.match(/^dehumidifiers\/(.+)\/(control|rule)$/);
+    if (m) {
+      const unit = state.dehumidifiers.find(d => d.name === m![1]);
+      if (!unit) return error("找不到這台除濕機", 404);
+      if (m[2] === "control" && method === "POST") {
+        if (unit.rule.auto_mode) return error(`${unit.name} 目前處於自動模式，請先關閉自動模式才能手動控制`, 409);
+        if (b.power === "off") unit.status.power = false;
+        else unit.status.power = true;
+        if (typeof b.mode === "string") unit.status.mode = b.mode;
+        if (typeof b.humidity === "number") unit.status.target = `${b.humidity}%`;
+        unit.status.updated_at = new Date().toISOString();
+        return json({ status: "success", message: `${unit.name} 指令已送出` });
       }
-      const index = state.food.findIndex(f => f.品名 === value("name"));
-      if (index < 0) return error("找不到食品", 404);
-      if (method === "DELETE") { state.food.splice(index, 1); return success(); }
-      if (method === "PATCH") {
-        const f = state.food[index];
-        for (const [key, field] of Object.entries({ name_new: "品名", quantity: "數量", unit: "單位", expiry: "過期日" }) as [string, keyof typeof f][]) if (b[key] !== undefined) f[field] = str(b[key]);
-        return success();
-      }
-    }
-    if (["/api/todos", "/api/recurring-todos"].includes(path) && ["POST", "PATCH"].includes(method) && b.light_area_ids !== undefined && b.light_notify !== false) {
-      if (!Array.isArray(b.light_area_ids) || !b.light_area_ids.length || b.light_area_ids.length > 32 ||
-          b.light_area_ids.some(id => typeof id !== "string" || !state.areas.some(area => area.id === id.trim() && area.enabled !== false))) {
-        return error("請選擇有效的提醒區域");
-      }
-    }
-    if (path === "/api/todos") {
-      if (method === "POST") {
-        if (!str(b.item).trim() || !b.date) return error("事項與日期必填");
-        state.todos.push({ 待辦ID: `demo-created-${Date.now()}-${sequence++}`, 事項: str(b.item).trim(), 日期: str(b.date), 時間: str(b.time), 負責人: "測試成員", 狀態: "待辦", 類型: str(b.type, "私人"), 來源: "本地", 屬性: "讀寫", 燈光提醒: b.light_notify === true, 燈光區域ID: Array.isArray(b.light_area_ids) ? encodeLightAreaIds(b.light_area_ids as string[]) : str(b.light_area_id) });
-        return success();
-      }
-      const index = state.todos.findIndex(t => t.狀態 === "待辦" && visibleTodo(t) && (value("todo_id")
-        ? t.待辦ID === value("todo_id")
-        : t.事項 === value("item") && (!value("date_orig") || t.日期 === value("date_orig")) && (!value("time_orig") || t.時間 === value("time_orig"))));
-      if (index < 0) return error("找不到待辦", 404);
-      const t = state.todos[index];
-      if (method === "DELETE" && t.來源 === "Notion") { t.狀態 = "已完成"; return success(); }
-      if (t.屬性 === "唯讀") return error("外部唯讀待辦無法修改", 403);
-      if (method === "DELETE") { state.todos.splice(index, 1); return success(); }
-      if (method === "PATCH") {
-        for (const [key, field] of Object.entries({ item_new: "事項", date: "日期", time: "時間", type: "類型", light_area_id: "燈光區域ID" })) if (b[key] !== undefined) Object.assign(t, { [field]: str(b[key]) });
-        if (b.light_notify !== undefined) t.燈光提醒 = b.light_notify === true;
-        if (Array.isArray(b.light_area_ids)) t.燈光區域ID = encodeLightAreaIds(b.light_area_ids as string[]);
-        if (b.light_notify === false) t.燈光區域ID = "";
-        return success();
-      }
-    }
-    if (path === "/api/recurring-todos") {
-      if (method === "POST") {
-        if (!b.item || !b.recur_type) return error("事項與週期必填");
-        state.recurring.push({ 規則ID: `demo-rule-${Date.now()}-${sequence++}`, 事項: str(b.item), 重複類型: str(b.recur_type), 星期: Array.isArray(b.weekdays) ? b.weekdays.join(",") : "", 月日: str(b.month_day), 間隔天數: str(b.interval_days), 時間: str(b.time), 負責人: "測試成員", 類型: str(b.type, "私人"), 燈光提醒: b.light_notify === true, 燈光區域ID: Array.isArray(b.light_area_ids) ? encodeLightAreaIds(b.light_area_ids as string[]) : str(b.light_area_id), 起始日期: str(b.start_date, dateAt(0)), 結束日期: str(b.end_date), 狀態: "啟用", 摘要: `${str(b.recur_type)} ${str(b.time)}（模擬模板，不自動生成）` });
-        return success();
-      }
-      if (method === "DELETE") {
-        const r = state.recurring.find(r => r.規則ID === value("rule_id") && visibleTodo(r));
-        if (!r) return error("找不到週期模板", 404);
-        r.狀態 = "停用";
-        return success();
-      }
-    }
-    if (path === "/api/schedules") {
-      if (method === "POST") {
-        if (!b.device_name || !b.trigger_time) return error("設備與時間必填");
-        state.schedules.push({ 設備名稱: str(b.device_name), 觸發時間: str(b.trigger_time), 動作: str(b.target_action), 參數: JSON.stringify(b.params ?? {}), 建立者: "測試成員", 狀態: "待執行", 來源: state.devices.some(d => d.name === b.device_name && d.type === "空調" && d.controlProvider === "home_assistant") ? "使用者（HA）" : "使用者" });
-        return success();
-      }
-      const executionId = method === "DELETE" ? value("execution_id") : "";
-      const index = state.schedules.findIndex(s => s.設備名稱 === value("device_name") && s.觸發時間 === value("trigger_time")
-        && (executionId ? ["執行失敗", "待確認"].includes(s.狀態) && s.執行識別碼 === executionId : s.狀態 === "待執行"));
-      if (index < 0) return error("找不到排程", 404);
-      const automatic = state.schedules[index].來源 === "自動（HA）";
-      const metadata = row(JSON.parse(state.schedules[index].參數 || "{}"));
-      if (method === "DELETE") {
-        if (automatic && !metadata._auto_closed) {
-          state.schedules[index].狀態 = "已取消";
-          state.schedules[index].參數 = JSON.stringify({...metadata, _auto_deleted:true, _auto_paused:false});
-        } else state.schedules.splice(index, 1);
-        return success();
-      }
-      if (method === "PATCH") {
-        const original = state.schedules[index];
-        const finalAction = str(b.target_action_new, original.動作);
-        const finalName = str(b.device_name_new, original.設備名稱);
-        if (finalAction === "control_ac" && state.devices.some(d => d.name === finalName && d.controlProvider === "home_assistant")
-          && !["使用者", "使用者（HA）", "自動（HA）"].includes(original.來源 ?? "")) return error("舊自動關機／防黴排程已停用，請另外新增手動排程");
-        if (automatic && (finalAction !== "control_ac" || finalName !== original.設備名稱)) return error("本輪自動排程只能編輯原空調");
-        for (const [key, field] of Object.entries({ device_name_new: "設備名稱", trigger_time_new: "觸發時間", target_action_new: "動作" })) if (b[key] !== undefined) state.schedules[index][field] = str(b[key]);
-        if (b.params_new !== undefined) state.schedules[index].參數 = JSON.stringify(b.params_new);
-        const target = state.schedules[index];
-        if (automatic) {
-          const params = row(JSON.parse(target.參數));
-          const deviceParams = Object.fromEntries(Object.entries(params).filter(([k]) => !k.startsWith("_auto_")));
-          if (metadata._auto_closed) {
-            target.來源 = "使用者（HA）";
-            target.參數 = JSON.stringify(deviceParams);
-          } else target.參數 = JSON.stringify({...deviceParams,
-              ...Object.fromEntries(Object.entries(metadata).filter(([k]) => k.startsWith("_auto_"))), _auto_edited:true});
+      if (m[2] === "rule" && method === "PUT") {
+        const rule = unit.rule;
+        if (typeof b.threshold === "number" && (b.threshold < 30 || b.threshold > 80)) return error("目標濕度需介於 30%～80%", 422);
+        if (b.sensor_name !== undefined) rule.sensor_name = str(b.sensor_name);
+        if (typeof b.duration_min === "number") rule.duration_min = b.duration_min;
+        if (typeof b.threshold === "number") { rule.threshold = b.threshold; rule.threshold_source = "fixed"; }
+        if (b.threshold_source === "custom" || b.threshold_source === "fixed") rule.threshold_source = b.threshold_source;
+        const turningOn = b.auto_mode === true && !rule.auto_mode;
+        rule.auto_mode = b.auto_mode === true;
+        rule.effective_threshold = rule.threshold_source === "custom" ? 55 : rule.threshold;
+        rule.curve = rule.threshold_source === "custom" ? [{ hour: 7, threshold: 55 }, { hour: 23, threshold: 60 }] : [];
+        rule.on_at = rule.effective_threshold + 2;
+        rule.off_at = rule.effective_threshold - 1;
+        rule.phase = rule.auto_mode ? "idle_humid" : "disabled";
+        if (turningOn && unit.sensor_humidity !== null) {
+          unit.status.power = unit.sensor_humidity >= rule.effective_threshold;
+          rule.last_event = unit.status.power ? "toggled_immediate_on" : "toggled_immediate_off";
         }
-        else if (target.動作 === "control_ac" && state.devices.some(d => d.name === target.設備名稱 && d.controlProvider === "home_assistant")) target.來源 = "使用者（HA）";
-        else if (target.來源 === "使用者（HA）") target.來源 = "使用者";
-        return success();
+        return json(unit);
       }
     }
 
-    const areaMatch = path.match(/^\/api\/lighting\/areas\/([^/]+)(?:\/(state|effect|notification))?$/);
-    if (areaMatch) {
-      const a = state.areas.find(a => a.id === areaMatch[1]);
+    // ── schedules ──
+    if (p === "schedules" && method === "POST") {
+      const kind = b.target_kind as Schedule["target_kind"];
+      const name = str(b.target_name);
+      const exists = (kind === "ac" && state.acs.some(a => a.name === name)) || (kind === "ir" && state.irs.some(i => i.name === name))
+        || (kind === "dehumidifier" && state.dehumidifiers.some(d => d.name === name));
+      if (!exists) return error("找不到這台設備", 409);
+      const match = str(b.due_local).match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$/);
+      if (!match) return error("時間格式請用 YYYY-MM-DD HH:MM", 409);
+      const s: Schedule = { id: nextId(), target_kind: kind, target_name: name, params: (b.params ?? {}) as Record<string, unknown>,
+        due_at: new Date(`${match[1]}T${match[2]}:00+08:00`).toISOString(), due_local: str(b.due_local), source: "user", status: "pending",
+        status_label: STATUS_LABEL.pending, result: "", created_by: DEMO_MEMBER, editable: true };
+      state.schedules.push(s);
+      return json(s);
+    }
+    m = p.match(/^schedules\/(\d+)$/);
+    if (m) {
+      const s = state.schedules.find(x => x.id === Number(m![1]));
+      if (!s) return error("找不到這筆排程", 404);
+      if (method === "PATCH") {
+        if (s.status !== "pending") return error("這筆排程已經不是待執行，不能修改", 409);
+        if (b.due_local !== undefined) {
+          const match = str(b.due_local).match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$/);
+          if (!match) return error("時間格式請用 YYYY-MM-DD HH:MM", 409);
+          s.due_local = str(b.due_local);
+          s.due_at = new Date(`${match[1]}T${match[2]}:00+08:00`).toISOString();
+        }
+        if (b.params !== undefined) s.params = b.params as Record<string, unknown>;
+        return json(s);
+      }
+      if (method === "DELETE") {
+        if (s.status === "pending") { s.status = "cancelled"; s.editable = false; }
+        else if (s.status === "failed" || s.status === "unknown") state.schedules = state.schedules.filter(x => x !== s);
+        else return error("這筆排程不能移除", 409);
+        s.status_label = STATUS_LABEL[s.status];
+        return json(s);
+      }
+    }
+
+    // ── to-dos ──
+    const areaIds = (value: unknown) => {
+      if (value === undefined) return true;
+      return Array.isArray(value) && value.length > 0 && value.every(id => state.areas.some(a => a.area_id === id && a.reminders));
+    };
+    if (p === "todos" && method === "POST") {
+      if (!str(b.title).trim() || !b.due_date) return error("事項與日期必填", 409);
+      if (b.light_reminder && !areaIds(b.light_area_ids)) return error("請選擇有效的提醒區域", 409);
+      const t = { id: nextId(), title: str(b.title).trim(), due_date: str(b.due_date), due_time: b.due_time ? str(b.due_time) : null,
+        assignee: DEMO_MEMBER, visibility: b.visibility === "public" ? "public" as const : "private" as const, status: "open" as const,
+        source: "local" as const, read_only: false, light_reminder: b.light_reminder === true && !!b.due_time,
+        light_area_ids: b.light_reminder ? (b.light_area_ids as number[]) ?? [] : [], template_id: null, owner: DEMO_MEMBER };
+      state.todos.push(t);
+      return json({ message: `✅ 已新增待辦：${t.title}`, item: clean(t) });
+    }
+    m = p.match(/^todos\/(\d+)(\/complete)?$/);
+    if (m) {
+      const t = visible.find(x => x.id === Number(m![1]));
+      if (!t) return error("❌ 找不到可操作的待辦，請重新查詢待辦清單後指定項目。", 409);
+      if (m[2] && method === "POST") { t.status = "done"; return json({ message: `✅ 已標記「${t.title}」為已完成` }); }
+      if (method === "PATCH") {
+        if (t.read_only) return error(`❌ 「${t.title}」是外部行事曆的項目，請到原本的日曆上操作`, 409);
+        if (b.light_area_ids !== undefined && !areaIds(b.light_area_ids)) return error("請選擇有效的提醒區域", 409);
+        if (b.title !== undefined) t.title = str(b.title);
+        if (b.due_date !== undefined) t.due_date = str(b.due_date);
+        if (b.due_time !== undefined) t.due_time = b.due_time ? str(b.due_time) : null;
+        if (b.visibility === "public" || b.visibility === "private") t.visibility = b.visibility;
+        if (typeof b.light_reminder === "boolean") t.light_reminder = b.light_reminder && !!t.due_time;
+        if (Array.isArray(b.light_area_ids)) t.light_area_ids = b.light_area_ids as number[];
+        if (!t.light_reminder) t.light_area_ids = [];
+        return json({ message: `✅ 已更新「${t.title}」`, item: clean(t) });
+      }
+    }
+    if (p === "todo-templates" && method === "POST") {
+      if (!str(b.title).trim() || !b.rule) return error("事項與週期必填", 409);
+      state.templates.push({ id: nextId(), title: str(b.title), rule: b.rule as never, weekdays: (b.weekdays as number[]) ?? [],
+        month_day: (b.month_day as number) ?? null, interval_days: (b.interval_days as number) ?? null, due_time: b.due_time ? str(b.due_time) : null,
+        assignee: DEMO_MEMBER, visibility: b.visibility === "public" ? "public" : "private", light_reminder: b.light_reminder === true,
+        light_area_ids: (b.light_area_ids as number[]) ?? [], start_date: str(b.start_date, dateAt(0)), end_date: b.end_date ? str(b.end_date) : null,
+        summary: `${str(b.rule)} ${str(b.due_time)}（模擬模板，不自動生成）`, active: true });
+      return json({ message: "✅ 已設定週期提醒" });
+    }
+    m = p.match(/^todo-templates\/(\d+)$/);
+    if (m && method === "DELETE") {
+      const t = state.templates.find(x => x.id === Number(m![1]) && x.active);
+      if (!t) return error("❌ 找不到啟用中的週期提醒", 409);
+      t.active = false;
+      return json({ message: `✅ 已停止週期提醒：${t.title}` });
+    }
+
+    // ── food ──
+    if (p === "food" && method === "POST") {
+      if (!str(b.name).trim()) return error("❌ 請告訴我食品的名稱", 409);
+      state.food.push({ id: nextId(), name: str(b.name).trim(), quantity: Number(b.quantity ?? 1), unit: str(b.unit, "個"),
+        expires_on: b.expires_on ? str(b.expires_on) : null, added_on: dateAt(0), added_by: DEMO_MEMBER });
+      return json({ message: "✅ 已新增" });
+    }
+    m = p.match(/^food\/(\d+)$/);
+    if (m) {
+      const f = state.food.find(x => x.id === Number(m![1]));
+      if (!f) return error("❌ 找不到這項食品", 409);
+      if (method === "DELETE" || (method === "PATCH" && typeof b.quantity === "number" && b.quantity <= 0)) {
+        state.food = state.food.filter(x => x !== f);
+        return json({ message: `✅ 已標記 ${f.name} 為已消耗` });
+      }
+      if (method === "PATCH") {
+        if (b.name !== undefined) f.name = str(b.name);
+        if (typeof b.quantity === "number") f.quantity = b.quantity;
+        if (b.unit !== undefined) f.unit = str(b.unit);
+        if (b.expires_on !== undefined) f.expires_on = str(b.expires_on);
+        return json({ message: `✅ ${f.name} 已更新` });
+      }
+    }
+
+    // ── lighting ──
+    m = p.match(/^lighting\/areas\/(\d+)$/);
+    if (m && method === "PATCH") {
+      const a = state.areas.find(x => x.area_id === Number(m![1]));
+      if (!a) return error("找不到這個照明區域", 404);
+      if (b.display_name !== undefined) a.display_name = str(b.display_name).trim();
+      if (typeof b.reminders === "boolean") a.reminders = b.reminders;
+      if (b.is_default === true) state.areas.forEach(x => { x.is_default = x === a; });
+      return json({ area_id: a.area_id, display_name: a.display_name, reminders: a.reminders, is_default: a.is_default });
+    }
+    m = p.match(/^lighting\/scenes\/([^/]+)\/recall$/);
+    if (m && method === "POST") {
+      const a = state.areas.find(x => x.scenes.some(s => s.id === m![1]));
+      if (!a) return error("找不到場景", 404);
+      a.on = true; a.brightness = m[1].endsWith("night") ? 20 : 80;
+      if (a.color_control) { a.color_control.mode = "temperature"; a.color_control.kelvin = m[1].endsWith("night") ? 2200 : 4000; a.color_control.hs = null; }
+      a.last_action = m[1];
+      return json({ ok: true });
+    }
+    m = p.match(/^lighting\/([^/]+)\/(state|effect|notification)$/);
+    if (m) {
+      const a = state.areas.find(x => x.id === m![1]);
       if (!a) return error("找不到照明區域", 404);
-      if (!areaMatch[2] && method === "PATCH") { a.display_name = str(b.display_name) || a.hue_name; return success(); }
-      if (areaMatch[2] === "state" && method === "PATCH") {
+      if (m[2] === "state" && method === "PATCH") {
         const c = a.color_control;
         const hs = b.hs_color, kelvin = b.color_temp_kelvin;
         if (hs !== undefined && kelvin !== undefined) return error("請選擇彩色或白光", 422);
@@ -238,25 +268,15 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
         if (typeof b.brightness === "number") a.brightness = Math.max(1, Math.min(100, b.brightness));
         if (c && Array.isArray(hs)) { c.mode = "color"; c.hs = [hs[0], hs[1]]; c.kelvin = null; }
         if (c && typeof kelvin === "number") { c.mode = "temperature"; c.kelvin = Math.round(1000000 / Math.round(1000000 / kelvin)); c.hs = null; }
-        return success();
+        return json({ ok: true });
       }
-      if (["effect", "notification"].includes(areaMatch[2]) && method === "POST") { a.last_action = str(b.effect ?? b.notification); return success(); }
+      if (m[2] !== "state" && method === "POST") { a.last_action = str(b.effect ?? b.notification); return json({ ok: true }); }
     }
-    const sceneMatch = path.match(/^\/api\/lighting\/scenes\/([^/]+)\/recall$/);
-    if (sceneMatch && method === "POST") {
-      const a = state.areas.find(a => a.scenes.some(s => s.id === sceneMatch[1]));
-      if (!a) return error("找不到場景", 404);
-      a.on = true; a.brightness = sceneMatch[1].endsWith("night") ? 20 : 80;
-      if (a.color_control) { a.color_control.mode = "temperature"; a.color_control.kelvin = sceneMatch[1].endsWith("night") ? 2200 : 4000; a.color_control.hs = null; } a.last_action = sceneMatch[1];
-      return success();
-    }
-    const ruleMatch = path.match(/^\/api\/lighting\/auto\/rules\/([^/]+)$/);
-    if (ruleMatch && state.areas.some(a => a.id === ruleMatch[1])) {
-      if (method === "PATCH" || method === "DELETE") return error("HB 自動夜燈已停用，請在 Home Assistant 設定自動化", 410);
-    }
-    if (path === "/api/theater/flags" && method === "POST") {
+
+    // ── theater ──
+    if (p === "theater/flags" && method === "POST") {
       for (const key of ["kef_link", "tv_screen_auto", "tv_avr_sync"] as const) if (typeof b[key] === "boolean") state.theater.flags[key] = b[key];
-      return json({ success: true, flags: state.theater.flags });
+      return json({ agent_id: "home_assistant", success: true, flags: state.theater.flags });
     }
     return error(`測試模式尚未模擬：${method} ${path}`, 501);
   }

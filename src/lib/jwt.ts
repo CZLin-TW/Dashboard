@@ -13,6 +13,8 @@ export interface SessionUser {
   name: string;
   picture?: string;
   role?: SessionRole;
+  /** A remote tablet's id in HomeButler (role "kid"). Sessions signed before v2 lack it and must sign in again. */
+  remoteId?: number;
 }
 
 // SESSION_JWT_SECRET 為專用隨機值（openssl rand -hex 32），與 LINE_LOGIN_CHANNEL_SECRET
@@ -63,6 +65,7 @@ export async function verifySession(
         name: payload.name as string,
         picture: payload.picture as string | undefined,
         role: payload.role === "kid" ? "kid" : "member",
+        ...(typeof payload.remoteId === "number" ? { remoteId: payload.remoteId } : {}),
       },
       issuedAt: typeof payload.iat === "number" ? payload.iat : null,
     };

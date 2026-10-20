@@ -102,9 +102,11 @@ function LoginContent() {
         // 吃到 5xx，登入頁空轉到配對碼過期，而畫面全程顯示「等待你在 LINE 確認」）。
         let ok = false;
         try {
-          const r = await fetch(
-            `/api/auth/device-poll?token=${encodeURIComponent(tokenRef.current)}`,
-          );
+          // POST: the browser's pairing secret never appears in a URL or an access log.
+          const r = await fetch("/api/auth/device-poll", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: tokenRef.current }),
+          });
           const d = await r.json();
           if (d.status === "approved") {
             stopPoll();

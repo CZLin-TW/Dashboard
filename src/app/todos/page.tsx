@@ -11,44 +11,25 @@ import {
   Dropdown,
   Stepper,
 } from "@/components/ui/device-controls";
-import {
-  todoLightNotify, todoUrgency, urgencyRowClass, relativeDateLabel,
-  isRecurringInstance, type RecurringRule,
-} from "@/lib/types";
+import { todoUrgency, urgencyRowClass, relativeDateLabel } from "@/lib/types";
+import { HB, send, type RecurrenceRule, type Todo, type TodoPage, type TodoTemplate } from "@/lib/api";
 import { TodoAreaPicker } from "@/components/todo-area-picker";
-import { todoLightAreaIds, sameAreaIds } from "@/lib/todo-light-areas";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useCompleteTodo } from "@/hooks/use-complete-todo";
 
-interface TodoItem {
-  "待辦ID"?: string;
-  "事項": string;
-  "日期": string;
-  "時間": string;
-  "負責人": string;
-  "狀態": string;
-  "類型": string;
-  "來源": string;
-  "屬性": string;
-  "燈光提醒"?: string | boolean;
-  "燈光區域ID"?: string;
-  "規則ID"?: string;
-}
-
 // 週期任務的頻率選項 + 星期 + 月日。
-const RECUR_TYPE_OPTIONS: { value: string; label: string }[] = [
-  { value: "每天", label: "每天" },
-  { value: "每週", label: "每週" },
-  { value: "每月", label: "每月" },
-  { value: "每季", label: "每季" },
-  { value: "半年", label: "每半年" },
-  { value: "每年", label: "每年" },
-  { value: "間隔天", label: "間隔天" },
+const RECUR_TYPE_OPTIONS: { value: RecurrenceRule; label: string }[] = [
+  { value: "daily", label: "每天" },
+  { value: "weekly", label: "每週" },
+  { value: "monthly", label: "每月" },
+  { value: "quarterly", label: "每季" },
+  { value: "half_yearly", label: "每半年" },
+  { value: "yearly", label: "每年" },
+  { value: "every_n_days", label: "間隔天" },
 ];
 // 每季/半年/每年：以起始日期當錨、每 3/6/12 個月重複同一天。
-const MONTHLY_MULTIPLE_TYPES = ["每季", "半年", "每年"];
-const MONTHLY_MULTIPLE_PERIOD: Record<string, string> = { 每季: "3", 半年: "6", 每年: "12" };
+const MONTHLY_MULTIPLE_PERIOD: Partial<Record<RecurrenceRule, string>> = { quarterly: "3", half_yearly: "6", yearly: "12" };
 const WEEKDAYS: { value: number; label: string }[] = [
   { value: 1, label: "一" }, { value: 2, label: "二" }, { value: 3, label: "三" },
   { value: 4, label: "四" }, { value: 5, label: "五" }, { value: 6, label: "六" },
@@ -56,234 +37,133 @@ const WEEKDAYS: { value: number; label: string }[] = [
 ];
 const MONTH_DAY_OPTIONS: { value: number; label: string }[] =
   Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: `${i + 1} 號` }));
+const VISIBILITY_LABEL = { private: "私人", public: "公開" } as const;
 
 interface RecurState {
-  type: string;
+  type: RecurrenceRule;
   weekdays: number[];
   monthDay: number;
   interval: number;
   startDate: string;
   endDate: string;
 }
-const RECUR_DEFAULT: RecurState = { type: "每天", weekdays: [], monthDay: 1, interval: 3, startDate: "", endDate: "" };
+const RECUR_DEFAULT: RecurState = { type: "daily", weekdays: [], monthDay: 1, interval: 3, startDate: "", endDate: "" };
 
-interface LightingArea {
-  id: string;
-  resource_type: string;
-  hue_name: string;
-  display_name: string;
-  enabled?: boolean;
-}
-
-interface LightingPayload {
-  agent_id: string;
-  areas: LightingArea[];
-}
+interface Draft { title: string; date: string; time: string; visibility: "private" | "public"; light: boolean; areas: number[] }
+const EMPTY_DRAFT: Draft = { title: "", date: "", time: "", visibility: "private", light: false, areas: [] };
 
 // 不放 w-full 在 base，避免 flex item 被同時套 flex-1 + w-full 後在
-// Chrome desktop 的 <input type="date"> 上被擠扁；單一 input 場合 caller
-// 自己加 w-full（跟 food 頁同 pattern）。
+// Chrome desktop 的 <input type="date"> 上被擠扁；單一 input 場合 caller 自己加 w-full。
 const INPUT_BASE =
   "rounded-[10px] border border-line bg-elevated px-3 py-2 text-sm text-foreground placeholder:text-faint focus:border-cool focus:outline-none";
 
 export default function TodosPage() {
   const { currentUser } = useUser();
-  const { data: todos, loading, hasData, refetch: fetchTodos } = useCachedFetch<TodoItem[]>("/api/todos", []);
-  const { data: lightingPayload } = useCachedFetch<LightingPayload | null>("/api/lighting/areas", null);
+  const { data, loading, hasData, refetch } = useCachedFetch<TodoPage>(HB("todos"),
+    { todos: [], templates: [], light_areas: [], members: [] });
   const [showAdd, setShowAdd] = useState(false);
-  const [newTodo, setNewTodo] = useState({ item: "", date: "", time: "", type: "私人", light_notify: false, light_area_ids: [] as string[] });
+  const [newTodo, setNewTodo] = useState<Draft>(EMPTY_DRAFT);
   const [hasTime, setHasTime] = useState(false);
-  // 用「原始 todo 快照」當編輯身分，而非陣列 index——否則編輯開著時別筆被完成
-  // (useCompleteTodo→fetchTodos 替換陣列)，index 會指到錯的列、把新值寫到別人那筆。
-  const [editOriginal, setEditOriginal] = useState<TodoItem | null>(null);
-  const [editTodo, setEditTodo] = useState({ item: "", date: "", time: "", type: "私人", light_notify: false, light_area_ids: [] as string[] });
-  const { completeTodo, isCompleting } = useCompleteTodo(fetchTodos);
-  // 週期任務：新增表單的「重複」開關 + 規則，以及現有模板清單（管理 Card 用）。
+  const [editing, setEditing] = useState<number | null>(null);
+  const [editTodo, setEditTodo] = useState<Draft>(EMPTY_DRAFT);
+  const { completeTodo, isCompleting } = useCompleteTodo(refetch);
   const [recurEnabled, setRecurEnabled] = useState(false);
   const [recur, setRecur] = useState<RecurState>(RECUR_DEFAULT);
-  const { data: recurringRules, refetch: fetchRules } =
-    useCachedFetch<RecurringRule[]>("/api/recurring-todos", []);
-  const lightingAreas = useMemo(
-    () => (lightingPayload?.areas ?? []).filter((area) => area.enabled !== false),
-    [lightingPayload],
-  );
-  const defaultLightAreaId = useMemo(() => {
-    const livingRoom = lightingAreas.find((area) => {
-      const name = `${area.display_name || ""} ${area.hue_name || ""}`;
-      return name.includes("客廳");
-    });
-    return livingRoom?.id ?? lightingAreas[0]?.id ?? "";
-  }, [lightingAreas]);
-  const lightingAreaNameById = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const area of lightingAreas) {
-      map[area.id] = area.display_name || area.hue_name || area.id;
-    }
-    return map;
-  }, [lightingAreas]);
-
-  // 隱私：移除「我的 / 全部」切換，永遠只顯示「自己負責 + 公開」項目；
-  // 沒登入則完全不顯示（避免他人 device 看到任何個人待辦）。
+  const lightingAreas = data.light_areas;
+  const defaultLightAreaId = useMemo(
+    () => (lightingAreas.find((a) => a.is_default) ?? lightingAreas[0])?.id, [lightingAreas]);
+  const areaName = (id: number) => lightingAreas.find((a) => a.id === id)?.name ?? "原區域（目前不可用）";
+  const defaultAreas = () => (defaultLightAreaId !== undefined ? [defaultLightAreaId] : []);
   const myName = currentUser?.name ?? "";
-  function isMine(t: TodoItem): boolean {
-    if (!currentUser) return false;
-    return t["負責人"] === myName;
-  }
+  const recurringRules = data.templates;
 
-  const filteredTodos = todos
-    .filter((t) => t["狀態"] === "待辦" && !!currentUser)
-    .sort((a, b) => {
-      const dateA = `${a["日期"]} ${a["時間"] || "99:99"}`;
-      const dateB = `${b["日期"]} ${b["時間"] || "99:99"}`;
-      return dateA.localeCompare(dateB);
-    });
+  // 後端已經只回「自己負責 + 公開」的項目。
+  const filteredTodos = [...data.todos].sort((a, b) =>
+    `${a.due_date ?? "9999"} ${a.due_time ?? "99:99"}`.localeCompare(`${b.due_date ?? "9999"} ${b.due_time ?? "99:99"}`));
 
   // 每週至少選一天才有效；其他類型一律有效。
-  const recurValid = recur.type !== "每週" || recur.weekdays.length > 0;
+  const recurValid = recur.type !== "weekly" || recur.weekdays.length > 0;
 
   function toggleWeekday(d: number) {
     setRecur((p) => ({
       ...p,
-      weekdays: p.weekdays.includes(d)
-        ? p.weekdays.filter((x) => x !== d)
-        : [...p.weekdays, d].sort((a, b) => a - b),
+      weekdays: p.weekdays.includes(d) ? p.weekdays.filter((x) => x !== d) : [...p.weekdays, d].sort((a, b) => a - b),
     }));
   }
 
   function resetAddForm() {
-    setNewTodo({ item: "", date: "", time: "", type: "私人", light_notify: false, light_area_ids: [] as string[] });
+    setNewTodo(EMPTY_DRAFT);
     setHasTime(false);
     setRecurEnabled(false);
     setRecur(RECUR_DEFAULT);
     setShowAdd(false);
   }
 
+  async function run(action: () => Promise<unknown>, after: () => void) {
+    try {
+      await action();
+      after();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "操作失敗，請稍後重試。");
+    } finally {
+      await refetch();
+    }
+  }
+
   function addTodo() {
-    if (!newTodo.item.trim() || !currentUser || (hasTime && newTodo.light_notify && !newTodo.light_area_ids.length)) return;
+    const useLight = hasTime && newTodo.light;
+    if (!newTodo.title.trim() || !currentUser || (useLight && !newTodo.areas.length)) return;
     if (recurEnabled) {
-      addRecurring();
+      if (!recurValid) return;
+      const body: Record<string, unknown> = {
+        title: newTodo.title.trim(), rule: recur.type, visibility: newTodo.visibility,
+        due_time: hasTime ? newTodo.time || null : null, light_reminder: useLight,
+        light_area_ids: useLight ? newTodo.areas : undefined, end_date: recur.endDate || undefined,
+      };
+      if (recur.type === "weekly") body.weekdays = recur.weekdays;
+      if (recur.type === "monthly") body.month_day = recur.monthDay;
+      if (recur.type === "every_n_days") body.interval_days = recur.interval;
+      if (MONTHLY_MULTIPLE_PERIOD[recur.type] && recur.startDate) body.start_date = recur.startDate;
+      void run(() => send("POST", "todo-templates", body), resetAddForm);
       return;
     }
     if (!newTodo.date) return;
-    fetch("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        item: newTodo.item.trim(),
-        date: newTodo.date,
-        time: newTodo.time,
-        person: currentUser.name,
-        type: newTodo.type,
-        light_notify: hasTime && newTodo.light_notify,
-        light_area_ids: hasTime && newTodo.light_notify ? newTodo.light_area_ids : undefined,
-      }),
-    }).then(async (res) => {
-      if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error || "操作失敗，請稍後重試。"); return; }
-      resetAddForm();
-      fetchTodos();
-    });
+    void run(() => send("POST", "todos", {
+      title: newTodo.title.trim(), due_date: newTodo.date, due_time: hasTime ? newTodo.time || null : null,
+      visibility: newTodo.visibility, light_reminder: useLight, light_area_ids: useLight ? newTodo.areas : undefined,
+    }), resetAddForm);
   }
 
-  function addRecurring() {
-    if (!currentUser || !recurValid) return;
-    const useLight = hasTime && newTodo.light_notify;
-    const body: Record<string, unknown> = {
-      item: newTodo.item.trim(),
-      recur_type: recur.type,
-      person: currentUser.name,
-      type: newTodo.type,
-      time: hasTime ? newTodo.time : "",
-      light_notify: useLight,
-      light_area_ids: useLight ? newTodo.light_area_ids : undefined,
-      end_date: recur.endDate || undefined,
-    };
-    if (recur.type === "每週") body.weekdays = recur.weekdays;
-    if (recur.type === "每月") body.month_day = recur.monthDay;
-    if (recur.type === "間隔天") body.interval_days = recur.interval;
-    // 每季/半年/每年：起始日當錨點；留空則後端用今天
-    if (MONTHLY_MULTIPLE_TYPES.includes(recur.type) && recur.startDate) body.start_date = recur.startDate;
-    fetch("/api/recurring-todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then(async (res) => {
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(err?.error ?? "新增週期提醒失敗");
-        return;
-      }
-      resetAddForm();
-      fetchTodos();
-      fetchRules();
-    });
+  function stopRecurring(rule: TodoTemplate) {
+    const summary = rule.summary ? `（${rule.summary}）` : "";
+    if (!confirm(`要永久停止整個週期提醒「${rule.title}」${summary} 嗎？\n已經產生在清單上的當次待辦不會被移除。`)) return;
+    void run(() => send("DELETE", `todo-templates/${rule.id}`), () => {});
   }
 
-  function stopRecurring(rule: RecurringRule) {
-    const summary = rule["摘要"] ? `（${rule["摘要"]}）` : "";
-    if (!confirm(`要永久停止整個週期提醒「${rule["事項"]}」${summary} 嗎？\n已經產生在清單上的當次待辦不會被移除。`)) return;
-    const params = new URLSearchParams({ rule_id: rule["規則ID"] });
-    fetch(`/api/recurring-todos?${params}`, { method: "DELETE" }).then(() => {
-      fetchRules();
-      fetchTodos();
-    });
+  function startEdit(todo: Todo) {
+    setEditing(todo.id);
+    setEditTodo({ title: todo.title, date: todo.due_date ?? "", time: todo.due_time ?? "", visibility: todo.visibility,
+      light: todo.light_reminder, areas: todo.light_reminder ? todo.light_area_ids : [] });
   }
 
-  function startEdit(todo: TodoItem) {
-    setEditOriginal(todo);
-    setEditTodo({
-      item: todo["事項"],
-      date: todo["日期"],
-      time: todo["時間"],
-      type: todo["類型"],
-      light_notify: todoLightNotify(todo),
-      light_area_ids: todoLightNotify(todo) ? todoLightAreaIds(todo, defaultLightAreaId) : [],
-    });
+  function saveEdit(todo: Todo) {
+    if (editTodo.light && !editTodo.areas.length) return;
+    const areasChanged = editTodo.light && (!todo.light_reminder || editTodo.areas.length !== todo.light_area_ids.length
+      || editTodo.areas.some((id) => !todo.light_area_ids.includes(id)));
+    const changes: Record<string, unknown> = {};
+    if (editTodo.title !== todo.title) changes.title = editTodo.title;
+    if (editTodo.date !== (todo.due_date ?? "")) changes.due_date = editTodo.date;
+    if (editTodo.time !== (todo.due_time ?? "")) changes.due_time = editTodo.time;
+    if (editTodo.visibility !== todo.visibility) changes.visibility = editTodo.visibility;
+    if (editTodo.light !== todo.light_reminder) changes.light_reminder = editTodo.light;
+    if (areasChanged) changes.light_area_ids = editTodo.areas;
+    if (!Object.keys(changes).length) { setEditing(null); return; }
+    void run(() => send("PATCH", `todos/${todo.id}`, changes), () => setEditing(null));
   }
 
-  function saveEdit() {
-    if (!editOriginal || !currentUser || (editTodo.light_notify && !editTodo.light_area_ids.length)) return;
-    const original = editOriginal;
-    const nextLightAreaIds = editTodo.light_notify ? editTodo.light_area_ids : [];
-    fetch("/api/todos", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        todo_id: original["待辦ID"],
-        item: original["事項"],
-        date_orig: original["日期"],
-        time_orig: original["時間"],
-        item_new: editTodo.item !== original["事項"] ? editTodo.item : undefined,
-        date: editTodo.date !== original["日期"] ? editTodo.date : undefined,
-        time: editTodo.time !== original["時間"] ? editTodo.time : undefined,
-        type: editTodo.type !== original["類型"] ? editTodo.type : undefined,
-        light_notify: editTodo.light_notify !== todoLightNotify(original) ? editTodo.light_notify : undefined,
-        light_area_ids: editTodo.light_notify && (!todoLightNotify(original) || !sameAreaIds(nextLightAreaIds, todoLightAreaIds(original, defaultLightAreaId))) ? nextLightAreaIds : undefined,
-        requester: currentUser.name,
-      }),
-    }).then(async (res) => {
-      if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error || "操作失敗，請稍後重試。"); return; }
-      setEditOriginal(null);
-      fetchTodos();
-    });
-  }
-
-
-  function deleteTodo(todo: TodoItem) {
-    if (!confirm(`確定要刪除「${todo["事項"]}」嗎？`)) return;
-    const params = new URLSearchParams({
-      todo_id: todo["待辦ID"] || "",
-      item: todo["事項"],
-      date_orig: todo["日期"] || "",
-      time_orig: todo["時間"] || "",
-    });
-    fetch(`/api/todos?${params}`, { method: "DELETE" }).then(async res => {
-      if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error || "刪除失敗，請稍後重試。"); return; }
-      fetchTodos();
-    });
-  }
-
-  function getSheetIndex(todo: TodoItem): number {
-    return todos.indexOf(todo);
+  function deleteTodo(todo: Todo) {
+    if (!confirm(`確定要刪除「${todo.title}」嗎？`)) return;
+    void run(() => send("POST", `todos/${todo.id}/complete`), () => {});
   }
 
   return (
@@ -306,8 +186,8 @@ export default function TodosPage() {
           <div className="space-y-3">
             <input
               type="text"
-              value={newTodo.item}
-              onChange={(e) => setNewTodo((p) => ({ ...p, item: e.target.value }))}
+              value={newTodo.title}
+              onChange={(e) => setNewTodo((p) => ({ ...p, title: e.target.value }))}
               placeholder="待辦事項內容"
               className={`w-full ${INPUT_BASE}`}
             />
@@ -337,11 +217,11 @@ export default function TodosPage() {
                   <Dropdown
                     options={RECUR_TYPE_OPTIONS}
                     value={recur.type}
-                    onSelect={(v) => setRecur((p) => ({ ...p, type: v }))}
+                    onSelect={(v) => setRecur((p) => ({ ...p, type: v as RecurrenceRule }))}
                     className="w-full"
                   />
                 </Field>
-                {recur.type === "每週" && (
+                {recur.type === "weekly" && (
                   <Field label="星期（可多選）">
                     <div className="flex flex-wrap gap-1.5">
                       {WEEKDAYS.map((d) => {
@@ -364,7 +244,7 @@ export default function TodosPage() {
                     </div>
                   </Field>
                 )}
-                {recur.type === "每月" && (
+                {recur.type === "monthly" && (
                   <Field label="每月幾號">
                     <Dropdown
                       options={MONTH_DAY_OPTIONS}
@@ -373,7 +253,7 @@ export default function TodosPage() {
                     />
                   </Field>
                 )}
-                {recur.type === "間隔天" && (
+                {recur.type === "every_n_days" && (
                   <Field label="每隔幾天">
                     <Stepper
                       value={recur.interval}
@@ -385,7 +265,7 @@ export default function TodosPage() {
                     />
                   </Field>
                 )}
-                {MONTHLY_MULTIPLE_TYPES.includes(recur.type) && (
+                {!!MONTHLY_MULTIPLE_PERIOD[recur.type] && (
                   <>
                     <Field label="起始日（首次；留空＝今天）">
                       <input
@@ -408,7 +288,7 @@ export default function TodosPage() {
                     className={`w-full ${INPUT_BASE} appearance-none`}
                   />
                 </Field>
-                {recur.type === "每月" && (
+                {recur.type === "monthly" && (
                   <p className="text-[11px] text-faint">
                     每月 29~31 號遇到較短的月份（如 2 月）會自動落在當月最後一天。
                   </p>
@@ -423,7 +303,7 @@ export default function TodosPage() {
                   onChange={() => {
                     const next = !hasTime;
                     setHasTime(next);
-                    if (!next) setNewTodo((p) => ({ ...p, time: "", light_notify: false, light_area_ids: [] as string[] }));
+                    if (!next) setNewTodo((p) => ({ ...p, time: "", light: false, areas: [] }));
                   }}
                   className="h-3.5 w-3.5 rounded border-line accent-cool"
                 />
@@ -445,35 +325,33 @@ export default function TodosPage() {
             >
               <input
                 type="checkbox"
-                checked={newTodo.light_notify}
+                checked={newTodo.light}
                 disabled={!hasTime}
                 onChange={(e) => setNewTodo((p) => ({
-                  ...p,
-                  light_notify: e.target.checked,
-                  light_area_ids: e.target.checked ? (p.light_area_ids.length ? p.light_area_ids : defaultLightAreaId ? [defaultLightAreaId] : []) : [],
+                  ...p, light: e.target.checked, areas: e.target.checked ? (p.areas.length ? p.areas : defaultAreas()) : [],
                 }))}
                 className="h-3.5 w-3.5 rounded border-line accent-cool disabled:opacity-40"
               />
               <Lightbulb className="h-3.5 w-3.5" strokeWidth={2} />
               燈光提醒
             </label>
-            {hasTime && newTodo.light_notify && (
-              <TodoAreaPicker areas={lightingAreas} selected={newTodo.light_area_ids}
-                onChange={(ids) => setNewTodo((p) => ({ ...p, light_area_ids: ids }))} />
+            {hasTime && newTodo.light && (
+              <TodoAreaPicker areas={lightingAreas} selected={newTodo.areas}
+                onChange={(ids) => setNewTodo((p) => ({ ...p, areas: ids }))} />
             )}
             <Field label="類型">
               <select
-                value={newTodo.type}
-                onChange={(e) => setNewTodo((p) => ({ ...p, type: e.target.value }))}
+                value={newTodo.visibility}
+                onChange={(e) => setNewTodo((p) => ({ ...p, visibility: e.target.value as Draft["visibility"] }))}
                 className={`field-select w-full ${INPUT_BASE}`}
               >
-                <option value="私人">私人</option>
-                <option value="公開">公開</option>
+                <option value="private">私人</option>
+                <option value="public">公開</option>
               </select>
             </Field>
             <button
               onClick={addTodo}
-              disabled={!newTodo.item.trim() || (recurEnabled ? !recurValid : !newTodo.date) || (hasTime && newTodo.light_notify && !newTodo.light_area_ids.length)}
+              disabled={!newTodo.title.trim() || (recurEnabled ? !recurValid : !newTodo.date) || (hasTime && newTodo.light && !newTodo.areas.length)}
               className="w-full rounded-full bg-cool px-5 py-2.5 text-sm font-semibold text-white hover:bg-cool/85 disabled:bg-elevated disabled:text-mute transition-colors"
             >
               {recurEnabled ? "確認新增週期提醒" : "確認新增"}
@@ -496,24 +374,19 @@ export default function TodosPage() {
         ) : (
           <ul className="flex flex-col gap-1">
             {filteredTodos.map((todo) => {
-              const isReadonly = todo["屬性"] === "唯讀";
-              const sheetIndex = getSheetIndex(todo);
-              const isEditing =
-                editOriginal !== null &&
-                editOriginal["事項"] === todo["事項"] &&
-                editOriginal["日期"] === todo["日期"] &&
-                editOriginal["時間"] === todo["時間"];
+              const isReadonly = todo.read_only;
+              const isEditing = editing === todo.id;
 
               if (isEditing) {
                 return (
                   <li
-                    key={sheetIndex}
+                    key={todo.id}
                     className="rounded-[12px] bg-elevated/50 px-3 py-3 space-y-2.5"
                   >
                     <input
                       type="text"
-                      value={editTodo.item}
-                      onChange={(e) => setEditTodo((p) => ({ ...p, item: e.target.value }))}
+                      value={editTodo.title}
+                      onChange={(e) => setEditTodo((p) => ({ ...p, title: e.target.value }))}
                       className={`w-full ${INPUT_BASE}`}
                     />
                     <div className="flex gap-2">
@@ -529,18 +402,18 @@ export default function TodosPage() {
                         onChange={(e) => setEditTodo((p) => ({
                           ...p,
                           time: e.target.value,
-                          light_notify: e.target.value ? p.light_notify : false,
-                          light_area_ids: e.target.value ? p.light_area_ids : [],
+                          light: e.target.value ? p.light : false,
+                          areas: e.target.value ? p.areas : [],
                         }))}
                         className={`w-28 ${INPUT_BASE}`}
                       />
                       <select
-                        value={editTodo.type}
-                        onChange={(e) => setEditTodo((p) => ({ ...p, type: e.target.value }))}
+                        value={editTodo.visibility}
+                        onChange={(e) => setEditTodo((p) => ({ ...p, visibility: e.target.value as Draft["visibility"] }))}
                         className={`field-select w-24 ${INPUT_BASE}`}
                       >
-                        <option value="私人">私人</option>
-                        <option value="公開">公開</option>
+                        <option value="private">私人</option>
+                        <option value="public">公開</option>
                       </select>
                     </div>
                     <label
@@ -550,32 +423,30 @@ export default function TodosPage() {
                     >
                       <input
                         type="checkbox"
-                        checked={editTodo.light_notify}
+                        checked={editTodo.light}
                         disabled={!editTodo.time}
                         onChange={(e) => setEditTodo((p) => ({
-                          ...p,
-                          light_notify: e.target.checked,
-                          light_area_ids: e.target.checked ? (p.light_area_ids.length ? p.light_area_ids : defaultLightAreaId ? [defaultLightAreaId] : []) : [],
+                          ...p, light: e.target.checked, areas: e.target.checked ? (p.areas.length ? p.areas : defaultAreas()) : [],
                         }))}
                         className="h-3.5 w-3.5 rounded border-line accent-cool disabled:opacity-40"
                       />
                       <Lightbulb className="h-3.5 w-3.5" strokeWidth={2} />
                       燈光提醒
                     </label>
-                    {editTodo.time && editTodo.light_notify && (
-                      <TodoAreaPicker areas={lightingAreas} selected={editTodo.light_area_ids}
-                        onChange={(ids) => setEditTodo((p) => ({ ...p, light_area_ids: ids }))} />
+                    {editTodo.time && editTodo.light && (
+                      <TodoAreaPicker areas={lightingAreas} selected={editTodo.areas}
+                        onChange={(ids) => setEditTodo((p) => ({ ...p, areas: ids }))} />
                     )}
                     <div className="flex gap-2">
                       <button
-                        onClick={saveEdit}
-                        disabled={editTodo.light_notify && !editTodo.light_area_ids.length}
+                        onClick={() => saveEdit(todo)}
+                        disabled={editTodo.light && !editTodo.areas.length}
                         className="rounded-full bg-cool px-4 py-1.5 text-xs font-semibold text-white hover:bg-cool/85 disabled:opacity-40"
                       >
                         儲存
                       </button>
                       <button
-                        onClick={() => setEditOriginal(null)}
+                        onClick={() => setEditing(null)}
                         className="rounded-full border border-line bg-elevated px-4 py-1.5 text-xs font-medium text-soft hover:bg-elevated/80"
                       >
                         取消
@@ -586,17 +457,17 @@ export default function TodosPage() {
               }
 
               const completing = isCompleting(todo);
-              const isPublic = todo["類型"] === "公開";
-              const lightNotify = todoLightNotify(todo);
-              const lightAreaName = todoLightAreaIds(todo, defaultLightAreaId).map(id => lightingAreaNameById[id] || "原區域（目前不可用）").join("、");
-              const urgency = todoUrgency(todo["日期"], todo["時間"]);
+              const isPublic = todo.visibility === "public";
+              const lightNotify = todo.light_reminder;
+              const lightAreaName = todo.light_area_ids.map(areaName).join("、");
+              const urgency = todoUrgency(todo.due_date ?? "", todo.due_time ?? "");
               const urgencyCls = urgencyRowClass(urgency);
               // 已 highlight 的 row 不再加 hover bg（會 muddy 兩層底色）
               const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
 
               return (
                 <li
-                  key={sheetIndex}
+                  key={todo.id}
                   className={`flex items-center gap-3 rounded-[12px] px-3 py-2.5 transition-all duration-500 ${urgencyCls} ${hoverCls} ${
                     completing ? "opacity-40 line-through scale-95" : ""
                   }`}
@@ -615,23 +486,23 @@ export default function TodosPage() {
                   </button>
                   <div className="flex-1 min-w-0">
                     <p className="flex items-center gap-1.5 text-sm text-foreground">
-                      {todo["事項"]}
+                      {todo.title}
                       {isReadonly && <Lock className="h-3 w-3 text-faint" strokeWidth={2} />}
                       {lightNotify && <Lightbulb className="h-3 w-3 text-amber" strokeWidth={2} />}
-                      {isRecurringInstance(todo) && (
+                      {todo.template_id !== null && (
                         <Repeat className="h-3 w-3 text-cool" strokeWidth={2} aria-label="週期任務" />
                       )}
                     </p>
                     <p className="num text-xs text-mute">
-                      {todo["日期"]}
+                      {todo.due_date}
                       {(() => {
-                        const rel = relativeDateLabel(todo["日期"]);
+                        const rel = relativeDateLabel(todo.due_date ?? "");
                         return rel ? ` (${rel})` : "";
                       })()}
-                      {todo["時間"] && ` ${todo["時間"]}`}
+                      {todo.due_time && ` ${todo.due_time}`}
                       {lightNotify && lightAreaName && ` · ${lightAreaName}`}
-                      {!isMine(todo) && todo["負責人"] && ` · ${todo["負責人"]}`}
-                      {todo["來源"] !== "本地" && ` · 來自 ${todo["來源"]}`}
+                      {todo.assignee && todo.assignee !== myName && ` · ${todo.assignee}`}
+                      {todo.source === "notion" && " · 來自 Notion"}
                     </p>
                   </div>
                   <span
@@ -639,7 +510,7 @@ export default function TodosPage() {
                       isPublic ? "bg-elevated text-mute" : "bg-cool-bg text-cool"
                     }`}
                   >
-                    {todo["類型"]}
+                    {VISIBILITY_LABEL[todo.visibility]}
                   </span>
                   {!isReadonly && (
                     <div className="flex items-center gap-1">
@@ -672,16 +543,16 @@ export default function TodosPage() {
           <ul className="flex flex-col gap-1">
             {recurringRules.map((rule) => (
               <li
-                key={rule["規則ID"]}
+                key={rule.id}
                 className="flex items-center gap-3 rounded-[12px] px-3 py-2.5 hover:bg-elevated/50"
               >
                 <Repeat className="h-4 w-4 flex-shrink-0 text-cool" strokeWidth={2} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground">{rule["事項"]}</p>
+                  <p className="text-sm text-foreground">{rule.title}</p>
                   <p className="num text-xs text-mute">
-                    {rule["摘要"]}
-                    {rule["負責人"] && ` · ${rule["負責人"]}`}
-                    {todoLightNotify(rule) && ` · 燈光提醒：${todoLightAreaIds(rule, defaultLightAreaId).map(id => lightingAreaNameById[id] || "原區域（目前不可用）").join("、")}`}
+                    {rule.summary}
+                    {rule.assignee && ` · ${rule.assignee}`}
+                    {rule.light_reminder && ` · 燈光提醒：${rule.light_area_ids.map(areaName).join("、")}`}
                   </p>
                 </div>
                 <IconActionButton

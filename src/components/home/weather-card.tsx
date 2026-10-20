@@ -13,10 +13,10 @@ import {
 } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClimateReadout } from "@/components/ui/device-controls";
-import { type WeatherData } from "@/lib/types";
+import type { Weather } from "@/lib/api";
 
 interface Props {
-  weather: WeatherData | null;
+  weather: Weather | null;
   loading?: boolean;
 }
 

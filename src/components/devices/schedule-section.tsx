@@ -2,69 +2,45 @@
 
 import { useRef, useState } from "react";
 import { Plus, Pencil, X } from "lucide-react";
-import { useUser } from "@/hooks/use-user";
 import { IconActionButton, ControlDetails } from "@/components/ui/device-controls";
 import { ScheduleForm, type ScheduleFormState } from "@/components/devices/schedule-form";
-import {
-  type Schedule,
-  parseScheduleParams,
-  toFormInitial,
-  isPastTrigger,
-  normalizeTriggerTime,
-  createSchedule,
-  updateSchedule,
-  deleteSchedule,
-} from "@/lib/schedule";
-import type { DeviceData, DeviceOptions } from "@/lib/types";
-import { autoOffSummary, type AcAutoOff } from "@/lib/ac";
+import { createSchedule, isAttention, isPastTrigger, removeSchedule, scheduleText, toFormInitial, updateSchedule,
+  type Schedule } from "@/lib/schedule";
+import type { AutoOff, DevicesPage } from "@/lib/api";
+import type { UiDevice } from "@/lib/devices";
+import { autoOffSummary } from "@/lib/ac";
 
 // 裝置卡內嵌的排程區段；所有排程操作都從裝置卡進入。
-// Pending schedules and attention records are separate: failed/unknown commands
-// are never silently re-armed by editing. Users check the device and add a new schedule.
+// 失敗／未確認的指令不會因為編輯而被重新排入：使用者先確認設備，再新增一筆。
 // 「新增」按鈕一直在（即使沒排程），讓進入點固定。
 
 interface Props {
-  device: DeviceData;
-  options: DeviceOptions;
-  /** 已用 device.name filter 過的清單（由 caller 處理過濾，元件不再 filter）。 */
+  device: UiDevice;
+  page: DevicesPage;
+  /** 這台的排程（呼叫端已過濾）。 */
   schedules: Schedule[];
-  /** 所有裝置 list，給 ScheduleForm 內部 deviceMap 用（即使 lockedDevice 也需要 type 資訊）。 */
-  allDevices: DeviceData[];
-  /** CRUD 後呼叫，由父層 refetch /api/schedules。 */
+  /** 所有裝置，表單需要各台的按鈕與選項。 */
+  allDevices: UiDevice[];
   onSchedulesChange: () => void;
-  /** 後端對這台空調自動關機設定的解讀（唯讀）；非空調或讀不到時不傳。 */
-  autoOff?: AcAutoOff;
+  autoOff?: AutoOff;
 }
 
-export function ScheduleSection({ device, options, schedules, allDevices, onSchedulesChange, autoOff }: Props) {
-  const { currentUser } = useUser();
+export function ScheduleSection({ device, page, schedules, allDevices, onSchedulesChange, autoOff }: Props) {
   const [showAdd, setShowAdd] = useState(false);
-  const [editKey, setEditKey] = useState<string | null>(null);
+  const [editId, setEditId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const deleteInFlight = useRef(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  function openAdd() {
-    setEditKey(null);
-    setShowAdd(true);
-  }
-
-  function openEdit(key: string) {
-    setShowAdd(false);
-    setEditKey(key);
-  }
-
   async function handleAdd(state: ScheduleFormState) {
-    if (!currentUser) return;
-    await createSchedule(state, currentUser.name);
+    await createSchedule(state);
     setShowAdd(false);
     onSchedulesChange();
   }
 
   async function handleEdit(original: Schedule, state: ScheduleFormState) {
-    if (!currentUser) return;
-    await updateSchedule(original, state, currentUser.name);
-    setEditKey(null);
+    await updateSchedule(original, state);
+    setEditId(null);
     onSchedulesChange();
   }
 
@@ -74,28 +50,27 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
     setDeleting(true);
     setDeleteError(null);
     try {
-      const attention = ["執行失敗", "待確認"].includes(schedule["狀態"]);
-      await deleteSchedule(device.name, schedule["觸發時間"], attention ? schedule["執行識別碼"] : undefined);
+      await removeSchedule(schedule);
       onSchedulesChange();
-    } catch {
-      setDeleteError("未能移除排程，請稍後重試。");
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "未能移除排程，請稍後重試。");
     } finally {
       deleteInFlight.current = false;
       setDeleting(false);
     }
   }
 
-  const sorted = [...schedules].sort(
-    (a, b) => normalizeTriggerTime(a["觸發時間"] ?? "").localeCompare(normalizeTriggerTime(b["觸發時間"] ?? "")),
-  );
-
-  const autoOffInfo = device.type === "空調" ? autoOffSummary(autoOff) : null;
-  const attentionCount = sorted.filter(s => ["執行失敗", "待確認"].includes(s["狀態"])).length;
+  const autoOffInfo = device.kind === "ac" && autoOff ? autoOffSummary({
+    hours: autoOff.hours, status: autoOff.status, scheduled_at: autoOff.scheduled_at, problems: autoOff.problems,
+    hours_text: autoOff.hours_text, window_text: autoOff.window_text, window: autoOff.window,
+    preview_off_at: autoOff.preview_off_at ? localTime(autoOff.preview_off_at) : null,
+  }) : null;
+  const attentionCount = schedules.filter(isAttention).length;
   return (
-    <ControlDetails title="排程" keepMounted summary={attentionCount ? `${attentionCount} 筆待確認` : sorted.length ? `${sorted.length} 筆` : "尚未設定"}>
+    <ControlDetails title="排程" keepMounted summary={attentionCount ? `${attentionCount} 筆待確認` : schedules.length ? `${schedules.length} 筆` : "尚未設定"}>
       <div className="flex min-w-0 items-center justify-between gap-2">
         <p className="text-xs text-mute">指定時間執行一次</p>
-        {!showAdd && <button type="button" disabled={deleting} onClick={openAdd}
+        {!showAdd && <button type="button" disabled={deleting} onClick={() => { setEditId(null); setShowAdd(true); }}
           className="inline-flex h-[38px] shrink-0 items-center gap-1 rounded-full bg-cool px-3 text-[13px] font-medium text-white hover:bg-cool/85 disabled:opacity-50">
           <Plus className="h-3.5 w-3.5" />新增排程
         </button>}
@@ -112,86 +87,56 @@ export function ScheduleSection({ device, options, schedules, allDevices, onSche
 
       {showAdd && (
         <div className="min-w-0 rounded-[14px] border border-line/70 bg-surface-2 p-3">
-          <ScheduleForm
-            mode="add"
-            devices={allDevices}
-            options={options}
-            lockedDevice={device.name}
-            onSubmit={handleAdd}
-            onCancel={() => setShowAdd(false)}
-          />
+          <ScheduleForm mode="add" devices={allDevices} options={page.options} lockedDevice={device.name}
+            onSubmit={handleAdd} onCancel={() => setShowAdd(false)} />
         </div>
       )}
 
-      {sorted.length > 0 && (
+      {schedules.length > 0 && (
         <div className="flex min-w-0 flex-col gap-2">
-          {sorted.map((s) => {
-            const trigger = s["觸發時間"] ?? "";
-            const params = s["參數"] ?? "";
-            const creator = s["建立者"] ?? "";
-            const parsed = parseScheduleParams(params);
-            const rowKey = `${device.name}|${normalizeTriggerTime(trigger)}|${s["執行識別碼"] || "pending"}`;
-            const isEditing = editKey === rowKey;
-            const past = isPastTrigger(trigger);
-            const status = s["狀態"] || "待執行";
-            const attention = status === "執行失敗" || status === "待確認";
-            const automatic = s["來源"] === "自動（HA）";
-
-            if (isEditing) {
+          {schedules.map((s) => {
+            const attention = isAttention(s);
+            if (editId === s.id) {
               return (
-                <div key={rowKey} className="min-w-0 rounded-[14px] border border-line/70 bg-surface-2 p-3">
-                  <ScheduleForm
-                    key={rowKey}
-                    mode="edit"
-                    initial={toFormInitial(s, device)}
-                    devices={allDevices}
-                    options={options}
-                    lockedDevice={device.name}
-                    onSubmit={(state) => handleEdit(s, state)}
-                    onCancel={() => setEditKey(null)}
-                  />
+                <div key={s.id} className="min-w-0 rounded-[14px] border border-line/70 bg-surface-2 p-3">
+                  <ScheduleForm key={s.id} mode="edit" initial={toFormInitial(s)} devices={allDevices} options={page.options}
+                    lockedDevice={device.name} onSubmit={(state) => handleEdit(s, state)} onCancel={() => setEditId(null)} />
                 </div>
               );
             }
-
             return (
-              <div
-                key={rowKey}
-                className="flex min-w-0 flex-wrap items-center gap-2 rounded-[14px] border border-line/70 bg-surface-2 p-3"
-              >
+              <div key={s.id} className="flex min-w-0 flex-wrap items-center gap-2 rounded-[14px] border border-line/70 bg-surface-2 p-3">
                 <div className="min-w-0 w-full">
                   <p className="text-[13px] text-foreground">
-                    {parsed.display}{automatic && <span className="ml-2 text-xs text-mute">· 自動產生</span>}
+                    {scheduleText(s.params)}{s.source === "auto_off" && <span className="ml-2 text-xs text-mute">· 自動產生</span>}
                   </p>
                   <p className="num text-xs text-mute">
-                    {trigger}
-                    {creator && <span className="ml-2">· {creator}</span>}
+                    {s.due_local}
+                    {s.created_by && <span className="ml-2">· {s.created_by}</span>}
                   </p>
-                  {attention && <p className="mt-1 text-xs leading-relaxed text-mute">{s["執行結果"] || "請先確認設備狀態。"}</p>}
+                  {attention && <p className="mt-1 text-xs leading-relaxed text-mute">{s.result || "請先確認設備狀態。"}</p>}
                 </div>
-                <span className={`mr-auto flex-shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${status === "執行失敗" ? "bg-warm-bg text-warm" : "bg-amber-bg text-amber"}`}>
-                  {attention ? status : past ? "即將執行" : "待執行"}
+                <span className={`mr-auto flex-shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${s.status === "failed" ? "bg-warm-bg text-warm" : "bg-amber-bg text-amber"}`}>
+                  {attention ? s.status_label : isPastTrigger(s) ? "即將執行" : "待執行"}
                 </span>
-                {!attention && <IconActionButton
-                  onClick={() => openEdit(rowKey)}
-                  title="編輯"
-                  disabled={deleting}
-                  icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
-                />}
-                {<IconActionButton
-                  onClick={() => void handleDelete(s)}
-                  tone="danger"
-                  disabled={deleting}
-                  title={attention ? "移除紀錄" : "刪除"}
-                  icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
-                />}
+                {s.editable && <IconActionButton onClick={() => { setShowAdd(false); setEditId(s.id); }} title="編輯" disabled={deleting}
+                  icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />} />}
+                {s.status !== "claimed" && <IconActionButton onClick={() => void handleDelete(s)} tone="danger" disabled={deleting}
+                  title={attention ? "移除紀錄" : "刪除"} icon={<X className="h-3.5 w-3.5" strokeWidth={2} />} />}
               </div>
             );
           })}
         </div>
       )}
-      {sorted.some(s => ["執行失敗", "待確認"].includes(s["狀態"])) && <p className="text-xs leading-relaxed text-mute">失敗或待確認的指令不會自動重送。請先確認設備狀態，再新增排程；移除紀錄不會撤回已送出的指令。</p>}
+      {attentionCount > 0 && <p className="text-xs leading-relaxed text-mute">失敗或待確認的指令不會自動重送。請先確認設備狀態，再新增排程；移除紀錄不會撤回已送出的指令。</p>}
       {deleteError && <p role="alert" className="text-xs text-warm">{deleteError}</p>}
     </ControlDetails>
   );
+}
+
+/** "YYYY-MM-DD HH:MM" in this browser's clock (the household's, in practice). */
+function localTime(iso: string): string {
+  const d = new Date(iso);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
 }

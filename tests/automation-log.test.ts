@@ -1,13 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { NextRequest } from "next/server";
-import { SignJWT } from "jose";
-import { createDemoState, haAutomations } from "../src/lib/demo/fixtures";
-import { createSimulator } from "../src/lib/demo/simulator";
+import { createDemoState, devicesPage } from "../src/lib/demo/fixtures";
+import { automationsOf } from "../src/lib/devices";
 import { automationTimeLabel, automationView, type HaAutomationLog } from "../src/lib/home-assistant";
-import { JWT_SECRET } from "../src/lib/jwt";
-import { proxy } from "../src/proxy";
-import { GET as automationsGET } from "../src/app/api/home-assistant/automations/route";
 
 test("times read as today, yesterday or a date in the viewer's own zone", () => {
   const now = new Date(2026, 9, 11, 9, 30);
@@ -35,40 +30,10 @@ test("the card lists newest runs first and says why a list may be empty", () => 
   assert.deepEqual(automationView(null), { notice: null, runs: [], rules: [] });
 });
 
-test("demo covers shared, not shared and offline; the route has no write methods", async () => {
-  const sim = createSimulator(createDemoState());
-  const response = await sim.handle(new Request("http://demo/api/home-assistant/automations"));
-  assert.equal(response.status, 200);
-  const log = await response.json() as HaAutomationLog;
-  assert.equal(automationView(log).notice, null);
-  assert.ok(log.runs.length >= 3 && log.rules.some(rule => rule.enabled === false));
-  assert.equal((await sim.handle(new Request("http://demo/api/home-assistant/automations", { method: "POST", body: "{}" }))).status, 501);
-  assert.equal(automationView(haAutomations("empty")).notice, "not_shared");
-  const offline = haAutomations("offline");
+test("the devices page carries the log; demo covers shared, not shared and offline", () => {
+  assert.equal(automationView(automationsOf(devicesPage(createDemoState()))).notice, null);
+  assert.equal(automationView(automationsOf(devicesPage(createDemoState("empty")))).notice, "not_shared");
+  const offline = automationsOf(devicesPage(createDemoState("offline")))!;
   assert.equal(automationView(offline).notice, "offline");
   assert.ok(offline.runs.length > 0 && offline.rules.every(rule => rule.enabled === null));
-  const route = await import("../src/app/api/home-assistant/automations/route");
-  assert.deepEqual(Object.keys(route), ["GET"]);
-});
-
-test("members and remotes may read it; the backend answer is passed through unchanged", async () => {
-  const session = (role: string) => new SignJWT({ lineUserId: role === "kid" ? "remote" : "alice-id", name: "x", role })
-    .setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("5m").sign(JWT_SECRET);
-  for (const role of ["member", "kid"]) {
-    const request = new NextRequest("http://dashboard.test/api/home-assistant/automations", { headers: { cookie: `dashboard_session=${await session(role)}` } });
-    assert.equal((await proxy(request)).status, 200, role);
-  }
-  assert.equal((await proxy(new NextRequest("http://dashboard.test/api/home-assistant/automations"))).status, 401);
-  const kid = new NextRequest("http://dashboard.test/api/home-assistant/observations", { headers: { cookie: `dashboard_session=${await session("kid")}` } });
-  assert.equal((await proxy(kid)).status, 403);
-  const original = globalThis.fetch;
-  const seen: string[] = [];
-  globalThis.fetch = async (input) => { seen.push(String(input)); return Response.json(haAutomations("normal", 1_760_000_000_000)); };
-  try {
-    const response = await automationsGET();
-    assert.deepEqual(await response.json(), haAutomations("normal", 1_760_000_000_000));
-    assert.ok(seen[0].endsWith("/api/home-assistant/automations"));
-    globalThis.fetch = async () => new Response("bad gateway", { status: 502 });
-    assert.equal((await automationsGET()).status, 500);
-  } finally { globalThis.fetch = original; }
 });

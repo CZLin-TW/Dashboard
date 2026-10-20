@@ -1,6 +1,6 @@
 import { appStorage } from "./storage";
 
-export const CACHE_SCHEMA = "2";
+export const CACHE_SCHEMA = "3";
 export interface QueryState { data: unknown; hasData: boolean; loading: boolean; error: string | null; updatedAt: number | null; isStale: boolean; }
 const EMPTY: QueryState = { data: undefined, hasData: false, loading: false, error: null, updatedAt: null, isStale: false };
 type Entry = { state: QueryState; listeners: Set<() => void>; generation: number; controller?: AbortController; pending?: Promise<void> };
@@ -11,7 +11,7 @@ let scope: string | null = null;
 let staleTimer: ReturnType<typeof setInterval> | undefined;
 function expireOldData() {
   for (const [key, entry] of entries) {
-    const ageLimit = key.includes("/api/weather") ? 900_000 : /\/api\/devices(?:\/options)?$/.test(key) ? 1800_000 : 120_000;
+    const ageLimit = key.includes("/api/hb/weather") ? 900_000 : key.includes("/api/hb/history") ? 900_000 : 120_000;
     if (entry.listeners.size && entry.state.updatedAt && !entry.state.isStale && Date.now() - entry.state.updatedAt > ageLimit) {
       entry.state = { ...entry.state, isStale: true }; emit(entry);
     }
@@ -20,7 +20,8 @@ function expireOldData() {
 
 function emit(entry: Entry) { entry.listeners.forEach(fn => fn()); statusVersion++; statusListeners.forEach(fn => fn()); }
 export function queryKey(user: string, url: string) { return `cache:${CACHE_SCHEMA}:${encodeURIComponent(user)}:${url}`; }
-function persistent(url: string) { return !/^\/api\/(todos|dashboard|recurring-todos|home-assistant)(?:[/?]|$)/.test(url); }
+// Private data (to-dos, the home summary, the devices page with who is in which room) stays in memory only.
+function persistent(url: string) { return !/^\/api\/hb\/(todos|home|devices)(?:[/?]|$)/.test(url); }
 function entryFor(key: string, url: string): Entry {
   let entry = entries.get(key);
   if (!entry) {

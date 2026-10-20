@@ -42,6 +42,9 @@ interface LightingNotification {
 
 interface LightingArea {
   id: string;
+  /** HomeButler's id for this area (display name, reminders). */
+  area_id: number;
+  reminders?: boolean;
   resource_type: string;
   hue_resource_id: string;
   hue_resource_type: string;
@@ -111,9 +114,9 @@ export default function LightingPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/lighting/areas", { cache: "no-store" });
+      const res = await fetch("/api/hb/lighting", { cache: "no-store" });
       if (!res.ok) throw new Error(await readError(res));
-      const data = await res.json() as LightingPayload;
+      const data = { agent_id: "home_assistant", ...(await res.json()) } as LightingPayload;
       setPayload(data);
       const nextDrafts: Record<string, string> = {};
       for (const area of data.areas ?? []) {
@@ -165,7 +168,7 @@ export default function LightingPage() {
       [...(payload.areas ?? [])].filter((area) => {
         // 只列房間 / 區域；藏掉「全家」(bridge_home) 與沒掛 room/zone 的獨立燈群 (grouped_light)
         const source = area.hue_resource_type || area.owner_type || "";
-        return area.enabled !== false && (source === "room" || source === "zone");
+        return source === "room" || source === "zone";
       }),
     [payload.areas],
   );
@@ -178,14 +181,10 @@ export default function LightingPage() {
     setNotice("");
     try {
       const displayName = (draftNames[area.id] ?? "").trim();
-      const res = await fetch(`/api/lighting/areas/${encodeURIComponent(area.id)}`, {
+      const res = await fetch(`/api/hb/lighting/areas/${area.area_id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          display_name: displayName,
-          resource_type: area.resource_type || "grouped_light",
-          hue_name: area.hue_name || "",
-        }),
+        body: JSON.stringify({ display_name: displayName }),
       });
       if (!res.ok) throw new Error(await readError(res));
       setPayload((prev) => ({
@@ -213,7 +212,7 @@ export default function LightingPage() {
     setNotice("");
     setActionError("");
     try {
-      const res = await fetch(`/api/lighting/areas/${encodeURIComponent(area.id)}/state`, {
+      const res = await fetch(`/api/hb/lighting/${encodeURIComponent(area.id)}/state`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -239,7 +238,7 @@ export default function LightingPage() {
     setApplyingKey(`scene:${area.id}`);
     setNotice("");
     try {
-      const res = await fetch(`/api/lighting/scenes/${encodeURIComponent(sceneId)}/recall`, {
+      const res = await fetch(`/api/hb/lighting/scenes/${encodeURIComponent(sceneId)}/recall`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -268,7 +267,7 @@ export default function LightingPage() {
     setApplyingKey(`effect:${area.id}`);
     setNotice("");
     try {
-      const res = await fetch(`/api/lighting/areas/${encodeURIComponent(area.id)}/effect`, {
+      const res = await fetch(`/api/hb/lighting/${encodeURIComponent(area.id)}/effect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

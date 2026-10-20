@@ -6,13 +6,13 @@ import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { ChevronDown, Pin } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClimateReadout } from "@/components/ui/device-controls";
-import { type DeviceData, DEVICE_ICONS, DEVICE_ICON_FALLBACK } from "@/lib/types";
-import type { SensorCurrentRaw } from "@/lib/sensor";
+import type { DevicesPage, SensorNow } from "@/lib/api";
+import { KIND_ICON } from "@/lib/devices";
 import { EnvironmentHistory } from "./history-charts";
 
 interface Props {
-  sensor: DeviceData | null;
-  current?: SensorCurrentRaw;
+  sensor: SensorNow | null;
+  page: DevicesPage | null;
 }
 
 /**
@@ -21,8 +21,8 @@ interface Props {
  *
  * 不放 PinButton——pin 操作集中在裝置頁，首頁只是展示已釘選的結果。
  */
-export function IndoorSensorCard({ sensor, current }: Props) {
-  const SensorIcon = DEVICE_ICONS["感應器"] ?? DEVICE_ICON_FALLBACK;
+export function IndoorSensorCard({ sensor, page }: Props) {
+  const SensorIcon = KIND_ICON.sensor;
   const [expanded, setExpanded] = useState(false);
   const reduceMotion = useReducedMotion();
   const canExpand = !!sensor;
@@ -52,7 +52,7 @@ export function IndoorSensorCard({ sensor, current }: Props) {
             <ClimateReadout
               temp={sensor.temperature}
               humidity={sensor.humidity}
-              co2={current?.co2 ?? null}
+              co2={sensor.co2 ?? null}
               size="compact"
             />
           <span className="min-w-0 max-w-full text-xs leading-relaxed text-mute">
@@ -86,7 +86,7 @@ export function IndoorSensorCard({ sensor, current }: Props) {
               >
                 <Card>
                 <CardHeader><CardTitle>{sensor?.name} · 過去 24 小時</CardTitle><button type="button" onClick={() => setExpanded(false)} className="min-h-11 rounded-full px-3 text-xs text-mute hover:bg-elevated">收合趨勢</button></CardHeader>
-                <EnvironmentHistory key={sensor!.name} sensorName={sensor!.name} />
+                <EnvironmentHistory key={sensor!.name} sensorName={sensor!.name} location={sensor!.location} page={page} />
                 </Card>
               </motion.div>
             )}

@@ -1,16 +1,15 @@
 "use client";
 
-interface Area { id: string; display_name: string; hue_name: string }
+import type { LightAreaChoice } from "@/lib/api";
 
 export function TodoAreaPicker({ areas, selected, onChange }: {
-  areas: Area[];
-  selected: string[];
-  onChange: (ids: string[]) => void;
+  areas: LightAreaChoice[];
+  selected: number[];
+  onChange: (ids: number[]) => void;
 }) {
   const choices = [
-    ...areas.map(area => ({ id: area.id, name: area.display_name || area.hue_name || area.id })),
-    ...selected.filter(id => !areas.some(area => area.id === id))
-      .map(id => ({ id, name: "原區域（目前不可用）" })),
+    ...areas.map(area => ({ id: area.id, name: area.name })),
+    ...selected.filter(id => !areas.some(area => area.id === id)).map(id => ({ id, name: "原區域（目前不可用）" })),
   ];
   return (
     <fieldset className="min-w-0 space-y-2">

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createSession, getSessionCookieOptions } from "@/lib/auth";
-import { butlerGet } from "@/lib/butler";
+import { hb } from "@/lib/hb";
 
 const LINE_TOKEN_URL = "https://api.line.me/oauth2/v2.1/token";
 const LINE_PROFILE_URL = "https://api.line.me/v2/profile";
@@ -60,10 +60,9 @@ export async function GET(request: Request) {
 
   // Check if user is a family member
   try {
-    const members = await butlerGet("/api/members") as Array<{ name: string; lineUserId: string }>;
-    const member = members.find((m) => m.lineUserId === profile.userId);
+    const member = await hb("POST", "/v2/sign-in/member", { body: { line_user_id: profile.userId } }) as { active?: boolean; name?: string };
 
-    if (!member) {
+    if (!member?.active) {
       return NextResponse.redirect(new URL("/login?error=not_member", url.origin));
     }
 
@@ -82,6 +81,6 @@ export async function GET(request: Request) {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("Auth callback error:", msg);
-    return NextResponse.redirect(new URL(`/login?error=sheets_failed&detail=${encodeURIComponent(msg)}`, url.origin));
+    return NextResponse.redirect(new URL(`/login?error=backend_failed&detail=${encodeURIComponent(msg)}`, url.origin));
   }
 }

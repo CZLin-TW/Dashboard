@@ -6,34 +6,22 @@ import { LayoutGrid, Activity, Cpu, Clapperboard, RefreshCw, Zap } from "lucide-
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
-import {
-  DeviceData,
-  DeviceOptions,
-  DehumidifierAutoRule,
-  DEFAULT_OPTIONS,
-  DEVICE_ICONS,
-  DEVICE_ICON_FALLBACK,
-} from "@/lib/types";
-import {
-  PinButton,
-  ClimateReadout,
-  PANEL_BASE,
-} from "@/components/ui/device-controls";
+import { PinButton, ClimateReadout, PANEL_BASE } from "@/components/ui/device-controls";
 import { DeviceController } from "@/components/ui/device-controller";
 import { ComputerCard } from "@/components/devices/computer-card";
 import { TheaterSection } from "@/components/devices/theater-section";
 import { AutomationCard } from "@/components/devices/automation-card";
-import type { HaAutomationLog } from "@/lib/home-assistant";
 import { Card } from "@/components/ui/card";
 import { HomeAssistantPanel } from "@/components/devices/home-assistant-panel";
 import { SensorChart } from "@/components/devices/lazy-charts";
 import { ScheduleSection } from "@/components/devices/schedule-section";
-import { validSocTemperature, type ComputerPC } from "@/lib/computer";
+import { validSocTemperature } from "@/lib/computer";
 import type { TheaterFlagKey, TheaterSummary } from "@/lib/theater";
-import { type Sensor, computeSensorDomains } from "@/lib/sensor";
-import { type AcDevice, type AcAutoOffResponse, getAcSegmentsForLocation } from "@/lib/ac";
-import { type DehumDevice, getDehumSegmentsForLocation } from "@/lib/dehumidifier";
-import type { Schedule } from "@/lib/schedule";
+import { computeSensorDomains } from "@/lib/sensor";
+import { HB, ago, send, type DevicesPage as PageData, type History } from "@/lib/api";
+import { KIND_ICON, acSegments, automationsOf, computerOf, dehumidifierSegmentsAt, devicesOf, presenceOf, sensorHistory,
+  type UiDevice } from "@/lib/devices";
+import { schedulesFor } from "@/lib/schedule";
 
 function DeviceScrollTarget({
   deviceRefs,
@@ -60,168 +48,66 @@ function DeviceScrollTarget({
 }
 
 export default function DevicesPage() {
-  // 刻意不用 /api/dashboard：那支是首頁的彙整端點，會等中央氣象署天氣 API（兩次、
-  // timeout 15s）才回應，但這頁根本不顯示天氣——裝置卡片會被白等，氣象署慢的時候
-  // 更明顯（實測：電腦區塊先出現、裝置隔幾秒才出來）。改抓兩支輕量端點：
-  //   /api/devices          只讀 Sheet
-  //   /api/devices/options  純常數運算、完全不碰 Sheet
-  const { data: rawDevices, loading } = useCachedFetch<DeviceData[]>("/api/devices", []);
-  const { data: fetchedOptions } = useCachedFetch<DeviceOptions | null>("/api/devices/options", null);
-  const { data: liveStatus, refetch: refetchStatus } = useCachedFetch<Record<string, Partial<DeviceData>>>("/api/devices/status", {});
-  useAutoRefresh(refetchStatus);
-  const options = fetchedOptions ?? DEFAULT_OPTIONS;
-  const devices = rawDevices.map(d => ({ ...d, ...(liveStatus[d.name] ?? {}) }));
+  // One read for the whole page (database and HA's latest snapshot only, so it is cheap): every 7 s
+  // while the page is visible. The charts' history is recorded every 5 minutes and read that often.
+  const page = useCachedFetch<PageData | null>(HB("devices"), null);
+  useAutoRefresh(page.refetch, 7_000, 0);
+  const { data: history, refetch: refetchHistory } = useCachedFetch<History | null>(HB("history"), null);
+  useAutoRefresh(refetchHistory, 300_000, 0);
+  const data = page.data;
+  const devices = devicesOf(data);
   const pin = usePinnedDevices();
-
   const deviceRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
-  const sensors = devices.filter(d => d.type === "感應器");
-  const controllable = devices.filter(d => d.type !== "感應器");
-
-  // PC 監控：從 home-butler in-memory ring buffer 拉，agent 每 60s push 一次。
-  // 60 秒 auto-refetch 跟 agent push 節奏對齊（最差 stale 約 60-120s）。
-  const {
-    data: computersMap,
-    refetch: refetchComputers,
-  } = useCachedFetch<Record<string, ComputerPC>>("/api/computers/status", {});
-  useEffect(() => {
-    const id = setInterval(() => refetchComputers(), 60_000);
-    return () => clearInterval(id);
-  }, [refetchComputers]);
-  const computers = Object.values(computersMap).sort((a, b) => a.ip.localeCompare(b.ip));
+  const sensors = data?.sensors ?? [];
+  const controllable = devices.filter((d) => d.kind !== "sensor");
+  const computers = (data?.computers ?? []).map((c) => computerOf(c, history)).sort((a, b) => a.ip.localeCompare(b.ip));
+  const automations = automationsOf(data);
+  const presence = presenceOf(data);
 
   const { data: theater, error: theaterError, loading: theaterRefreshing,
-    isStale: theaterStale, refetch: refetchTheater } = useCachedFetch<TheaterSummary | null>("/api/theater/summary", null);
+    isStale: theaterStale, refetch: refetchTheater } = useCachedFetch<TheaterSummary | null>(HB("theater"), null);
   useAutoRefresh(refetchTheater);
   const theaterOffline = !!theaterError;
   const [theaterSavingRequest, setTheaterSavingRequest] = useState<{ refetch: typeof refetchTheater } | null>(null);
   const theaterSaving = theaterSavingRequest?.refetch === refetchTheater;
   const [theaterSaveError, setTheaterSaveError] = useState<string | null>(null);
-  const theaterWrite = useRef<AbortController | null>(null);
-  useEffect(() => () => {
-    theaterWrite.current?.abort();
-    theaterWrite.current = null;
-  }, [refetchTheater]);
+  const theaterWrite = useRef<boolean>(false);
+  useEffect(() => () => { theaterWrite.current = false; }, [refetchTheater]);
 
   const setTheaterFlag = useCallback(async (key: TheaterFlagKey, value: boolean) => {
     if (theaterWrite.current) return;
-    const controller = new AbortController();
-    theaterWrite.current = controller;
+    theaterWrite.current = true;
     setTheaterSavingRequest({ refetch: refetchTheater });
     setTheaterSaveError(null);
-    const deadline = setTimeout(() => controller.abort(), 20_000);
     try {
-      const response = await fetch("/api/theater/flags", {
-        method: "POST", signal: controller.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [key]: value }),
-      });
-      if (response.status === 401) window.dispatchEvent(new Event("session:expired"));
-      if (!response.ok) throw new Error("設定尚未確認，請重新整理後再試。");
-      const saved = await response.json();
+      const saved = await send<{ flags?: Record<string, boolean> }>("POST", "theater/flags", { [key]: value });
       if (saved?.flags?.[key] !== value) throw new Error("設備未確認設定，請重新整理後再試。");
     } catch {
-      if (theaterWrite.current === controller) setTheaterSaveError("設定結果尚未確認，請確認目前設定後再試。");
+      setTheaterSaveError("設定結果尚未確認，請確認目前設定後再試。");
     } finally {
-      clearTimeout(deadline);
       // Replace any poll that started before the write. Never roll back using an old inverse value.
-      if (theaterWrite.current === controller) {
-        await refetchTheater();
-        if (theaterWrite.current === controller) {
-          theaterWrite.current = null;
-          setTheaterSavingRequest(null);
-        }
-      }
+      await refetchTheater();
+      theaterWrite.current = false;
+      setTheaterSavingRequest(null);
     }
   }, [refetchTheater]);
 
-  // 感測器歷史：home-butler 內部 polling 累積。
-  const {
-    data: sensorsMap,
-    refetch: refetchSensors,
-  } = useCachedFetch<Record<string, Sensor>>("/api/sensors/status", {});
-  useEffect(() => {
-    const id = setInterval(() => refetchSensors(), 60_000);
-    return () => clearInterval(id);
-  }, [refetchSensors]);
+  // 跨所有感測器算共用 Y 範圍，各張圖視覺對齊。
+  const sensorDomains = computeSensorDomains(sensors.map((s) => sensorHistory(history, s.name)));
 
-  // 除濕機自動規則：每台一份，key = device_name
-  const {
-    data: dehumRulesMap,
-    refetch: refetchDehumRules,
-  } = useCachedFetch<Record<string, DehumidifierAutoRule>>("/api/dehumidifier/auto-rule", {});
-  useEffect(() => {
-    const id = setInterval(() => refetchDehumRules(), 60_000);
-    return () => clearInterval(id);
-  }, [refetchDehumRules]);
-  // 除濕機 ON/OFF 歷史：給自動模式 chart 畫背景綠色 on-segments
-  const {
-    data: dehumHistoryMap,
-    refetch: refetchDehumHistory,
-  } = useCachedFetch<Record<string, DehumDevice>>("/api/dehumidifier/history", {});
-  useEffect(() => {
-    const id = setInterval(() => refetchDehumHistory(), 60_000);
-    return () => clearInterval(id);
-  }, [refetchDehumHistory]);
-
-  // 排程：每張裝置卡內嵌的 ScheduleSection 需要。/api/schedules 一次拿全部、
-  // 各裝置卡自己 filter。
-  const {
-    data: schedules,
-    refetch: refetchSchedules,
-  } = useCachedFetch<Schedule[]>("/api/schedules", []);
-  // Pick up background-created or cancelled schedules without reloading the page.
-  useAutoRefresh(refetchSchedules, 15_000, 0);
-  // HA 的自動化清單與最近執行記錄（唯讀），給「自動化」區塊的 Home Assistant 卡。
-  const { data: automations, loading: automationsLoading, error: automationsError, refetch: refetchAutomations } =
-    useCachedFetch<HaAutomationLog | null>("/api/home-assistant/automations", null);
-  useAutoRefresh(refetchAutomations, 30_000, 0);
-  // 後端對 Sheet 自動關機設定的解讀；「若現在開機」的預覽隨時間變，所以定時重讀。
-  const { data: acAutoOff, refetch: refetchAcAutoOff } = useCachedFetch<AcAutoOffResponse>("/api/ac/auto-off", { devices: {} });
-  useAutoRefresh(refetchAcAutoOff, 60_000, 0);
-  const schedulesByDevice = (() => {
-    const map: Record<string, Schedule[]> = {};
-    for (const s of schedules) {
-      const name = s["設備名稱"] ?? "";
-      if (!name) continue;
-      (map[name] ??= []).push(s);
-    }
-    return map;
-  })();
-
-  const availableSensorNames = Object.keys(sensorsMap);
-  // 跨所有感測器算共用 Y 範圍，三張卡的圖視覺對齊
-  const sensorDomains = computeSensorDomains(Object.values(sensorsMap));
-
-  // 空調狀態歷史，給 sensor chart 背景畫 AC on 區段色塊
-  const {
-    data: acsMap,
-    refetch: refetchAcs,
-  } = useCachedFetch<Record<string, AcDevice>>("/api/ac/status", {});
-  useEffect(() => {
-    const id = setInterval(() => refetchAcs(), 60_000);
-    return () => clearInterval(id);
-  }, [refetchAcs]);
-
-  // 跨所有 PC 算共用溫度 Y 範圍（含 history + current 的 cpu/gpu 溫度）。
-  // round 到 5°C 整數 + ±5 buffer，避免線貼邊界、且 tick 看起來整齊。
-  // 沒任何溫度資料時 fallback 30~90（合理的 PC 溫度區間）。
+  // 跨所有電腦算共用溫度 Y 範圍（round 到 5°C，±5 buffer）；沒有溫度資料時 30~90。
   const tempDomain: [number, number] = (() => {
     const temps: number[] = [];
     for (const c of computers) {
       for (const p of [...c.history, c.current]) {
-        const soc = validSocTemperature(p.smc_temperature?.tcmb_c);
+        const soc = validSocTemperature(p?.smc_temperature?.tcmb_c);
         if (soc != null) temps.push(soc);
-        if (p.cpu_temp_c != null) temps.push(p.cpu_temp_c);
-        if (p.gpu_temp_c != null) temps.push(p.gpu_temp_c);
+        if (p?.cpu_temp_c != null) temps.push(p.cpu_temp_c);
+        if (p?.gpu_temp_c != null) temps.push(p.gpu_temp_c);
       }
-      if (c.current?.cpu_temp_c != null) temps.push(c.current.cpu_temp_c);
-      if (c.current?.gpu_temp_c != null) temps.push(c.current.gpu_temp_c);
     }
     if (temps.length === 0) return [30, 90];
-    const lo = Math.floor(Math.min(...temps) / 5) * 5 - 5;
-    const hi = Math.ceil(Math.max(...temps) / 5) * 5 + 5;
-    return [lo, hi];
+    return [Math.floor(Math.min(...temps) / 5) * 5 - 5, Math.ceil(Math.max(...temps) / 5) * 5 + 5];
   })();
 
   return (
@@ -236,6 +122,7 @@ export default function DevicesPage() {
           <LayoutGrid className="h-4 w-4" strokeWidth={2} />
           裝置控制
         </h1>
+        <p className="px-1 text-xs text-mute">{data ? `${ago(data.generated_at)}更新${page.isStale ? " · 資料可能過時，重試中" : ""}` : page.loading ? "載入中…" : "暫時無法讀取裝置"}</p>
         <div className="flex items-center justify-between px-1">
           <p className="text-xs text-mute">
             釘選最多 {pin.MAX_PINNED_DEVICES} 個到首頁（已選 {pin.pinnedDevices.length}）
@@ -252,7 +139,7 @@ export default function DevicesPage() {
 
       {/* 房間分群：每個房間一個子標題，下方直接展開裝置 grid */}
       {(() => {
-        const groups: Record<string, DeviceData[]> = {};
+        const groups: Record<string, UiDevice[]> = {};
         controllable.forEach(d => {
           const loc = d.location || "其他";
           if (!groups[loc]) groups[loc] = [];
@@ -267,7 +154,7 @@ export default function DevicesPage() {
             </h2>
             <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {devs.map((device) => {
-                const TypeIcon = DEVICE_ICONS[device.type] ?? DEVICE_ICON_FALLBACK;
+                const TypeIcon = KIND_ICON[device.kind];
                 const pinned = pin.isDevicePinned(device.name);
                 const canPin = pinned || pin.canPinMore;
 
@@ -293,26 +180,9 @@ export default function DevicesPage() {
                       />
                     </div>
 
-                    <DeviceController
-                      device={device}
-                      options={options}
-                      onAcCommandSuccess={async () => { await Promise.all([refetchStatus(), refetchSchedules(), refetchAcAutoOff()]); }}
-                      onDehumidifierCommandSuccess={refetchStatus}
-                      dehumRule={device.type === "除濕機" ? (dehumRulesMap[device.name] ?? null) : undefined}
-                      availableSensors={device.type === "除濕機" ? availableSensorNames : undefined}
-                      onDehumRuleUpdate={refetchDehumRules}
-                      sensorsMap={device.type === "除濕機" ? sensorsMap : undefined}
-                      dehumHistoryMap={device.type === "除濕機" ? dehumHistoryMap : undefined}
-                    />
-
-                    <ScheduleSection
-                      device={device}
-                      options={options}
-                      schedules={schedulesByDevice[device.name] ?? []}
-                      allDevices={controllable}
-                      onSchedulesChange={refetchSchedules}
-                      autoOff={acAutoOff.devices?.[device.name]}
-                    />
+                    {data && <DeviceController device={device} page={data} onChanged={page.refetch} history={history} />}
+                    {data && <ScheduleSection device={device} page={data} schedules={schedulesFor(data, device.name)} allDevices={controllable}
+                      onSchedulesChange={() => void page.refetch()} autoOff={data.auto_off.find((a) => a.name === device.name)} />}
                   </div>
                 );
               })}
@@ -322,7 +192,7 @@ export default function DevicesPage() {
       })()}
       </section>
 
-      <HomeAssistantPanel />
+      <HomeAssistantPanel data={presence} error={page.error} loading={page.loading} updatedAt={page.updatedAt} isStale={page.isStale} refetch={page.refetch} />
 
       {/* ── 環境感測 ── */}
       <section className="space-y-3">
@@ -348,7 +218,8 @@ export default function DevicesPage() {
           <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {sensors.map((s) => {
               const pinned = pin.isSensorPinned(s.name);
-              const SensorIcon = DEVICE_ICONS["感應器"] ?? DEVICE_ICON_FALLBACK;
+              const SensorIcon = KIND_ICON.sensor;
+              const points = sensorHistory(history, s.name);
               return (
                 <div key={s.name} className={PANEL_BASE}>
                   <div className="flex items-center justify-between gap-2.5">
@@ -369,17 +240,18 @@ export default function DevicesPage() {
                   <ClimateReadout
                     temp={s.temperature}
                     humidity={s.humidity}
-                    co2={sensorsMap[s.name]?.current?.co2 ?? null}
+                    co2={s.co2 ?? null}
                     size="md"
                   />
-                  {sensorsMap[s.name] && sensorsMap[s.name].history.length > 0 ? (
+                  {!s.available && <p className="px-1 text-xs text-mute">目前沒有讀數（Home Assistant 未回報）</p>}
+                  {points.length > 0 ? (
                     <SensorChart
-                      history={sensorsMap[s.name].history}
+                      history={points}
                       tempDomain={sensorDomains.tempDomain}
                       humDomain={sensorDomains.humDomain}
-                      co2Domain={sensorsMap[s.name].history.some((p) => p.co2 != null) ? sensorDomains.co2Domain : null}
-                      acSegments={getAcSegmentsForLocation(acsMap, s.location || "")}
-                      dehumSegments={getDehumSegmentsForLocation(dehumHistoryMap, s.location || "")}
+                      co2Domain={points.some((p) => p.co2 != null) ? sensorDomains.co2Domain : null}
+                      acSegments={acSegments(history, data, s.location)}
+                      dehumSegments={dehumidifierSegmentsAt(history, data, s.location)}
                     />
                   ) : (
                     <p className="px-1 text-xs text-mute">等待 24h 資料累積...</p>
@@ -388,7 +260,7 @@ export default function DevicesPage() {
               );
             })}
           </div>
-        ) : loading ? (
+        ) : page.loading ? (
           <p className="px-1 text-sm text-mute">載入中...</p>
         ) : (
           <p className="px-1 text-sm text-mute">未偵測到感測器</p>
@@ -407,7 +279,7 @@ export default function DevicesPage() {
         </h1>
         <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Card>
-            <AutomationCard data={automations} failed={!!automationsError} refreshing={automationsLoading} onRefresh={refetchAutomations} />
+            <AutomationCard data={automations} failed={!!page.error} refreshing={page.loading} onRefresh={page.refetch} />
           </Card>
           {(theater ? !computers.some((c) => c.hostname === theater.agent_id) : theaterOffline) && (
             <Card>

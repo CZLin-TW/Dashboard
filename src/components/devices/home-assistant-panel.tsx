@@ -3,17 +3,14 @@
 import { useEffect, useState } from "react";
 import { House, SquarePen, Sun, Users } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
-import { useCachedFetch } from "@/hooks/use-cached-fetch";
-import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { haIsFresh, observationText, type HaSnapshot } from "@/lib/home-assistant";
 import { PANEL_BASE } from "@/components/ui/device-controls";
 
-export function HomeAssistantPanel() {
+/** Presence from the devices page's own read (refreshed by the page every few seconds). */
+export function HomeAssistantPanel({ data, error, loading, updatedAt, isStale, refetch }: { data: HaSnapshot | null; error: string | null;
+  loading: boolean; updatedAt: number | null; isStale: boolean; refetch: () => Promise<void> }) {
   const { currentUser } = useUser();
   const allowed = !!currentUser && currentUser.role !== "kid";
-  const { data, error, loading, updatedAt, isStale, refetch } =
-    useCachedFetch<HaSnapshot | null>("/api/home-assistant/observations", null, allowed);
-  useAutoRefresh(refetch, 5_000, 0);
   const [now, setNow] = useState(0);
   useEffect(() => {
     const tick = () => setNow(Date.now());

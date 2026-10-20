@@ -10,18 +10,8 @@ import {
   IconActionButton,
 } from "@/components/ui/device-controls";
 import { expiryLabel, foodUrgency, urgencyRowClass } from "@/lib/types";
-import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
-
-interface FoodItem {
-  "品名": string;
-  "數量": string;
-  "單位": string;
-  "過期日": string;
-  "新增日": string;
-  "新增者": string;
-  "狀態": string;
-}
+import { HB, send, type Food } from "@/lib/api";
 
 const UNITS = ["個", "顆", "瓶", "包", "盒", "小罐", "g", "kg", "ml", "L"];
 
@@ -29,73 +19,51 @@ const INPUT_BASE =
   "rounded-[10px] border border-line bg-elevated px-3 py-2 text-sm text-foreground placeholder:text-faint focus:border-cool focus:outline-none";
 
 export default function FoodPage() {
-  const { currentUser } = useUser();
-  const { data: items, loading, hasData, refetch: fetchFood } = useCachedFetch<FoodItem[]>("/api/food", []);
+  const { data, loading, hasData, refetch: fetchFood } = useCachedFetch<{ food: Food[] }>(HB("food"), { food: [] });
   const [showAdd, setShowAdd] = useState(false);
   const [newFood, setNewFood] = useState({ name: "", quantity: "", unit: "個", expiry: "" });
-  // 用原始 item 快照當編輯身分，而非陣列 index（同 todos：refetch 替換陣列後 index 會錯位）。
-  const [editOriginal, setEditOriginal] = useState<FoodItem | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
   const [editFood, setEditFood] = useState({ name: "", quantity: "", unit: "個", expiry: "" });
+  const [problem, setProblem] = useState<string | null>(null);
 
-  const filtered = items
-    .filter((item) => item["狀態"] === "有效")
-    .sort((a, b) => new Date(a["過期日"]).getTime() - new Date(b["過期日"]).getTime());
+  const filtered = [...data.food].sort((a, b) => (a.expires_on ?? "9999").localeCompare(b.expires_on ?? "9999"));
+
+  async function run(action: () => Promise<unknown>, after?: () => void) {
+    setProblem(null);
+    try {
+      await action();
+      after?.();
+    } catch (error) {
+      setProblem(error instanceof Error ? error.message : "操作失敗，請稍後重試。");
+    } finally {
+      await fetchFood();
+    }
+  }
 
   function addFood() {
-    if (!newFood.name.trim() || !newFood.expiry || !currentUser) return;
-    fetch("/api/food", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: newFood.name.trim(),
-        quantity: Number(newFood.quantity) || 1,
-        unit: newFood.unit,
-        expiry: newFood.expiry,
-        person: currentUser.name,
-      }),
-    }).then(() => {
-      setNewFood({ name: "", quantity: "", unit: "個", expiry: "" });
-      setShowAdd(false);
-      fetchFood();
-    });
+    if (!newFood.name.trim() || !newFood.expiry) return;
+    void run(() => send("POST", "food", { name: newFood.name.trim(), quantity: Number(newFood.quantity) || 1, unit: newFood.unit,
+      expires_on: newFood.expiry }), () => { setNewFood({ name: "", quantity: "", unit: "個", expiry: "" }); setShowAdd(false); });
   }
 
-  function deleteFood(name: string) {
-    if (!confirm(`確定要刪除「${name}」嗎？`)) return;
-    fetch(`/api/food?name=${encodeURIComponent(name)}`, { method: "DELETE" }).then(() => fetchFood());
+  function deleteFood(item: Food) {
+    if (!confirm(`確定要刪除「${item.name}」嗎？`)) return;
+    void run(() => send("DELETE", `food/${item.id}`));
   }
 
-  function startEdit(item: FoodItem) {
-    setEditOriginal(item);
-    setEditFood({
-      name: item["品名"],
-      quantity: item["數量"],
-      unit: item["單位"],
-      expiry: item["過期日"],
-    });
+  function startEdit(item: Food) {
+    setEditing(item.id);
+    setEditFood({ name: item.name, quantity: String(item.quantity), unit: item.unit, expiry: item.expires_on ?? "" });
   }
 
-  function saveEdit() {
-    if (!editOriginal) return;
-    const original = editOriginal;
-    fetch("/api/food", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: original["品名"],
-        name_new: editFood.name !== original["品名"] ? editFood.name : undefined,
-        quantity: editFood.quantity !== original["數量"] ? Number(editFood.quantity) : undefined,
-        unit: editFood.unit !== original["單位"] ? editFood.unit : undefined,
-        expiry: editFood.expiry !== original["過期日"] ? editFood.expiry : undefined,
-      }),
-    }).then(() => {
-      setEditOriginal(null);
-      fetchFood();
-    });
-  }
-
-  function getSheetIndex(item: FoodItem): number {
-    return items.indexOf(item);
+  function saveEdit(item: Food) {
+    const changes = {
+      name: editFood.name !== item.name ? editFood.name : undefined,
+      quantity: editFood.quantity !== String(item.quantity) ? Number(editFood.quantity) : undefined,
+      unit: editFood.unit !== item.unit ? editFood.unit : undefined,
+      expires_on: editFood.expiry !== (item.expires_on ?? "") ? editFood.expiry : undefined,
+    };
+    void run(() => send("PATCH", `food/${item.id}`, changes), () => setEditing(null));
   }
 
   return (
@@ -162,6 +130,8 @@ export default function FoodPage() {
         </Card>
       </Collapse>
 
+      {problem && <p role="alert" className="rounded-[12px] bg-warm-bg/70 px-3 py-2 text-sm text-warm">{problem}</p>}
+
       <Card>
         <CardHeader>
           <CardTitle>庫存列表</CardTitle>
@@ -176,17 +146,13 @@ export default function FoodPage() {
         ) : (
           <div className="flex flex-col gap-1">
             {filtered.map((item) => {
-              const exp = expiryLabel(item["過期日"]);
-              const sheetIndex = getSheetIndex(item);
-              const isEditing =
-                editOriginal !== null &&
-                editOriginal["品名"] === item["品名"] &&
-                editOriginal["過期日"] === item["過期日"];
+              const exp = expiryLabel(item.expires_on ?? "");
+              const isEditing = editing === item.id;
 
               if (isEditing) {
                 return (
                   <div
-                    key={sheetIndex}
+                    key={item.id}
                     className="rounded-[12px] bg-elevated/50 px-3 py-3 space-y-2.5"
                   >
                     {/* Row 1：品名（全寬） */}
@@ -226,13 +192,13 @@ export default function FoodPage() {
                     {/* Row 3：儲存 / 取消 */}
                     <div className="flex gap-2">
                       <button
-                        onClick={saveEdit}
+                        onClick={() => saveEdit(item)}
                         className="rounded-full bg-cool px-4 py-1.5 text-xs font-semibold text-white hover:bg-cool/85"
                       >
                         儲存
                       </button>
                       <button
-                        onClick={() => setEditOriginal(null)}
+                        onClick={() => setEditing(null)}
                         className="rounded-full border border-line bg-elevated px-4 py-1.5 text-xs font-medium text-soft hover:bg-elevated/80"
                       >
                         取消
@@ -242,23 +208,23 @@ export default function FoodPage() {
                 );
               }
 
-              const urgency = foodUrgency(item["過期日"]);
+              const urgency = foodUrgency(item.expires_on ?? "");
               const urgencyCls = urgencyRowClass(urgency);
               const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
 
               return (
                 <div
-                  key={sheetIndex}
+                  key={item.id}
                   className={`flex items-center gap-3 rounded-[12px] px-3 py-2.5 transition-colors ${urgencyCls} ${hoverCls}`}
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-foreground">
-                      <span className="font-semibold">{item["品名"]}</span>
+                      <span className="font-semibold">{item.name}</span>
                       <span className="num ml-2 text-mute">
-                        {item["數量"]} {item["單位"]}
+                        {item.quantity} {item.unit}
                       </span>
                     </p>
-                    <p className="text-xs text-mute">{item["新增者"]} 新增</p>
+                    {item.added_by && <p className="text-xs text-mute">{item.added_by} 新增</p>}
                   </div>
                   <span className={`num flex-shrink-0 text-xs ${exp.cls}`}>{exp.text}</span>
                   <div className="flex items-center gap-1">
@@ -268,7 +234,7 @@ export default function FoodPage() {
                       icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
                     />
                     <IconActionButton
-                      onClick={() => deleteFood(item["品名"])}
+                      onClick={() => deleteFood(item)}
                       tone="danger"
                       title="刪除"
                       icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}

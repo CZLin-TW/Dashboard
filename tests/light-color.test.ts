@@ -16,7 +16,7 @@ test("wheel coordinates match the visible hue gradient and clamp captured pointe
 
 test("colour settings preserve off state, validate before mutations and scenes replace colour", async () => {
   const sim = createSimulator(createDemoState());
-  const send = (id: string, body: unknown) => sim.handle(new Request(`http://demo/api/lighting/areas/${id}/state`, {
+  const send = (id: string, body: unknown) => sim.handle(new Request(`http://demo/api/hb/lighting/${id}/state`, {
     method: "PATCH", body: JSON.stringify(body),
   }));
   await send("demo-living", { on: false });
@@ -32,7 +32,7 @@ test("colour settings preserve off state, validate before mutations and scenes r
   assert.equal(sim.snapshot().areas[0].color_control?.mode, "temperature");
   assert.equal(sim.snapshot().areas[0].color_control?.kelvin, 4000);
   await send("demo-living", { hs_color: [240, 90] });
-  await sim.handle(new Request("http://demo/api/lighting/scenes/demo-scene-0-night/recall", { method: "POST", body: "{}" }));
+  await sim.handle(new Request("http://demo/api/hb/lighting/scenes/demo-scene-0-night/recall", { method: "POST", body: "{}" }));
   assert.equal(sim.snapshot().areas[0].color_control?.mode, "temperature");
   assert.equal(sim.snapshot().areas[0].color_control?.hs, null);
 });

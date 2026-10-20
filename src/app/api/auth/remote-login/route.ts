@@ -1,51 +1,29 @@
 import { NextResponse } from "next/server";
-import { butlerPost } from "@/lib/butler";
+import { hb } from "@/lib/hb";
 import { createSession, getSessionCookieOptions, REMOTE_USER_ID } from "@/lib/auth";
+import { RequestError } from "@/lib/request-user";
 
-// 遙控器模式：用共用密碼換取受限的 kid session（不需 LINE / 不需家長核准）。
-// 在 /api/auth/* 之下 → 已在 proxy.ts 的 PUBLIC_PATHS（登入前可用）。
-// 密碼比對 + 連錯鎖定都在 home-butler 端（讀「遙控器」分頁），這裡只負責在驗過後
-// 於本容器簽發 session cookie——跟裝置配對一樣，PWA 全程不離開容器。
-interface RemoteVerifyResult {
-  ok?: boolean;
-  user?: { name?: string; role?: string };
-  locked?: boolean;
-  retry_after?: number;
-}
-
+// 遙控器模式：用共用密碼換取受限的 session（role 的值沿用舊名 kid）。在 /api/auth/* 之下，登入前可用。
+// 密碼比對與連錯鎖定都在 HomeButler；這裡只在驗過後於本容器簽發 cookie，PWA 全程不離開容器。
 export async function POST(request: Request) {
+  let password = "";
   try {
-    let password = "";
-    try {
-      const body = await request.json();
-      password = String(body?.password ?? "");
-    } catch {
-      /* 無 body / 非 JSON → 當空密碼，下面會被擋 */
-    }
-
-    const data = (await butlerPost("/api/auth/remote/verify", { password })) as RemoteVerifyResult;
-
-    if (data?.ok && data.user) {
-      const sessionToken = await createSession({
-        lineUserId: REMOTE_USER_ID,
-        name: data.user.name || "遙控器",
-        role: "kid",
-      });
-      const res = NextResponse.json({ ok: true });
-      const opts = getSessionCookieOptions("kid"); // 遙控器：14 天，有在用就延長
-      res.cookies.set(opts.name, sessionToken, opts);
-      return res;
-    }
-
-    if (data?.locked) {
-      return NextResponse.json(
-        { ok: false, locked: true, retry_after: data.retry_after ?? 0 },
-        { status: 429 },
-      );
-    }
-    return NextResponse.json({ ok: false }, { status: 401 });
+    const body = await request.json();
+    password = String(body?.password ?? "");
+  } catch {
+    /* 無 body / 非 JSON → 當空密碼，下面會被擋 */
+  }
+  try {
+    const data = await hb("POST", "/v2/sign-in/remote", { body: { password } }) as { remote_id: number; name: string };
+    const sessionToken = await createSession({ lineUserId: REMOTE_USER_ID, name: data.name || "遙控器", role: "kid", remoteId: data.remote_id });
+    const res = NextResponse.json({ ok: true });
+    const opts = getSessionCookieOptions("kid"); // 遙控器：14 天，有在用就延長
+    res.cookies.set(opts.name, sessionToken, opts);
+    return res;
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    const status = err instanceof RequestError ? err.status : 500;
+    if (status === 429) return NextResponse.json({ ok: false, locked: true }, { status: 429 });
+    if (status === 401 || status === 422) return NextResponse.json({ ok: false }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "暫時無法登入，請稍後再試。" }, { status: 503 });
   }
 }

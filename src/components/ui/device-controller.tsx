@@ -1,718 +1,256 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  type DeviceData,
-  type DeviceOptions,
-  type DehumidifierAutoRule,
-  type AcPendingState,
-  acPendingFromDevice,
-  acAcceptedTemperature,
-} from "@/lib/types";
-import type { Sensor } from "@/lib/sensor";
-import type { DehumDevice } from "@/lib/dehumidifier";
-import { dehumHistoryToSegments } from "@/lib/dehumidifier";
+import { useState } from "react";
+import { ago, send, type Ac, type Dehumidifier, type DevicesPage, type History, type Ir } from "@/lib/api";
+import { dehumidifierSegments, optionValue, sensorHistory, type UiDevice } from "@/lib/devices";
 import { Toggle2, Stepper, Segment, Dropdown, Field, StatusLine, ControlDetails } from "./device-controls";
-// 兩張圖走 lazy-charts 的非同步 chunk：DeviceController 是家電控制的核心 UI，
-// 不該為了預設看不到的圖表等 recharts 下載完才能互動（見 lazy-charts.tsx）。
+// 兩張圖走 lazy-charts 的非同步 chunk：控制面板不該等 recharts 下載完才能互動。
 import { AutoModeChart, HumidityCurveChart } from "@/components/devices/lazy-charts";
-import { DehumidifierHistory } from "@/components/home/history-charts";
-
-const DURATION_OPTIONS: { value: number; label: string }[] = [
-  { value: 0, label: "立即" },
-  { value: 5, label: "5 分" },
-  { value: 10, label: "10 分" },
-  { value: 15, label: "15 分" },
-  { value: 20, label: "20 分" },
-  { value: 25, label: "25 分" },
-  { value: 30, label: "30 分" },
-];
-
-// 自動模式門檻 dropdown：45~65 step 5。auto rule 自己的判斷門檻，跟除濕機
-// 機體目標濕度（40~70）獨立。連續除濕模式下機器不看自己的目標濕度，所以
-// auto rule 的 threshold 純粹是「比 sensor 讀值 vs 門檻」的數值，跟機器無關。
-// 選項值一律用字串，才能跟「自訂」共存在同一個 Dropdown（送出時再轉回數字）。
-const THRESHOLD_CUSTOM = "自訂";
-const THRESHOLD_OPTIONS: { value: string; label: string }[] = [
-  { value: "45", label: "45%" },
-  { value: "50", label: "50%" },
-  { value: "55", label: "55%" },
-  { value: "60", label: "60%" },
-  { value: "65", label: "65%" },
-  // 自訂＝依感應器的分時曲線（智能居家分頁「濕度控制規則」欄，格式 7=55, 23=60）
-  { value: THRESHOLD_CUSTOM, label: "自訂（分時）" },
-];
-const THRESHOLD_DEFAULT = 60;
-
-// 各品牌自動模式用的「持續除濕」等效模式（要跟 home-butler 端一致）：
-// 機器跑滿、不看自身目標濕度，由外部 sensor + hysteresis 控制 on/off。
-const CONTINUOUS_MODE_BY_BRAND: Record<string, string> = {
-  Panasonic: "連續除濕",
-  LG: "智慧除濕",
-};
 
 // ─────────────────────────────────────────────────────────────
-// 單一裝置的控制邏輯（state + send + render fields）— 裝置頁、首頁
-// device-quick-control 共用。Sensor 不走這裡（純顯示沒控制邏輯，由
-// 各頁自己 render，只共用 ClimateReadout）。
-//
-// 設計：每個 instance 對應一台 device，state 在 instance 內（不再用
-// keyed-by-name 的 map）。Caller 提供 device + options + 兩個成功回呼，
-// 自己決定 outer wrapper（panel grid / motion tile expanded）。
-//
-// 已知 trade-off：home tile 收合時 controller unmount，AC pending 草稿
-// 會清空（之前 keyed-by-name map 在 parent 不會清）。實際 UX：使用者
-// 「展開 → 改 → 收合 → 再展開」會看到原本草稿消失。可接受 — 重要的
-// 是「展開 → 改 → 送」這條主線，draft 跨 collapse 持久不是必要功能。
+// 單一裝置的控制（裝置頁、首頁快速控制共用）。HomeButler 的指令在 HA／雲端確認後才回應，
+// 所以送出後重讀一次整頁就是最新狀態，不再輪詢猜測是否生效。結果「未確認」時不重送，
+// 只請使用者先看設備。
 // ─────────────────────────────────────────────────────────────
 
 interface Props {
-  device: DeviceData;
-  options: DeviceOptions;
-  /** AC 指令送出且輪詢確認 last 狀態到位後呼叫，由父層 refetch /api/devices/status。
-   *  失敗（10 秒沒匹配）也會呼叫，讓 UI 顯示最新真實狀態。 */
-  onAcCommandSuccess?: () => Promise<void> | void;
-  /** 除濕機指令送出且輪詢確認後呼叫，由父層 refetch /api/devices/status。
-   *  失敗（10 秒沒匹配）也會呼叫。 */
-  onDehumidifierCommandSuccess?: () => Promise<void> | void;
-  /** 除濕機自動規則（home-butler 取回）。null 表示這台從未設過規則。 */
-  dehumRule?: DehumidifierAutoRule | null;
-  /** 可選的感測器名稱清單，給自動規則下拉用。 */
-  availableSensors?: string[];
-  /** 規則設定後呼叫，父層 refetch /api/dehumidifier/auto-rule。 */
-  onDehumRuleUpdate?: () => Promise<void> | void;
-  /** 全部 sensor 的歷史 map，給自動模式 chart 撈綁定 sensor 的 24h 濕度線用。 */
-  sensorsMap?: Record<string, Sensor>;
-  /** 全部除濕機 power 歷史 map（key=device_name），給自動模式 chart 的綠色背景區段用。 */
-  dehumHistoryMap?: Record<string, DehumDevice>;
-  /** Homepage fetches history only when the humidity disclosure is opened. */
-  loadHistoryOnExpand?: boolean;
+  device: UiDevice;
+  page: DevicesPage;
+  /** Commands and rule changes call this afterwards; the parent reads the page again. */
+  onChanged: () => Promise<void> | void;
+  history?: History | null;
 }
 
-export function DeviceController({
-  device,
-  options,
-  onAcCommandSuccess,
-  onDehumidifierCommandSuccess,
-  dehumRule,
-  availableSensors,
-  onDehumRuleUpdate,
-  sensorsMap,
-  dehumHistoryMap,
-  loadHistoryOnExpand = false,
-}: Props) {
-  const [pending, setPending] = useState<AcPendingState | null>(null);
-  const [acFailed, setAcFailed] = useState(false);
-  const [acAwaiting, setAcAwaiting] = useState(false);
+export function DeviceController({ device, page, onChanged, history = null }: Props) {
+  if (device.kind === "ac") return <AcControl ac={device.ac} page={page} onChanged={onChanged} />;
+  if (device.kind === "dehumidifier") return <DehumidifierControl unit={device.dehumidifier} page={page} onChanged={onChanged} history={history} />;
+  if (device.kind === "ir") return <IrControl ir={device.ir} />;
+  return null;
+}
+
+function failureText(error: unknown): string {
+  const status = (error as { status?: number })?.status;
+  if (status === 504) return "指令結果未確認，請先查看設備；系統不會自動重送。";
+  return error instanceof Error ? error.message : "送出失敗，請稍後重試。";
+}
+
+// ── AC ──────────────────────────────────────────────────────
+
+interface AcDraft { power: boolean; temperature: number; mode: string; fan: string }
+
+function acBaseline(ac: Ac, page: DevicesPage): AcDraft {
+  const { modes, fan_speeds } = page.options.ac;
+  return { power: ac.power === "on", temperature: ac.temperature ?? 26,
+    mode: optionValue(modes, ac.mode) || "cool", fan: optionValue(fan_speeds, ac.fan) || "auto" };
+}
+
+function AcControl({ ac, page, onChanged }: { ac: Ac; page: DevicesPage; onChanged: () => Promise<void> | void }) {
+  const [draft, setDraft] = useState<AcDraft | null>(null);
   const [sending, setSending] = useState(false);
-  const [dhPending, setDhPending] = useState<{ type: string; value: unknown } | null>(null);
-  const [dhFailed, setDhFailed] = useState<{ type: string; value: unknown } | null>(null);
-  const [autoRulePending, setAutoRulePending] = useState(false);
-  const [autoModePending, setAutoModePending] = useState<boolean | null>(null);
-  // IR fire-and-forget：tap 顯示 amber 琥珀表示「指令送出中」，failed 顯示 warm 紅。
-  // 不做 success state——HTTP 200 只代表 Hub 收到、不代表裝置真的動作了，給綠燈會誤導。
-  const [irTap, setIrTap] = useState<string | null>(null);
-  const [irFailed, setIrFailed] = useState<{ button: string; message: string } | null>(null);
-  // 空調背景機制提示（例如「防黴送風中，稍後自動關閉」）。內容是命令回傳的說明訊息，
-  // 顯示在卡片上、12 秒後自動消失。讓使用者看得出關機後切送風是刻意的、且會自動關。
-  const [acNotice, setAcNotice] = useState<string | null>(null);
-  useEffect(() => {
-    if (!acNotice) return;
-    const id = setTimeout(() => setAcNotice(null), 12000);
-    return () => clearTimeout(id);
-  }, [acNotice]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const options = page.options.ac;
+  if (!ac.available) return <p className="text-sm text-mute">HA 空調狀態未知，暫時無法控制。連線恢復後會重新顯示目前設定。</p>;
+  const baseline = acBaseline(ac, page);
+  const p = draft ?? baseline;
+  const dirty = (Object.keys(p) as (keyof AcDraft)[]).some((k) => p[k] !== baseline[k]);
+  const update = (changes: Partial<AcDraft>) => setDraft({ ...p, ...changes });
+  const label = (list: { value: string; label: string }[], value: string) => list.find((o) => o.value === value)?.label ?? value;
 
-  function getAcPending(): AcPendingState {
-    return pending ?? acPendingFromDevice(device);
-  }
-
-  /** pending 是否與 device 的 last* baseline 不同（純值比對 — 任一欄位
-   *  不同就算 dirty，跟 OFF/ON 都一視同仁）。 */
-  function isAcDirty(): boolean {
-    const p = getAcPending();
-    const baseline = acPendingFromDevice(device);
-    return (
-      p.power !== baseline.power ||
-      p.temperature !== baseline.temperature ||
-      p.mode !== baseline.mode ||
-      p.fanSpeed !== baseline.fanSpeed
-    );
-  }
-
-  function updateAcPending(updates: Partial<AcPendingState>) {
-    const current = pending ?? acPendingFromDevice(device);
-    setPending({ ...current, ...updates });
-  }
-
-  function flashAcFailed() {
-    setAcFailed(true);
-    setTimeout(() => setAcFailed(false), 2000);
-  }
-
-  function flashDhFailed(expected: { type: string; value: unknown }) {
-    setDhFailed(expected);
-    setTimeout(() => setDhFailed(null), 5000);
-  }
-
-  async function sendAcCommand() {
-    const p = getAcPending();
-    setAcNotice(null);
-    setAcAwaiting(true);
+  async function submit() {
     setSending(true);
+    setNotice(null);
     try {
-      const res = await fetch("/api/devices/control", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceName: device.name, action: "setAll", params: p }),
-      });
-      const respData = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        console.error(`[sendAcCommand] ${device.name} failed: HTTP ${res.status}`);
-        setAcAwaiting(false);
-        if (device.controlProvider === "home_assistant") {
-          setAcNotice("HA 指令未確認，請先查看空調狀態；系統不會自動重送。");
-          if (onAcCommandSuccess) await onAcCommandSuccess();
-        }
-        flashAcFailed();
-        return;
-      }
-
-      // 關機指令被「防黴」攔截時，home-butler 改送送風並回一段說明訊息（先送風 N 分防黴、
-      // 之後自動關閉）。立刻顯示給使用者，不必等輪詢。
-      const message = typeof respData?.message === "string" ? respData.message : "";
-      let noticeShown = !p.power && /防黴|送風/.test(message);
-      if (noticeShown) setAcNotice(message);
-      const acceptedTemperature = acAcceptedTemperature(p.temperature, respData?.state);
-      if (p.power && acceptedTemperature !== p.temperature) {
-        setAcNotice(`目標已調整為 ${acceptedTemperature}°C`);
-      }
-
-      // AC 是 IR 單向、沒法回讀真實狀態。home-butler 寫回 Sheet 並同步更新
-      // /api/devices/status 的 last-* cache，當作「已生效」訊號。10 秒內每秒輪詢，
-      // pending 跟 device.last* 匹配才清 pending、解鎖。ON 時四欄都要對齊；OFF 時 power=off
-      // 算生效，但「防黴攔截 → 變成送風 on」也算生效（不是失敗），別誤閃紅。
-      const statusUrl = `/api/devices/status?name=${encodeURIComponent(device.name)}`;
-      for (let i = 0; i < 10; i++) {
-        await new Promise((r) => setTimeout(r, 1000));
-        try {
-          const r2 = await fetch(statusUrl);
-          const data = await r2.json();
-          const d: DeviceData | undefined = data?.[device.name];
-          if (d) {
-            const rawTemp = d.lastTemperature;
-            const tempNum =
-              typeof rawTemp === "number" ? rawTemp :
-              typeof rawTemp === "string" && rawTemp.trim() !== "" ? Number(rawTemp) : NaN;
-            let matched: boolean;
-            if (p.power) {
-              matched =
-                d.lastPower === "on" &&
-                tempNum === acceptedTemperature &&
-                (d.lastMode || "") === p.mode &&
-                (d.lastFanSpeed || "") === p.fanSpeed;
-            } else {
-              const isAntimoldFan = device.controlProvider !== "home_assistant" && d.lastPower === "on" && (d.lastMode || "") === "送風";
-              matched = d.lastPower === "off" || isAntimoldFan;
-              if (isAntimoldFan && !noticeShown) {
-                setAcNotice(message || "已運轉一陣子，先送風防黴，稍後自動關閉 🌬️");
-                noticeShown = true;
-              }
-            }
-            if (matched) {
-              if (onAcCommandSuccess) await onAcCommandSuccess();
-              setPending(null);
-              setAcAwaiting(false);
-              return;
-            }
-          }
-        } catch { /* continue polling */ }
-      }
-
-      // 10 秒沒匹配 → 失敗閃紅；仍 refetch 一次避免 UI 跟實際長期不一致
-      setAcAwaiting(false);
-      flashAcFailed();
-      if (onAcCommandSuccess) onAcCommandSuccess();
-    } catch (err) {
-      console.error(`[sendAcCommand] ${device.name} network error:`, err);
-      setAcAwaiting(false);
-      flashAcFailed();
+      await send("POST", `devices/ac/${encodeURIComponent(ac.name)}`,
+        p.power ? { power: "on", temperature: p.temperature, mode: p.mode, fan_speed: p.fan } : { power: "off" });
+      setDraft(null);
+    } catch (error) {
+      setNotice(failureText(error));
     } finally {
+      await onChanged();
       setSending(false);
     }
   }
 
-  async function sendDehumidifierCommand(params: Record<string, unknown>): Promise<boolean> {
-    // 推算這次操作期望的「最終狀態」，輪詢時用這個來判斷是否已生效
-    const expected: { type: string; value: unknown } =
-      params.power !== undefined ? { type: "power", value: params.power } :
-      params.mode !== undefined ? { type: "mode", value: params.mode } :
-      { type: "humidity", value: params.humidity };
-
-    setDhPending(expected);
-    setDhFailed(null);
-    setSending(true);
-
-    try {
-      const res = await fetch("/api/devices/control", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceName: device.name, action: "dehumidifier", params }),
-      });
-      if (!res.ok) {
-        console.error(`[sendDehumidifierCommand] ${device.name} failed: HTTP ${res.status}`);
-        setDhPending(null);
-        flashDhFailed(expected);
-        return false;
-      }
-
-      // ?name= 只查該裝置，避免被其他雲端慢的除濕機拖累 endpoint latency
-      const statusUrl = `/api/devices/status?name=${encodeURIComponent(device.name)}`;
-      for (let i = 0; i < 30; i++) {
-        await new Promise((r) => setTimeout(r, 1000));
-        try {
-          const res = await fetch(statusUrl);
-          const data = await res.json();
-          const dh = data?.[device.name];
-          if (dh) {
-            const matched =
-              (expected.type === "power" && dh.power === expected.value) ||
-              (expected.type === "mode" && dh.mode === expected.value) ||
-              (expected.type === "humidity" && String(dh.targetHumidity) === `${expected.value}%`);
-            if (matched) {
-              if (onDehumidifierCommandSuccess) await onDehumidifierCommandSuccess();
-              setDhPending(null);
-              return true;
-            }
-          }
-        } catch { /* continue polling */ }
-      }
-
-      // 30 秒後還沒匹配 → 標 failed 閃 5s，仍 refetch 避免顯示與實際不一致
-      if (onDehumidifierCommandSuccess) await onDehumidifierCommandSuccess();
-      setDhPending(null);
-      flashDhFailed(expected);
-      return false;
-    } catch (err) {
-      console.error(`[sendDehumidifierCommand] ${device.name} network error:`, err);
-      setDhPending(null);
-      flashDhFailed(expected);
-      return false;
-    } finally {
-      setSending(false);
-    }
-  }
-
-  // 目標濕度是否走「自訂（分時）」——決定 dropdown 選中值，也用來擋掉 toggle ON 時
-  // 自動補 threshold（補了會被後端解讀成「改用固定值」）。
-  const thresholdIsCustom = dehumRule?.threshold_source === THRESHOLD_CUSTOM;
-
-  async function sendAutoRuleUpdate(patch: {
-    auto_mode?: boolean;
-    sensor_name?: string;
-    duration_min?: number;
-    threshold?: number;
-    threshold_source?: string;
-  }) {
-    if (patch.auto_mode !== undefined) {
-      setAutoModePending(patch.auto_mode);
-    }
-    setAutoRulePending(true);
-
-    const isTogglingOn = patch.auto_mode === true && !dehumRule?.auto_mode;
-    const continuousMode = CONTINUOUS_MODE_BY_BRAND[device.brand || "Panasonic"] ?? "連續除濕";
-
-    // 進入自動模式前：若除濕機現在開著，先送 mode 切換指令把模式改成持續除濕
-    // 再 POST rule（一定要 await 完成才 POST rule，否則 home-butler 已經
-    // is_locked=true 會擋掉 mode 切換）。device OFF 時不切，等規則之後
-    // fire ON 時後端會一起送 turn_on + set_mode 持續除濕。
-    //
-    // 為什麼一定要切持續除濕：其他模式（尤其「目標濕度」）除濕機會看
-    // 機體周邊濕度自己達標停機，但外部 sensor 還沒到 → 永遠 trigger 不
-    // 到 auto-OFF。持續除濕忽略內部判定，控制權完全交給外部 sensor +
-    // hysteresis。模式名稱依品牌（Panasonic 連續除濕 / LG 智慧除濕）。
-    try {
-      if (isTogglingOn && device.power) {
-        const modeReady = await sendDehumidifierCommand({ mode: continuousMode });
-        if (!modeReady) return;
-      }
-
-      const body: Record<string, unknown> = {
-        device_name: device.name,
-        auto_mode: patch.auto_mode ?? dehumRule?.auto_mode ?? false,
-      };
-      if (patch.sensor_name !== undefined) body.sensor_name = patch.sensor_name;
-      if (patch.duration_min !== undefined) body.duration_min = patch.duration_min;
-      if (patch.threshold !== undefined) body.threshold = patch.threshold;
-      if (patch.threshold_source !== undefined) body.threshold_source = patch.threshold_source;
-      // Toggle ON 時：若 rule.threshold 從未設過，帶入 dropdown 預設值，避免後端 fallback
-      // 跟 UI 顯示對不上。on_mode 帶品牌對應的持續除濕模式（後端會忽略 caller 傳值但保留
-      // 給 Sheet schema 一致）。
-      //
-      // 但目標濕度是「自訂（分時）」時絕不補 threshold：後端收到具體數字會認定使用者
-      // 要固定值、把來源打回「固定」，那會讓開個自動模式就默默取消了分時曲線。
-      if (isTogglingOn) {
-        if (body.threshold === undefined && body.threshold_source === undefined && !thresholdIsCustom) {
-          body.threshold = dehumRule?.threshold ?? THRESHOLD_DEFAULT;
-        }
-        body.on_mode = continuousMode;
-      }
-
-      const res = await fetch("/api/dehumidifier/auto-rule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      if (onDehumRuleUpdate) await onDehumRuleUpdate();
-      if (onDehumidifierCommandSuccess) await onDehumidifierCommandSuccess();
-    } catch (err) {
-      console.error(`[autoRule] ${device.name} error:`, err);
-    } finally {
-      setAutoRulePending(false);
-      setAutoModePending(null);
-    }
-  }
-
-  async function sendIrCommand(button: string) {
-    setIrTap(button);
-    setIrFailed(null);
-    // tap 動畫長 ~250ms 就淡掉，獨立於 fetch。fetch 通常更快，但若慢於 250ms
-    // 也不延長 tap——tap 是「點擊回饋」，fetch 結果靠 failed state 表達。
-    setTimeout(() => setIrTap((cur) => (cur === button ? null : cur)), 250);
-    try {
-      const res = await fetch("/api/devices/control", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceName: device.name, action: "ir", params: { button } }),
-      });
-      if (!res.ok) {
-        console.error(`[sendIrCommand] ${device.name}/${button} failed: HTTP ${res.status}`);
-        setIrFailed({ button, message: `送出失敗（HTTP ${res.status}）` });
-        setTimeout(() => setIrFailed((cur) => (cur?.button === button ? null : cur)), 2000);
-      }
-    } catch (err) {
-      console.error(`[sendIrCommand] ${device.name}/${button} network error:`, err);
-      setIrFailed({ button, message: "送出失敗（網路錯誤）" });
-      setTimeout(() => setIrFailed((cur) => (cur?.button === button ? null : cur)), 2000);
-    }
-  }
-
-  // ─── 渲染分派 ───────────────────────────────────────────
-
-  if (device.type === "空調") {
-    const haManaged = device.controlProvider === "home_assistant";
-    if (haManaged && device.available !== true) {
-      return <p className="text-sm text-mute">HA 空調狀態未知，暫時無法控制。連線恢復後會重新顯示目前設定。</p>;
-    }
-    const acDisabled = sending || acAwaiting || (haManaged && device.available !== true);
-    const step = 1;
-    const p = getAcPending();
-    const dirty = isAcDirty();
-    const lastTime = device.lastUpdatedAt
-      ? device.lastUpdatedAt.split(" ")[1] || device.lastUpdatedAt
-      : undefined;
-
-    return (
-      <>
-        {haManaged && <p className="text-xs text-mute">{!device.available ? "HA 空調狀態未知，暫時無法控制" : device.stateUncertain ? "上次指令結果未知，請先確認空調；可重新指定完整設定。" : "由 HA 管理 · 狀態為最後下達的設定"}</p>}
-        {device.lastPower || acAwaiting ? (
-          <StatusLine
-            tone={acAwaiting ? "waiting" : device.lastPower === "on" ? "running" : "off"}
-            text={
-              acAwaiting
-                ? p.power
-                  ? `送出中：${p.temperature}°C ${p.mode} ${p.fanSpeed}`.trim()
-                  : "送出中：關閉"
-                : device.lastPower === "on"
-                ? `${device.lastTemperature ?? ""}°C ${device.lastMode ?? ""} ${device.lastFanSpeed ?? ""}`.trim()
-                : "關閉"
-            }
-            time={lastTime}
-          />
-        ) : (
-          <p className="text-xs text-mute">尚無使用記錄</p>
-        )}
-
-        {acNotice && (
-          <div className="rounded-[10px] bg-elevated px-2.5 py-2 text-[11.5px] leading-snug text-cool">
-            {acNotice}
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-surface-2 p-3 md:p-4">
-          <Field label="電源">
-            <Toggle2 value={p.power} onChange={(v) => updateAcPending({ power: v })} disabled={acDisabled} />
-          </Field>
-          <Field label="設定溫度">
-          <Stepper
-            value={p.temperature}
-            onMinus={() => updateAcPending({ temperature: Math.max(options.ac.temperature.min, p.temperature - step) })}
-            onPlus={() => updateAcPending({ temperature: Math.min(options.ac.temperature.max, p.temperature + step) })}
-            min={options.ac.temperature.min}
-            max={options.ac.temperature.max}
-            disabled={acDisabled}
-          />
-          </Field>
-        </div>
-
-        <ControlDetails title="模式與風速" summary={[p.mode, p.fanSpeed].filter(Boolean).join(" · ")}>
+  return (
+    <>
+      <p className="text-xs text-mute">
+        {ac.uncertain ? "上次指令結果未知，請先確認空調；可重新指定完整設定。" : `由 HA 管理 · 狀態為最後下達的設定 · ${ago(ac.updated_at)}更新`}
+      </p>
+      <StatusLine
+        tone={sending ? "waiting" : ac.power === "on" ? "running" : "off"}
+        text={sending ? (p.power ? `送出中：${p.temperature}°C ${label(options.modes, p.mode)} ${label(options.fan_speeds, p.fan)}` : "送出中：關閉")
+          : ac.power === "on" ? `${ac.temperature ?? ""}°C ${ac.mode ?? ""} ${ac.fan ?? ""}`.trim() : ac.power === "off" ? "關閉" : "狀態未知"}
+      />
+      {notice && <div className="rounded-[10px] bg-elevated px-2.5 py-2 text-[11.5px] leading-snug text-warm">{notice}</div>}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-surface-2 p-3 md:p-4">
+        <Field label="電源">
+          <Toggle2 value={p.power} onChange={(v) => update({ power: v })} disabled={sending} />
+        </Field>
+        <Field label="設定溫度">
+          <Stepper value={p.temperature} min={options.temperature.min} max={options.temperature.max} disabled={sending}
+            onMinus={() => update({ temperature: Math.max(options.temperature.min, p.temperature - 1) })}
+            onPlus={() => update({ temperature: Math.min(options.temperature.max, p.temperature + 1) })} />
+        </Field>
+      </div>
+      <ControlDetails title="模式與風速" summary={[label(options.modes, p.mode), label(options.fan_speeds, p.fan)].join(" · ")}>
         <Field label="模式">
-          <Segment options={options.ac.modes} value={p.mode} onSelect={(v) => updateAcPending({ mode: v })} disabled={acDisabled} />
+          <Segment options={options.modes} value={p.mode} onSelect={(v) => update({ mode: v })} disabled={sending} />
         </Field>
-
         <Field label="風速">
-          <Segment
-            options={options.ac.fan_speeds}
-            value={p.fanSpeed}
-            onSelect={(v) => updateAcPending({ fanSpeed: v })}
-            disabled={acDisabled}
-          />
+          <Segment options={options.fan_speeds} value={p.fan} onSelect={(v) => update({ fan: v })} disabled={sending} />
         </Field>
-        </ControlDetails>
+      </ControlDetails>
+      <button type="button" onClick={submit} disabled={sending || !dirty}
+        className={`inline-flex min-h-[38px] w-full items-center justify-center rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+          sending ? "border-transparent bg-amber text-white animate-pulse"
+            : dirty ? "border-transparent bg-cool text-white hover:bg-cool/85" : "border-line/70 bg-surface-2 text-mute"}`}>
+        {sending ? "送出中..." : dirty ? "送出設定" : "未變更"}
+      </button>
+    </>
+  );
+}
 
-        <button
-          type="button"
-          onClick={sendAcCommand}
-          disabled={acDisabled}
-          className={`inline-flex min-h-[38px] w-full items-center justify-center rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
-            acFailed
-              ? "border-transparent bg-warm text-white animate-pulse"
-              : acAwaiting
-              ? "border-transparent bg-amber text-white animate-pulse"
-              : dirty
-              ? "border-transparent bg-cool text-white hover:bg-cool/85"
-              : "border-line/70 bg-surface-2 text-mute"
-          }`}
-        >
-          {acFailed
-            ? "失敗，請重試"
-            : sending
-            ? "送出中..."
-            : acAwaiting
-            ? "確認中..."
-            : dirty
-            ? "送出設定"
-            : "未變更"}
-        </button>
-      </>
-    );
+// ── Dehumidifier ────────────────────────────────────────────
+
+const DURATION_OPTIONS = [0, 5, 10, 15, 20, 25, 30].map((v) => ({ value: v, label: v === 0 ? "立即" : `${v} 分` }));
+// 自動模式的目標濕度（規則自己的門檻，跟機體的目標濕度無關）；「自訂」＝依感應器的分時曲線。
+const CUSTOM = "custom";
+const THRESHOLD_OPTIONS = [...[45, 50, 55, 60, 65].map((v) => ({ value: String(v), label: `${v}%` })), { value: CUSTOM, label: "自訂（分時）" }];
+
+function DehumidifierControl({ unit, page, onChanged, history }: { unit: Dehumidifier; page: DevicesPage;
+  onChanged: () => Promise<void> | void; history: History | null }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const rule = unit.rule;
+  const status = unit.status;
+  const autoOn = rule.auto_mode;
+  const custom = rule.threshold_source === CUSTOM;
+  const disabled = busy !== null || !unit.controllable;
+
+  async function act(what: string, path: string, method: "POST" | "PUT", body: Record<string, unknown>) {
+    setBusy(what);
+    setNotice(null);
+    try {
+      await send(method, `dehumidifiers/${encodeURIComponent(unit.name)}/${path}`, body);
+    } catch (error) {
+      setNotice(failureText(error));
+    } finally {
+      await onChanged();
+      setBusy(null);
+    }
   }
+  const command = (body: Record<string, unknown>) => act("command", "control", "POST", body);
+  const setRule = (changes: Record<string, unknown>) => act("rule", "rule", "PUT", { auto_mode: autoOn, ...changes });
 
-  if (device.type === "除濕機") {
-    // 依品牌取對應的模式/濕度選項（缺 byBrand 時 fallback 頂層 = Panasonic）
-    const dh = options.dehumidifier.byBrand?.[device.brand || "Panasonic"] ?? options.dehumidifier;
-    const autoOn = autoModePending ?? (dehumRule?.auto_mode === true);
-    // 自動模式 ON 時鎖定電源/模式/目標濕度/感測器/時間，唯一可動的是 auto toggle
-    const manualDisabled = dhPending !== null || autoRulePending || autoOn;
-    const autoConfigDisabled = autoRulePending || autoOn;
+  const phaseText = !autoOn ? null
+    : rule.phase === "armed_above" ? `已連續超過門檻，再 ${rule.countdown_min ?? "?"} 分觸發開啟`
+    : rule.phase === "armed_below" ? `已連續低於門檻，再 ${rule.countdown_min ?? "?"} 分觸發關閉`
+    : rule.phase === "sensor_lost_warning" ? "感測器沒有回報，1 小時內未恢復將自動解除" : null;
+  const canSetHumidity = !unit.options.humidity_needs_mode || status.mode === unit.options.humidity_needs_mode;
+  const target = parseInt(String(status.target).replace("%", ""), 10);
+  const sensors = page.sensors.map((s) => ({ value: s.name, label: s.name }));
 
-    // Panasonic 機型：只有「目標濕度」mode 才能設目標濕度（其他模式機器自己判斷）。
-    // LG 各 mode 都能設目標濕度（智慧除濕 + 目標數字）→ 不受此限制。
-    // 用 device.mode（真實 readback），命令送出後等 readback sync 才生效顯示。
-    const isPanasonic = (device.brand ?? "Panasonic") === "Panasonic";
-    const canSetHumidity = !isPanasonic || device.mode === "目標濕度";
-
-    // 規則 phase 對應的人類可讀文字（只在「值得顯示」時才印一行）
-    const phaseText = (() => {
-      if (!autoOn) return null;
-      const phase = dehumRule?.auto_phase;
-      const cd = dehumRule?.countdown_min;
-      if (phase === "armed_above")
-        return `已連續超過門檻，再 ${cd ?? "?"} 分觸發開啟`;
-      if (phase === "armed_below")
-        return `已連續低於門檻，再 ${cd ?? "?"} 分觸發關閉`;
-      if (phase === "sensor_lost_warning")
-        return "感測器離線 ≥30 分，1 小時內未恢復將自動解除";
-      return null;
-    })();
-
-    return (
-      <>
-        {device.power !== undefined && (
-          <StatusLine
-            tone={device.power ? "running" : "off"}
-            text={
-              autoOn
-                ? // 自動模式：不顯示機器實際模式，改顯示「自動模式」。目標顯示「此刻實際
-                  // 生效」的門檻（自訂分時下會隨時段變），並標出來源是分時曲線。
-                  `${device.power ? "運轉中" : "待機"} · 自動模式${
-                    (dehumRule?.effective_threshold ?? dehumRule?.threshold) != null
-                      ? ` · 目標 ${dehumRule?.effective_threshold ?? dehumRule?.threshold}%${
-                          thresholdIsCustom ? "（分時）" : ""
-                        }`
-                      : ""
-                  }`
-                : device.power
-                ? `運轉中${device.mode ? ` · ${device.mode}` : ""}${
-                    device.targetHumidity && (!isPanasonic || device.mode === "目標濕度")
-                      ? ` · 目標 ${device.targetHumidity}`
-                      : ""
-                  }`
-                : "關閉"
-            }
-          />
-        )}
-        {/* 常用開關保留在外層，監控參數與手動模式預設收合。 */}
-        <div className="flex flex-wrap items-start gap-5">
-          <Field label="電源">
-            <Toggle2
-              value={!!device.power}
-              onChange={(v) => sendDehumidifierCommand({ power: v })}
-              disabled={manualDisabled}
-            />
-          </Field>
-          <Field label="自動模式">
-            <Toggle2
-              value={autoOn}
-              onChange={(v) => sendAutoRuleUpdate({ auto_mode: v })}
-              disabled={autoRulePending}
-            />
-          </Field>
-        </div>
-        {phaseText && <StatusLine tone="waiting" text={phaseText} />}
-        <ControlDetails title="自動模式設定" summary={`${dehumRule?.duration_min ?? 30} 分 · ${dehumRule?.sensor_name || "未選感測器"}`}>
-          <Field label="監控時間" className="min-w-0">
-            <Dropdown
-              options={DURATION_OPTIONS}
-              value={dehumRule?.duration_min ?? 30}
-              onSelect={(v) => sendAutoRuleUpdate({ duration_min: v })}
-              disabled={autoRulePending}
-              className="w-full"
-            />
-          </Field>
-        {/* Row 2: 監控感測器與目標濕度等寬，不依原生選項字長決定欄位大小。
-            目標濕度 / 監控時間在 auto ON 時都可即時修改：後端只在 auto_mode 翻轉時
-            reset runtime state，改門檻 / 時間不會清計時器，_evaluate_steady 下個 tick
-            現撈新值即可。只有「感測器」維持 auto ON lock——換綁定 sensor 會 rebind
-            歷史 / 圖表、計時器基準也整個變，才需要鎖。 */}
+  return (
+    <>
+      {!unit.controllable && <p className="text-xs text-warm">缺少控制資訊（Device ID、帳號或憑證），無法控制。</p>}
+      <StatusLine
+        tone={busy ? "waiting" : status.power ? "running" : "off"}
+        text={status.power === null ? "狀態未知" : autoOn
+          ? `${status.power ? "運轉中" : "待機"} · 自動模式 · 目標 ${rule.effective_threshold}%${custom ? "（分時）" : ""}`
+          : status.power ? `運轉中${status.mode ? ` · ${status.mode}` : ""}${status.target && canSetHumidity ? ` · 目標 ${status.target}` : ""}` : "關閉"}
+        time={status.updated_at ? ago(status.updated_at) : undefined}
+      />
+      {status.error && <p className="text-xs text-warm">最近一次讀取失敗：{status.error}</p>}
+      {notice && <div className="rounded-[10px] bg-elevated px-2.5 py-2 text-[11.5px] leading-snug text-warm">{notice}</div>}
+      <div className="flex flex-wrap items-start gap-5">
+        <Field label="電源">
+          <Toggle2 value={!!status.power} onChange={(v) => command({ power: v ? "on" : "off" })} disabled={disabled || autoOn} />
+        </Field>
+        <Field label="自動模式">
+          <Toggle2 value={autoOn} onChange={(v) => setRule({ auto_mode: v })} disabled={disabled} />
+        </Field>
+      </div>
+      {phaseText && <StatusLine tone="waiting" text={phaseText} />}
+      <ControlDetails title="自動模式設定" summary={`${rule.duration_min} 分 · ${rule.sensor_name || "未選感測器"}`}>
+        <Field label="監控時間" className="min-w-0">
+          <Dropdown options={DURATION_OPTIONS} value={rule.duration_min} onSelect={(v) => setRule({ duration_min: v })} disabled={disabled} className="w-full" />
+        </Field>
+        {/* 自動模式開著時只鎖「感測器」：換感測器等於整個規則換對象，其餘可即時改。 */}
         <div className="grid grid-cols-2 items-start gap-3">
           <Field label="監控感測器" className="min-w-0">
-            <Dropdown
-              options={(availableSensors ?? []).map((s) => ({ value: s, label: s }))}
-              value={dehumRule?.sensor_name || undefined}
-              onSelect={(v) => sendAutoRuleUpdate({ sensor_name: v })}
-              disabled={autoConfigDisabled}
-              className="w-full"
-            />
+            <Dropdown options={sensors} value={rule.sensor_name || undefined} onSelect={(v) => setRule({ sensor_name: v })}
+              disabled={disabled || autoOn} className="w-full" />
           </Field>
           <Field label="目標濕度" className="min-w-0">
-            <Dropdown
-              className="w-full"
-              options={THRESHOLD_OPTIONS}
-              value={
-                thresholdIsCustom
-                  ? THRESHOLD_CUSTOM
-                  : String(dehumRule?.threshold ?? THRESHOLD_DEFAULT)
-              }
-              onSelect={(v) =>
-                v === THRESHOLD_CUSTOM
-                  ? sendAutoRuleUpdate({ threshold_source: THRESHOLD_CUSTOM })
-                  // 明確送空來源，把曲線關掉切回固定值（只送 threshold 後端也會這樣解讀，
-                  // 但寫明比較不會在之後改動時被誤刪）
-                  : sendAutoRuleUpdate({ threshold: Number(v), threshold_source: "" })
-              }
-              disabled={autoRulePending}
-            />
+            <Dropdown className="w-full" options={THRESHOLD_OPTIONS} value={custom ? CUSTOM : String(rule.threshold)} disabled={disabled}
+              onSelect={(v) => v === CUSTOM ? setRule({ threshold_source: CUSTOM }) : setRule({ threshold: Number(v), threshold_source: "fixed" })} />
           </Field>
-          {thresholdIsCustom && (
+          {custom && (
             <div className="col-span-2 min-w-0">
-              <HumidityCurveChart
-                curve={dehumRule?.humidity_curve ?? []}
-                error={dehumRule?.humidity_curve_error}
-                fallbackThreshold={dehumRule?.threshold ?? THRESHOLD_DEFAULT}
-              />
+              <HumidityCurveChart curve={rule.curve} error={rule.curve_error} fallbackThreshold={rule.threshold} />
             </div>
           )}
         </div>
-        </ControlDetails>
-        <ControlDetails title="手動模式與濕度" summary={autoOn ? "自動模式控制中" : device.mode || "尚無狀態"}>
+      </ControlDetails>
+      <ControlDetails title="手動模式與濕度" summary={autoOn ? "自動模式控制中" : status.mode || "尚無狀態"}>
         <Field label="模式">
-          <Segment
-            options={dh.modes}
-            value={dh.modes.find((m) => m.label === device.mode)?.value}
-            onSelect={(v) => sendDehumidifierCommand({ mode: v })}
-            pendingValue={dhPending?.type === "mode" ? (dhPending.value as string) : undefined}
-            failedValue={dhFailed?.type === "mode" ? (dhFailed.value as string) : undefined}
-            disabled={manualDisabled}
-          />
+          <Segment options={unit.options.modes.map((m) => ({ value: m, label: m }))} value={status.mode || undefined}
+            onSelect={(v) => command({ mode: v })} disabled={disabled || autoOn} />
         </Field>
-        {/* 機體目標濕度 segment 只在「手動模式 + 機型支援該模式設濕度」時顯示。
-            auto ON 時門檻完全由上方 dropdown 管，機器跑在連續除濕、不看自己的目標濕度；
-            Panasonic 在非「目標濕度」mode（連續除濕/防霉抑菌/空氣清淨/AI舒適）也不看
-            目標濕度設定 — 兩種情境都隱藏，避免使用者誤以為設定有效。 */}
         {!autoOn && canSetHumidity && (
           <Field label="目標濕度">
-            <Segment
-              options={dh.humidity.map((h) => ({ value: h, label: `${h}%` }))}
-              value={(() => {
-                const t = String(device.targetHumidity ?? "").replace("%", "");
-                const n = parseInt(t, 10);
-                return Number.isFinite(n) ? n : undefined;
-              })()}
-              onSelect={(v) => sendDehumidifierCommand({ humidity: v })}
-              pendingValue={dhPending?.type === "humidity" ? (dhPending.value as number) : undefined}
-              failedValue={dhFailed?.type === "humidity" ? (dhFailed.value as number) : undefined}
-              disabled={manualDisabled}
-            />
+            <Segment options={unit.options.humidity.map((h) => ({ value: h, label: `${h}%` }))} value={Number.isFinite(target) ? target : undefined}
+              onSelect={(v) => command({ humidity: v })} disabled={disabled} />
           </Field>
         )}
+      </ControlDetails>
+      {autoOn && history && (
+        <ControlDetails title="濕度趨勢" summary="過去 24 小時">
+          <AutoModeChart sensorHistory={sensorHistory(history, rule.sensor_name)} onSegments={dehumidifierSegments(history, unit.name)}
+            humidityOnThreshold={rule.on_at} humidityOffThreshold={rule.off_at} />
         </ControlDetails>
-        {autoOn && dehumRule && (
-          <ControlDetails title="濕度趨勢" summary="過去 24 小時">
-          {loadHistoryOnExpand ? <DehumidifierHistory key={dehumRule.sensor_name} deviceName={device.name} rule={dehumRule} /> : <AutoModeChart
-            sensorHistory={sensorsMap?.[dehumRule.sensor_name]?.history ?? []}
-            onSegments={dehumHistoryToSegments(dehumHistoryMap?.[device.name]?.history ?? [])}
-            humidityOnThreshold={dehumRule.humidity_on_threshold ?? dehumRule.threshold + 2}
-            humidityOffThreshold={dehumRule.humidity_off_threshold ?? dehumRule.threshold - 1}
-          />}
-          </ControlDetails>
-        )}
-      </>
-    );
+      )}
+    </>
+  );
+}
+
+// ── IR ──────────────────────────────────────────────────────
+
+function IrControl({ ir }: { ir: Ir }) {
+  // 單向發送：tap 顯示琥珀色表示送出中，失敗顯示紅色；沒有「成功」狀態，因為 IR 沒有回讀。
+  const [tap, setTap] = useState<string | null>(null);
+  const [failed, setFailed] = useState<{ button: string; message: string } | null>(null);
+
+  async function press(button: string) {
+    setTap(button);
+    setFailed(null);
+    try {
+      await send("POST", `devices/ir/${encodeURIComponent(ir.name)}`, { button });
+    } catch (error) {
+      setFailed({ button, message: failureText(error) });
+      setTimeout(() => setFailed((cur) => (cur?.button === button ? null : cur)), 4000);
+    } finally {
+      setTap((cur) => (cur === button ? null : cur));
+    }
   }
 
-  if (device.type === "IR") {
-    const buttons = (device.buttons ?? "")
-      .split(",")
-      .map((b) => b.trim())
-      .filter(Boolean);
-    return (
-      <Field label="遙控按鈕">
-        <div className="flex flex-wrap gap-2">
-          {buttons.map((btn) => {
-            const isTap = irTap === btn;
-            const isFailed = irFailed?.button === btn;
-            // 配色語言對齊全站：amber = 送出中、warm = 失敗。沒有「成功」狀態，
-            // 因為 IR 沒有狀態 ground truth，HTTP 200 只代表 Hub 收到。
-            const stateCls = isFailed
-              ? "border-transparent bg-warm text-white animate-pulse"
-              : isTap
-              ? "border-transparent bg-amber text-white scale-[0.97]"
-              : "border-line bg-elevated text-soft hover:bg-mute/15 active:scale-[0.985]";
-            return (
-              <button
-                key={btn}
-                type="button"
-                onClick={() => sendIrCommand(btn)}
-                className={`inline-flex items-center justify-center rounded-full border px-3 py-[5px] text-sm font-medium leading-[20px] transition-all duration-150 ${stateCls}`}
-              >
-                {btn}
-              </button>
-            );
-          })}
-        </div>
-        {irFailed ? (
-          <p className="mt-2 text-xs text-warm">
-            {irFailed.button}：{irFailed.message}
-          </p>
-        ) : (
-          <p className="mt-2 text-xs text-mute">IR 為單向發送，不會回傳裝置狀態</p>
-        )}
-      </Field>
-    );
-  }
-
-  return null;
+  return (
+    <Field label="遙控按鈕">
+      <div className="flex flex-wrap gap-2">
+        {ir.buttons.map(({ label, available }) => {
+          const stateCls = failed?.button === label ? "border-transparent bg-warm text-white animate-pulse"
+            : tap === label ? "border-transparent bg-amber text-white scale-[0.97]"
+            : "border-line bg-elevated text-soft hover:bg-mute/15 active:scale-[0.985]";
+          return (
+            <button key={label} type="button" onClick={() => press(label)} disabled={!available || tap !== null}
+              className={`inline-flex items-center justify-center rounded-full border px-3 py-[5px] text-sm font-medium leading-[20px] transition-all duration-150 disabled:opacity-50 ${stateCls}`}>
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      {failed ? <p className="mt-2 text-xs text-warm">{failed.button}：{failed.message}</p>
+        : <p className="mt-2 text-xs text-mute">IR 為單向發送，不會回傳裝置狀態</p>}
+    </Field>
+  );
 }

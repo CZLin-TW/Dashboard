@@ -6,7 +6,7 @@ test("queries share in-flight reads; replaced requests cannot overwrite fresh da
   const original = globalThis.fetch;
   const pending: ((value: Response) => void)[] = [];
   globalThis.fetch = () => new Promise(resolve => pending.push(resolve));
-  const url = "/api/todos", key = queryKey("alice", url);
+  const url = "/api/hb/todos", key = queryKey("alice", url);
   const unsubscribe = subscribeQuery(key, url, () => {});
   try {
     const old = refreshQuery(key, url);
@@ -22,7 +22,7 @@ test("queries share in-flight reads; replaced requests cannot overwrite fresh da
 
 test("failed refresh keeps good data and timestamp; first failure is not empty success", async () => {
   const original = globalThis.fetch;
-  const url = "/api/todos", key = queryKey("alice", url);
+  const url = "/api/hb/todos", key = queryKey("alice", url);
   try {
     globalThis.fetch = async () => Response.json([{ name: "kept" }]);
     await refreshQuery(key, url);
@@ -43,7 +43,7 @@ test("logout invalidates pending results even if transport ignores abort", async
   const original = globalThis.fetch;
   let resolve!: (value: Response) => void;
   globalThis.fetch = () => new Promise(done => { resolve = done; });
-  const url = "/api/dashboard", key = queryKey("alice", url);
+  const url = "/api/hb/home", key = queryKey("alice", url);
   try {
     const pending = refreshQuery(key, url);
     clearQueryCache();
@@ -54,7 +54,7 @@ test("logout invalidates pending results even if transport ignores abort", async
 
 test("revoked private access discards the last successful response", async () => {
   const original = globalThis.fetch;
-  const url = "/api/todos", key = queryKey("alice", url);
+  const url = "/api/hb/todos", key = queryKey("alice", url);
   try {
     globalThis.fetch = async () => Response.json([{ secret: "private" }]);
     await refreshQuery(key, url);
@@ -69,7 +69,7 @@ test("an obsolete unauthorized response cannot erase a newer successful read", a
   const original = globalThis.fetch;
   const pending: ((value: Response) => void)[] = [];
   globalThis.fetch = () => new Promise(resolve => pending.push(resolve));
-  const url = "/api/todos", key = queryKey("alice", url);
+  const url = "/api/hb/todos", key = queryKey("alice", url);
   try {
     const old = refreshQuery(key, url);
     const fresh = refreshQuery(key, url, true);

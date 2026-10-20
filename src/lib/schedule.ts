@@ -1,174 +1,68 @@
-// 排程資料 schema + CRUD API helpers，給裝置卡內嵌的 ScheduleSection 使用，
-// 避免 parse/diff 邏輯散在 UI 元件內。
-//
-// Sheet 欄位是中文 key（home-butler 寫入時就是這樣）；UI 端統一用 Schedule
-// 型別 [key: string]: string 接，需要哪個欄位就直接 s["設備名稱"]。
+// 排程（HomeButler v2）：以編號操作；時間進出都是家裡的牆上時間 "YYYY-MM-DD HH:MM"（due_local）。
 
-import type { DeviceData } from "@/lib/types";
-import type { ScheduleFormState, ScheduleFormInitial } from "@/components/devices/schedule-form";
+import { send, type DevicesPage, type Schedule } from "@/lib/api";
+import type { ScheduleFormInitial, ScheduleFormState } from "@/components/devices/schedule-form";
 
-export interface Schedule {
-  [key: string]: string;
+export type { Schedule };
+
+const AC_LABELS: Record<string, string> = { cool: "冷氣", heat: "暖氣", dry: "除濕", fan_only: "送風", heat_cool: "自動" };
+const FAN_LABELS: Record<string, string> = { auto: "自動", low: "低", medium: "中", high: "高" };
+
+/** 一筆排程要做什麼，給列表顯示。 */
+export function scheduleText(params: Record<string, unknown>): string {
+  if (params.power === "off") return "關機";
+  if (typeof params.button === "string") return params.button;
+  const parts: string[] = params.power === "on" ? ["開機"] : [];
+  if (typeof params.temperature === "number") parts.push(`${params.temperature}°C`);
+  if (typeof params.mode === "string") parts.push(AC_LABELS[params.mode] ?? params.mode);
+  if (typeof params.fan_speed === "string") parts.push(`風速:${FAN_LABELS[params.fan_speed] ?? params.fan_speed}`);
+  if (typeof params.humidity === "number") parts.push(`${params.humidity}%`);
+  return parts.join(" · ") || "—";
 }
 
-/** 從 schedule 的 params JSON 字串拆出可顯示的設定值。
- *  list row 用 display 字串，編輯展開時轉成 ScheduleFormInitial。 */
-export interface ParsedParams {
-  power?: "on" | "off";
-  temperature?: number;
-  mode?: string;
-  fanSpeed?: string;
-  humidity?: number;
-  button?: string;
-  display: string;
+export function isAttention(s: Schedule): boolean {
+  return s.status === "failed" || s.status === "unknown" || s.status === "claimed";
 }
 
-export function parseScheduleParams(rawJson: string): ParsedParams {
-  const parsed: ParsedParams = { display: rawJson };
-  try {
-    const p = JSON.parse(rawJson);
-    if (p.power === "on" || p.power === "off") parsed.power = p.power;
-    if (typeof p.temperature === "number") parsed.temperature = p.temperature;
-    if (typeof p.mode === "string") parsed.mode = p.mode;
-    if (typeof p.fan_speed === "string") parsed.fanSpeed = p.fan_speed;
-    if (typeof p.humidity === "number") parsed.humidity = p.humidity;
-    if (typeof p.button === "string") parsed.button = p.button;
-
-    const parts: string[] = [];
-    if (parsed.power) parts.push(parsed.power === "off" ? "關機" : "開機");
-    if (parsed.temperature !== undefined) parts.push(`${parsed.temperature}°C`);
-    if (parsed.mode) parts.push(parsed.mode);
-    if (parsed.fanSpeed) parts.push(`風速:${parsed.fanSpeed}`);
-    if (parsed.humidity !== undefined) parts.push(`${parsed.humidity}%`);
-    if (parsed.button) parts.push(parsed.button);
-    if (parts.length) parsed.display = parts.join(" · ");
-  } catch { /* keep raw display */ }
-  return parsed;
+export function isPastTrigger(s: Schedule): boolean {
+  return Date.parse(s.due_at) < Date.now();
 }
 
-/** 穩定排序的 JSON 字串，給 params diff 比對用（避免 key 順序不同造成假差異）。 */
-export function stableJson(obj: Record<string, unknown>): string {
-  const sortedKeys = Object.keys(obj).sort();
-  return JSON.stringify(sortedKeys.map((k) => [k, obj[k]]));
-}
-
-/** Sheet 的顯示格式可能省略前導零；原生 date/time input 需要補齊。
- *  只整理牆上時間字串，不經 Date／UTC 換算；API 定位仍使用原始字串。 */
-export function normalizeTriggerTime(trigger: string): string {
-  const match = trigger.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
-  if (!match) return trigger;
-  const [, year, month, day, hour, minute] = match;
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")} ${hour.padStart(2, "0")}:${minute}`;
-}
-
-export function toFormInitial(s: Schedule, deviceData: DeviceData | undefined): ScheduleFormInitial {
-  const trigger = normalizeTriggerTime(s["觸發時間"] ?? "");
-  const [date, time] = trigger.split(" ");
-  const parsed = parseScheduleParams(s["參數"] ?? "");
-  const initial: ScheduleFormInitial = {
-    device_name: s["設備名稱"] ?? "",
-    trigger_date: date ?? "",
-    trigger_time: time ?? "",
+export function toFormInitial(s: Schedule): ScheduleFormInitial {
+  const [date, time] = s.due_local.split(" ");
+  const p = s.params;
+  return {
+    device_name: s.target_name, trigger_date: date ?? "", trigger_time: time ?? "",
+    ac: s.target_kind === "ac" ? { power: p.power !== "off", temperature: typeof p.temperature === "number" ? p.temperature : 26,
+      mode: String(p.mode ?? ""), fanSpeed: String(p.fan_speed ?? "") } : undefined,
+    dehumidifier: s.target_kind === "dehumidifier" ? { power: p.power !== "off", mode: String(p.mode ?? ""),
+      humidity: typeof p.humidity === "number" ? p.humidity : undefined } : undefined,
+    ir: s.target_kind === "ir" ? { button: String(p.button ?? "") } : undefined,
   };
-  if (deviceData?.type === "空調") {
-    initial.ac = {
-      power: parsed.power === "on",
-      temperature: parsed.temperature ?? 26,
-      mode: parsed.mode ?? "",
-      fanSpeed: parsed.fanSpeed ?? "",
-    };
-  } else if (deviceData?.type === "除濕機") {
-    initial.dehumidifier = {
-      power: parsed.power === "on",
-      mode: parsed.mode ?? "",
-      humidity: parsed.humidity,
-    };
-  } else if (deviceData?.type === "IR") {
-    initial.ir = { button: parsed.button ?? "" };
-  }
-  return initial;
 }
 
-// ── 觸發時間 helpers ──────────────────────────────────────
-
-/** "YYYY-MM-DD HH:MM" → epoch ms；parse 失敗回 NaN（caller 用 isFinite 過濾）。 */
-export function triggerTimeToMs(trigger: string): number {
-  const t = new Date(normalizeTriggerTime(trigger).replace(" ", "T"));
-  return t.getTime();
+export function createSchedule(state: ScheduleFormState): Promise<unknown> {
+  return send("POST", "schedules", { target_kind: state.kind, target_name: state.name, params: state.params, due_local: state.due_local });
 }
 
-export function isPastTrigger(trigger: string): boolean {
-  const ms = triggerTimeToMs(trigger);
-  return Number.isFinite(ms) && ms < Date.now();
-}
+const sameParams = (a: Record<string, unknown>, b: Record<string, unknown>) =>
+  JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());
 
-// ── CRUD API wrappers ─────────────────────────────────────
-
-export async function createSchedule(state: ScheduleFormState, person: string): Promise<void> {
-  const res = await fetch("/api/schedules", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...state, person }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error ?? `HTTP ${res.status}`);
-  }
-}
-
-/** PATCH 排程，回傳是否真的送出（沒任何欄位變動就回 false 不打 API）。 */
-export async function updateSchedule(
-  original: Schedule,
-  state: ScheduleFormState,
-  person: string,
-): Promise<boolean> {
-  const originalDevice = original["設備名稱"] ?? "";
-  const originalTrigger = original["觸發時間"] ?? "";
-  const originalAction = original["動作"] ?? "";
-  const originalParamsStr = original["參數"] ?? "";
-
-  // Diff 對齊 todo / food：只送有改動的欄位。
-  const body: Record<string, unknown> = {
-    device_name: originalDevice,
-    trigger_time: originalTrigger,
-    person,
-  };
-  if (state.device_name !== originalDevice) body.device_name_new = state.device_name;
-  if (state.target_action !== originalAction) body.target_action_new = state.target_action;
-  if (normalizeTriggerTime(state.trigger_time) !== normalizeTriggerTime(originalTrigger)) {
-    body.trigger_time_new = state.trigger_time;
-  }
-  let paramsChanged = true;
-  try {
-    const orig = JSON.parse(originalParamsStr) as Record<string, unknown>;
-    paramsChanged = stableJson(orig) !== stableJson(state.params);
-  } catch { /* 原始 JSON 壞的，當作有改 */ }
-  if (paramsChanged) body.params_new = state.params;
-
-  const hasChange = "device_name_new" in body || "target_action_new" in body
-    || "trigger_time_new" in body || "params_new" in body;
-  if (!hasChange) return false;
-
-  const res = await fetch("/api/schedules", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error ?? `HTTP ${res.status}`);
-  }
+/** Sends only what changed; false when nothing did. */
+export async function updateSchedule(original: Schedule, state: ScheduleFormState): Promise<boolean> {
+  const changes: Record<string, unknown> = {};
+  if (state.due_local !== original.due_local) changes.due_local = state.due_local;
+  if (!sameParams(state.params, original.params)) changes.params = state.params;
+  if (!Object.keys(changes).length) return false;
+  await send("PATCH", `schedules/${original.id}`, changes);
   return true;
 }
 
-export async function deleteSchedule(deviceName: string, triggerTime: string, executionId?: string): Promise<void> {
-  const response = await fetch("/api/schedules", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ device_name: deviceName, trigger_time: triggerTime, ...(executionId ? { execution_id: executionId } : {}) }),
-  });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error ?? `HTTP ${response.status}`);
-  }
+/** A pending one is cancelled; a failed or unknown one is dismissed (its result is kept). */
+export function removeSchedule(s: Schedule): Promise<unknown> {
+  return send("DELETE", `schedules/${s.id}`);
+}
+
+export function schedulesFor(page: DevicesPage | null, name: string): Schedule[] {
+  return (page?.schedules ?? []).filter((s) => s.target_name === name).sort((a, b) => a.due_at.localeCompare(b.due_at));
 }

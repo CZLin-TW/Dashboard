@@ -1,34 +1,20 @@
 "use client";
 
-import { useCallback } from "react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
-import { type Sensor, computeSensorDomains } from "@/lib/sensor";
-import { type AcDevice, getAcSegmentsForLocation } from "@/lib/ac";
-import { type DehumDevice, getDehumSegmentsForLocation, dehumHistoryToSegments } from "@/lib/dehumidifier";
-import type { DehumidifierAutoRule } from "@/lib/types";
-import { SensorChart, AutoModeChart } from "@/components/devices/lazy-charts";
+import { computeSensorDomains } from "@/lib/sensor";
+import { HB, type DevicesPage, type History } from "@/lib/api";
+import { acSegments, dehumidifierSegmentsAt, sensorHistory } from "@/lib/devices";
+import { SensorChart } from "@/components/devices/lazy-charts";
 
-// These components mount only inside an open disclosure. Closing it removes their
-// timers; current readings continue to use the separate, small summary response.
-function useHistory(sensorName: string, withAc: boolean) {
-  const sensors = useCachedFetch<Record<string, Sensor>>(`/api/sensors/status?name=${encodeURIComponent(sensorName)}`, {});
-  const acs = useCachedFetch<Record<string, AcDevice>>("/api/ac/status", {}, withAc);
-  const dehums = useCachedFetch<Record<string, DehumDevice>>("/api/dehumidifier/history", {});
-  const { refetch: refreshSensors } = sensors;
-  const { refetch: refreshAcs } = acs;
-  const { refetch: refreshDehums } = dehums;
-  const refresh = useCallback(async () => {
-    await Promise.all([refreshSensors(), refreshAcs(), refreshDehums()]);
-  }, [refreshSensors, refreshAcs, refreshDehums]);
-  // History is recorded by the backend; it does not need the cloud-status 5s follow-up.
-  useAutoRefresh(refresh, 60_000, 0);
-  return {
-    sensor: sensors.data[sensorName], acs: acs.data, dehums: dehums.data,
-    loading: sensors.loading || acs.loading || dehums.loading,
-    error: sensors.error || (withAc ? acs.error : null) || dehums.error,
-    refresh,
-  };
+export const HISTORY_URL = HB("history?parts=sensors,acs,dehumidifiers");
+const EMPTY: History = { sensors: {}, acs: {}, computers: {}, dehumidifiers: {} };
+
+/** The charts' history; mounted only while a chart is open. Recorded every 5 minutes, so read that often. */
+export function useHistory(enabled = true) {
+  const history = useCachedFetch<History>(HISTORY_URL, EMPTY, enabled);
+  useAutoRefresh(history.refetch, 300_000, 0);
+  return history;
 }
 
 function HistoryNotice({ loading, error, hasData, retry }: { loading: boolean; error: string | null; hasData: boolean; retry: () => Promise<void> }) {
@@ -40,27 +26,12 @@ function HistoryNotice({ loading, error, hasData, retry }: { loading: boolean; e
   return null;
 }
 
-export function EnvironmentHistory({ sensorName }: { sensorName: string }) {
-  const h = useHistory(sensorName, true);
-  const sensor = h.sensor;
-  const hasData = !!sensor?.history?.length;
-  const domains = computeSensorDomains(sensor ? [sensor] : []);
+export function EnvironmentHistory({ sensorName, location, page }: { sensorName: string; location: string; page: DevicesPage | null }) {
+  const h = useHistory();
+  const points = sensorHistory(h.data, sensorName);
   return <>
-    <HistoryNotice loading={h.loading} error={h.error} hasData={hasData} retry={h.refresh} />
-    {hasData && <SensorChart history={sensor!.history} {...domains}
-      acSegments={getAcSegmentsForLocation(h.acs, sensor!.location || "")}
-      dehumSegments={getDehumSegmentsForLocation(h.dehums, sensor!.location || "")} />}
-  </>;
-}
-
-export function DehumidifierHistory({ deviceName, rule }: { deviceName: string; rule: DehumidifierAutoRule }) {
-  const h = useHistory(rule.sensor_name, false);
-  const hasData = !!h.sensor?.history?.length;
-  return <>
-    <HistoryNotice loading={h.loading} error={h.error} hasData={hasData} retry={h.refresh} />
-    {hasData && <AutoModeChart sensorHistory={h.sensor!.history}
-      onSegments={dehumHistoryToSegments(h.dehums[deviceName]?.history ?? [])}
-      humidityOnThreshold={rule.humidity_on_threshold ?? rule.threshold + 2}
-      humidityOffThreshold={rule.humidity_off_threshold ?? rule.threshold - 1} />}
+    <HistoryNotice loading={h.loading} error={h.error} hasData={points.length > 0} retry={h.refetch} />
+    {points.length > 0 && <SensorChart history={points} {...computeSensorDomains([points])}
+      acSegments={acSegments(h.data, page, location)} dehumSegments={dehumidifierSegmentsAt(h.data, page, location)} />}
   </>;
 }

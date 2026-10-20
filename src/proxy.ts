@@ -28,6 +28,9 @@ const KID_ALLOWED_APIS = [
 ];
 
 function kidPathAllowed(pathname: string): boolean {
+  // Everything HomeButler serves goes through /api/hb, whose own table (src/lib/hb-rules.ts) says per
+  // path whether the tablet may use it; that table is deny-by-default too.
+  if (pathname.startsWith("/api/hb/")) return true;
   // 頁面用前綴比對（/devices 底下的子路由都算）；API 一律「精確」比對——用前綴的話，
   // 光是放行 /api/devices 就會把整個 /api/devices/* 子樹（含日後新增的端點）一起打開，
   // 違背這份清單「預設拒絕、新功能不會無意間對兒童開放」的用意。

@@ -5,7 +5,7 @@ import { FlaskConical, RotateCcw } from "lucide-react";
 import { createDemoState, type DemoState, type Scenario } from "@/lib/demo/fixtures";
 import { createSimulator, demoFetch } from "@/lib/demo/simulator";
 
-const STATE_KEY = "dashboard-demo:v1";
+const STATE_KEY = "dashboard-demo:v3";
 const SCENARIOS: { value: Scenario; label: string }[] = [
   { value: "normal", label: "正常資料" }, { value: "empty", label: "空資料" },
   { value: "offline", label: "設備離線" }, { value: "error", label: "API 失敗" },
@@ -16,8 +16,9 @@ function clearCaches() {
   for (const key of Object.keys(sessionStorage)) if (key.startsWith("cache:")) sessionStorage.removeItem(key);
 }
 function seedPins(state: DemoState) {
-  sessionStorage.setItem("pinned-devices", JSON.stringify(state.devices.filter(d => d.type !== "感應器").map(d => d.name).slice(0, 4)));
-  sessionStorage.setItem("pinned-sensor", state.devices.find(d => d.type === "感應器")?.name ?? "");
+  const names = [...state.acs, ...state.dehumidifiers, ...state.irs].map(d => d.name);
+  sessionStorage.setItem("pinned-devices", JSON.stringify(names.slice(0, 4)));
+  sessionStorage.setItem("pinned-sensor", state.sensors[0]?.name ?? "");
 }
 
 export function DemoProvider({ children }: { children: React.ReactNode }) {
@@ -33,7 +34,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved) as DemoState;
-          if (parsed.schema === 2 && Array.isArray(parsed.devices) && SCENARIOS.some(s => s.value === parsed.scenario)) state = parsed;
+          if (parsed.schema === 3 && Array.isArray(parsed.acs) && SCENARIOS.some(s => s.value === parsed.scenario)) state = parsed;
         } catch { /* corrupted demo data: restore synthetic defaults */ }
       }
       if (!saved) seedPins(state);

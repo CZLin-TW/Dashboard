@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { butlerPost } from "@/lib/butler";
+import { hb } from "@/lib/hb";
 
-// 裝置配對登入：向 home-butler 取得一組 user_code + device_token。
-// 在 /api/auth/* 之下 → 已在 proxy.ts 的 PUBLIC_PATHS（登入前可用）。
-// 配對只產生成員身分；受限的遙控器身分走 /api/auth/remote-login（密碼）。
+// 裝置配對登入：向 HomeButler 取得一組六位數字＋只有這個瀏覽器保管的 device_token。
+// 在 /api/auth/* 之下，登入前可用。配對只產生成員身分；遙控器走 /api/auth/remote-login。
 export async function POST() {
   try {
-    const data = await butlerPost("/api/auth/device/create", {});
-    return NextResponse.json(data);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(await hb("POST", "/v2/pairing"));
+  } catch {
+    return NextResponse.json({ error: "暫時無法取得驗證碼，請稍後再試。" }, { status: 503 });
   }
 }

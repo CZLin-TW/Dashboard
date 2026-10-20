@@ -6,6 +6,7 @@ import { createSession } from "../src/lib/auth";
 import { JWT_SECRET, verifyToken } from "../src/lib/jwt";
 
 const DAY = 86_400;
+process.env.HOME_BUTLER_DASHBOARD_KEY = "test-dashboard-key";   // the fake backend below answers; this only lets requests leave
 const now = () => Math.floor(Date.now() / 1000);
 
 async function token(claims: Record<string, unknown>, issuedAgo: number | null, lifetime = 7 * DAY) {
@@ -17,9 +18,9 @@ async function token(claims: Record<string, unknown>, issuedAgo: number | null, 
 /** Calls the route with a fake backend; returns what the backend saw and what the browser got. */
 async function visit(session: string | null, backend: () => Response | Promise<Response>) {
   const original = globalThis.fetch;
-  const seen: { url: string; user: string | null }[] = [];
+  const seen: { url: string; body: unknown }[] = [];
   globalThis.fetch = async (input, init) => {
-    seen.push({ url: String(input), user: new Headers(init?.headers).get("X-Dashboard-User") });
+    seen.push({ url: String(input), body: init?.body ? JSON.parse(String(init.body)) : null });
     return backend();
   };
   try {
@@ -41,8 +42,8 @@ test("an older session of an active member is reissued for 30 days with the rost
   for (const issuedAgo of [2 * DAY, null]) {   // null: a session signed before issue times existed
     const result = await visit(await token({}, issuedAgo), () => Response.json({ active: true, name: "Alice Chen" }));
     assert.equal(result.response.status, 200);
-    assert.deepEqual(result.seen, [{ url: result.seen[0].url, user: "alice-id" }]);
-    assert.ok(result.seen[0].url.endsWith("/api/auth/member"));
+    assert.deepEqual(result.seen, [{ url: result.seen[0].url, body: { line_user_id: "alice-id" } }]);
+    assert.ok(result.seen[0].url.endsWith("/v2/sign-in/member"));
     assert.equal(result.body.name, "Alice Chen");
     const claims = issued(result.cookie);
     assert.equal(claims.lineUserId, "alice-id");
@@ -76,13 +77,12 @@ test("an unreachable or confused backend neither extends nor revokes", async () 
 });
 
 test("a remote slides for 14 days while its row is enabled, and is signed out once it is not", async () => {
-  const remote = () => token({ lineUserId: "remote", role: "kid", name: "客廳 平板" }, 3 * DAY, 14 * DAY);
+  const remote = () => token({ lineUserId: "remote", role: "kid", name: "客廳 平板", remoteId: 7 }, 3 * DAY, 14 * DAY);
   const kept = await visit(await remote(), () => Response.json({ active: true, name: "ignored" }));
   assert.equal(kept.response.status, 200);
-  assert.equal(kept.seen[0].user, null);
-  assert.ok(kept.seen[0].url.endsWith("/api/auth/remote/status?name=" + encodeURIComponent("客廳 平板")));
+  assert.ok(kept.seen[0].url.endsWith("/v2/sign-in/remote/7"));
   const claims = issued(kept.cookie);
-  assert.deepEqual([claims.role, claims.name, claims.lineUserId], ["kid", "客廳 平板", "remote"]);
+  assert.deepEqual([claims.role, claims.name, claims.lineUserId, claims.remoteId], ["kid", "客廳 平板", "remote", 7]);
   assert.ok(Math.abs(claims.exp! - now() - 14 * DAY) < 5);
   assert.match(kept.cookie, /Max-Age=1209600/i);
   const off = await visit(await remote(), () => Response.json({ active: false }));
@@ -91,9 +91,12 @@ test("a remote slides for 14 days while its row is enabled, and is signed out on
   const unsure = await visit(await remote(), () => new Response("bad gateway", { status: 502 }));
   assert.equal(unsure.response.status, 200);
   assert.equal(unsure.cookie, "");
-  const fresh = await visit(await token({ lineUserId: "remote", role: "kid", name: "客廳 平板" }, 600, 14 * DAY), () => { throw new Error("must not be called"); });
+  const fresh = await visit(await token({ lineUserId: "remote", role: "kid", name: "客廳 平板", remoteId: 7 }, 600, 14 * DAY), () => { throw new Error("must not be called"); });
   assert.equal(fresh.body.role, "kid");
   assert.equal(fresh.cookie, "");
+  // A remote session signed before v2 has no remote id: it ends, and the tablet signs in with its password again.
+  const old = await visit(await token({ lineUserId: "remote", role: "kid", name: "客廳 平板" }, 3 * DAY, 14 * DAY), () => { throw new Error("must not be called"); });
+  assert.equal(old.response.status, 401);
 });
 
 test("a restricted session from the removed LINE pairing ends without asking the backend", async () => {
@@ -121,7 +124,7 @@ test("new sessions carry an issue time: members 30 days, remotes 14", async () =
 });
 
 test("pairing signs in members only and refuses any other role from the backend", async () => {
-  const { GET: pollGET } = await import("../src/app/api/auth/device-poll/route");
+  const { POST: pollPOST } = await import("../src/app/api/auth/device-poll/route");
   const { POST: codePOST } = await import("../src/app/api/auth/device-code/route");
   const original = globalThis.fetch;
   let answer: unknown = {};
@@ -130,13 +133,15 @@ test("pairing signs in members only and refuses any other role from the backend"
   try {
     answer = { user_code: "123456", device_token: "t", expires_in: 300 };
     assert.equal((await codePOST()).status, 200);
-    assert.equal(bodies[0], "{}");
+    assert.equal(bodies[0], undefined);
     answer = { status: "approved", user: { lineUserId: "alice-id", name: "Alice", role: "member" } };
-    const ok = await pollGET(new Request("http://dashboard.test/api/auth/device-poll?token=t"));
+    const poll = () => pollPOST(new Request("http://dashboard.test/api/auth/device-poll", { method: "POST", body: JSON.stringify({ token: "t" }) }));
+    const ok = await poll();
+    assert.deepEqual(JSON.parse(String(bodies[1])), { device_token: "t" });   // the secret travels in the body, never a URL
     assert.equal(ok.status, 200);
     assert.equal(issued(ok.headers.get("set-cookie")!).role, "member");
     answer = { status: "approved", user: { lineUserId: "parent-id", name: "Parent", role: "kid" } };
-    const refused = await pollGET(new Request("http://dashboard.test/api/auth/device-poll?token=t"));
+    const refused = await poll();
     assert.equal(refused.status, 500);
     assert.equal(refused.headers.get("set-cookie"), null);
   } finally { globalThis.fetch = original; }

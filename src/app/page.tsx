@@ -3,117 +3,46 @@
 import { useState } from "react";
 import { useUser } from "@/hooks/use-user";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
-import type { AcAutoOffResponse } from "@/lib/ac";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
-import {
-  type WeatherData,
-  type DeviceData,
-  type DeviceOptions,
-  type DehumidifierAutoRule,
-  type TodoData,
-  type FoodData,
-  DEFAULT_OPTIONS,
-  daysUntilExpiry,
-} from "@/lib/types";
-import type { Sensor } from "@/lib/sensor";
-import type { Schedule } from "@/lib/schedule";
+import { daysUntilExpiry } from "@/lib/types";
+import { HB, type DevicesPage, type HomePage as HomeData, type Weather } from "@/lib/api";
+import { devicesOf } from "@/lib/devices";
 import { WeatherCard } from "@/components/home/weather-card";
 import { IndoorSensorCard } from "@/components/home/indoor-sensor-card";
 import { DeviceQuickControl } from "@/components/home/device-quick-control";
 import { TodoListCard } from "@/components/home/todo-list-card";
 import { FoodAlertCard } from "@/components/home/food-alert-card";
+import { HISTORY_URL } from "@/components/home/history-charts";
+import type { History } from "@/lib/api";
 
-interface DashboardData {
-  todos: TodoData[];
-  food: FoodData[];
-}
-
-// Life cards, weather and device summaries load independently. History mounts on demand.
+// Three independent reads: the life cards (database only), the devices (database and HA's latest
+// snapshot, cheap), and the weather (may wait on the weather service). None waits for another.
 export default function HomePage() {
   const { currentUser } = useUser();
   const [deviceExpanded, setDeviceExpanded] = useState(false);
 
-  const { data: dashboard, loading: lifeLoading, hasData: hasLifeData, refetch: refetchDashboard } = useCachedFetch<DashboardData | null>(
-    "/api/dashboard?include_weather=false",
-    null,
-  );
-  // Device controls do not wait for the life cards or weather.
-  const { data: rawDevices } = useCachedFetch<DeviceData[]>("/api/devices", []);
-  const { data: fetchedOptions } = useCachedFetch<DeviceOptions | null>("/api/devices/options", null);
-  const { data: liveStatus, refetch: refetchStatus } = useCachedFetch<
-    Record<string, Partial<DeviceData>>
-  >("/api/devices/status", {});
-  useAutoRefresh(refetchStatus);
+  const home = useCachedFetch<HomeData | null>(HB("home"), null);
+  const devices = useCachedFetch<DevicesPage | null>(HB("devices"), null);
+  // Faster while a device panel is open; otherwise every 30 s for the tiles.
+  useAutoRefresh(devices.refetch, deviceExpanded ? 7_000 : 30_000, 0);
+  const history = useCachedFetch<History | null>(HISTORY_URL, null, deviceExpanded);
 
-  const today = useCachedFetch<WeatherData | null>("/api/weather?date=today", null);
-  const todayHasData = !!today.data && !("error" in today.data) && today.data.max_t !== null;
+  const today = useCachedFetch<Weather | null>(HB("weather?when=today"), null);
+  const todayHasData = !!today.data && today.data.max_t !== null;
   // Fetch tomorrow only when today's completed request cannot supply a forecast.
-  const tomorrow = useCachedFetch<WeatherData | null>("/api/weather?date=tomorrow", null, !today.loading && !todayHasData);
+  const tomorrow = useCachedFetch<Weather | null>(HB("weather?when=tomorrow"), null, !today.loading && !todayHasData);
   const weather = todayHasData ? today.data : tomorrow.data;
 
-  const allDevices: DeviceData[] = (Array.isArray(rawDevices) ? rawDevices : []).map(
-    (d) => ({ ...d, ...(liveStatus[d.name] ?? {}) }),
-  );
-  const todos = Array.isArray(dashboard?.todos) ? dashboard.todos : [];
-  const food = Array.isArray(dashboard?.food) ? dashboard.food : [];
-  const options = fetchedOptions ?? DEFAULT_OPTIONS;
-
+  const all = devicesOf(devices.data);
   const pin = usePinnedDevices();
+  const pinnedSensor = pin.pinnedSensor ? devices.data?.sensors.find((s) => s.name === pin.pinnedSensor) ?? null : null;
+  const controllable = all.filter((d) => d.kind !== "sensor");
+  const pinned = pin.pinnedDevices.map((name) => controllable.find((d) => d.name === name)).filter((d) => d !== undefined);
 
-  // Summary preserves CO2, current humidity and online status without downloading 24h history.
-  const { data: sensorsMap, refetch: refetchSensors } = useCachedFetch<Record<string, Sensor>>(
-    "/api/sensors/status?include_history=false", {},
-  );
-  useAutoRefresh(refetchSensors, 60_000, 0);
-  const { data: dehumRulesMap, refetch: refetchDehumRules } = useCachedFetch<Record<string, DehumidifierAutoRule>>(
-    "/api/dehumidifier/auto-rule", {},
-  );
-  useAutoRefresh(refetchDehumRules, 60_000, 0);
-  const { data: schedules, loading: schedulesLoading, hasData: schedulesHasData, error: schedulesError, refetch: refetchSchedules } = useCachedFetch<Schedule[]>(
-    "/api/schedules", [], deviceExpanded,
-  );
-  // HB creates automatic shutdowns asynchronously; disabled queries remain idle.
-  useAutoRefresh(refetchSchedules, 15_000, 0);
-  const { data: acAutoOff, refetch: refetchAcAutoOff } = useCachedFetch<AcAutoOffResponse>("/api/ac/auto-off", { devices: {} }, deviceExpanded);
-  useAutoRefresh(refetchAcAutoOff, 60_000, 0);
-
-  // 首頁只顯示釘選的；裝置頁有完整列表
-  const pinnedSensor = pin.pinnedSensor
-    ? allDevices.find((d) => d.name === pin.pinnedSensor) ?? null
-    : null;
-  const controllableDevices = pin.pinnedDevices
-    .map((name) => allDevices.find((d) => d.name === name))
-    .filter((d): d is DeviceData => d !== undefined && d.type !== "感應器");
-
-  // 隱私邏輯跟 /todos 頁一致：自己負責 OR 類型公開（沒登入則完全不顯示）。
-  // 負責人比對全名或前 2 字（家庭成員可能用暱稱簡寫）。
-  // 首頁額外只挑「需要注意」的：5 天內到期 OR 已過期，最多 5 筆。
-  const fiveDaysMs = 5 * 24 * 60 * 60 * 1000;
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const visibleTodos = todos
-    .filter((t) => {
-      if (t["狀態"] !== "待辦") return false;
-      if (!currentUser) return false;
-      return true; // The server has already enforced member visibility.
-    })
-    .filter((t) => {
-      if (!t["日期"]) return false;
-      const target = new Date(t["日期"]);
-      target.setHours(0, 0, 0, 0);
-      const diff = target.getTime() - todayStart.getTime();
-      return diff <= fiveDaysMs; // 包含負值（過期）跟 0~5 天
-    })
-    .sort((a, b) => {
-      const dateA = `${a["日期"]} ${a["時間"] || "99:99"}`;
-      const dateB = `${b["日期"]} ${b["時間"] || "99:99"}`;
-      return dateA.localeCompare(dateB);
-    })
-    .slice(0, 5);
-
-  // 即期食品：5 天內到期或已過期。過期（負數 days）放進來讓使用者及早處理。
-  const urgentFood = food.filter((f) => daysUntilExpiry(f["過期日"]) <= 5);
+  const todos = home.data?.todos ?? [];
+  const urgentFood = (home.data?.food ?? []).filter((f) => f.expires_on && daysUntilExpiry(f.expires_on) <= 5);
+  const lifeStatus = !home.hasData ? (home.loading ? "載入中…" : "尚未取得資料，請重新讀取。") : undefined;
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 md:space-y-7">
@@ -126,32 +55,19 @@ export default function HomePage() {
       </div>
       <div className="grid grid-cols-2 items-start gap-3 md:gap-5">
         <WeatherCard weather={weather} loading={today.loading || tomorrow.loading} />
-        <IndoorSensorCard
-        sensor={pinnedSensor}
-        current={pin.pinnedSensor ? sensorsMap[pin.pinnedSensor]?.current : undefined}
-        />
+        <IndoorSensorCard sensor={pinnedSensor} page={devices.data} />
       </div>
       <DeviceQuickControl
-        devices={controllableDevices}
-        options={options}
-        onAcCommandSent={async () => { await Promise.all([refetchStatus(), refetchSchedules(), refetchAcAutoOff()]); }}
-        onDehumidifierCommandSent={refetchStatus}
-        dehumRulesMap={dehumRulesMap}
-        availableSensors={Object.keys(sensorsMap)}
-        onDehumRuleUpdate={refetchDehumRules}
-        sensorsMap={sensorsMap}
+        devices={pinned}
+        page={devices.data}
+        onChanged={devices.refetch}
+        history={history.data}
+        allDevices={controllable}
         onExpandedChange={setDeviceExpanded}
-        schedulesLoading={schedulesLoading}
-        schedulesHasData={schedulesHasData}
-        schedulesError={schedulesError}
-        schedules={schedules}
-        allDevices={allDevices.filter((d) => d.type !== "感應器")}
-        onSchedulesChange={refetchSchedules}
-        acAutoOff={acAutoOff.devices}
       />
       <div className="grid items-start gap-4 lg:grid-cols-2 md:gap-5">
-        <TodoListCard todos={visibleTodos} onCompleted={refetchDashboard} statusText={!hasLifeData ? (lifeLoading ? "載入中…" : "尚未取得待辦資料，請重新讀取。") : undefined} />
-        <FoodAlertCard food={urgentFood} statusText={!hasLifeData ? (lifeLoading ? "載入中…" : "尚未取得食品資料，請重新讀取。") : undefined} />
+        <TodoListCard todos={todos} onCompleted={home.refetch} statusText={lifeStatus} />
+        <FoodAlertCard food={urgentFood} statusText={lifeStatus} />
       </div>
     </div>
   );
