@@ -10,7 +10,7 @@ import { proxy } from "../src/proxy";
 import { hb } from "../src/lib/hb";
 import { findRule } from "../src/lib/hb-rules";
 import { haIsFresh, observationText } from "../src/lib/home-assistant";
-import { devicesOf, presenceOf, sensorHistory, acSegments } from "../src/lib/devices";
+import { byRoom, devicesOf, presenceOf, roomGroups, sensorHistory, acSegments } from "../src/lib/devices";
 import type { DevicesPage, History, TodoPage } from "../src/lib/api";
 
 const origin = "http://dashboard.test";
@@ -31,7 +31,8 @@ test("demo requires server opt-in, rejects production and real credentials", () 
 test("the devices page is one read with everything the cards need", async () => {
   const data = await page();
   const devices = devicesOf(data);
-  assert.deepEqual(devices.map(d => d.kind), ["ac", "ac", "dehumidifier", "dehumidifier", "ir", "sensor", "sensor"]);
+  assert.deepEqual(data.rooms, ["客廳", "書房", "臥室"]);
+  assert.deepEqual(devices.map(d => d.kind), ["ac", "dehumidifier", "ir", "sensor", "ac", "dehumidifier", "sensor"]);
   assert.ok(data.schedules.some(s => s.source === "auto_off") && data.schedules.some(s => s.status === "unknown"));
   assert.ok(data.auto_off.length > 0 && data.options.ac.modes.some(m => m.value === "cool"));
   const history = (await (await createSimulator().handle(request("/api/hb/history"))).json()) as History;
@@ -44,6 +45,20 @@ test("the devices page is one read with everything the cards need", async () => 
   const offline = await page(createSimulator(createDemoState("offline")));
   assert.ok(offline.acs.every(a => !a.available && a.power === null));
   assert.ok(presenceOf(offline)!.observations.every(o => o.value === null));
+});
+
+test("the room order is saved for everyone and groups follow it", async () => {
+  const sim = createSimulator();
+  const put = (rooms: unknown) => sim.handle(request("/api/hb/rooms/order", "PUT", { rooms }));
+  assert.equal((await put(["臥室", "客廳"])).status, 200);
+  const data = await page(sim);
+  assert.deepEqual(data.rooms, ["臥室", "客廳", "書房"]);
+  assert.deepEqual(roomGroups(devicesOf(data)).map(([room]) => room), ["臥室", "客廳", "書房"]);
+  assert.deepEqual(byRoom(data, data.sensors).map(s => s.name), ["臥室感測器", "客廳感測器"]);
+  assert.equal((await put(["客廳", "客廳"])).status, 422);
+  assert.equal((await put([" "])).status, 422);
+  const noRoom = { ...data, irs: [{ ...data.irs[0], location: "" }] };
+  assert.equal(roomGroups(devicesOf(noRoom)).at(-1)![0], "其他");
 });
 
 test("AC targets are whole degrees; offline refuses commands", async () => {
@@ -136,6 +151,8 @@ test("the door to HomeButler lists every path and role; the tablet gets the devi
   assert.equal(findRule("PATCH", "lighting/areas/1", "kid"), "forbidden");
   assert.equal(findRule("GET", "system/status", "member"), null);
   assert.equal(findRule("DELETE", "devices", "member"), null);
+  assert.notEqual(findRule("PUT", "rooms/order", "member"), "forbidden");
+  assert.equal(findRule("PUT", "rooms/order", "kid"), "forbidden");
   assert.equal(findRule("PATCH", "todos/abc", "member"), null);
 });
 

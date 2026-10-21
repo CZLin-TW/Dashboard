@@ -23,6 +23,7 @@ export const RULES: Rule[] = [
   { method: "GET", path: /^dehumidifiers\/history$/, roles: BOTH },
   { method: "POST", path: new RegExp(`^dehumidifiers/${NAME}/control$`), roles: BOTH, timeoutMs: 35_000 },
   { method: "PUT", path: new RegExp(`^dehumidifiers/${NAME}/rule$`), roles: BOTH, timeoutMs: 35_000 },
+  { method: "PUT", path: /^rooms\/order$/, roles: MEMBER },
   { method: "GET", path: /^home$/, roles: MEMBER },
   { method: "GET", path: /^weather$/, roles: MEMBER },
   { method: "GET", path: /^todos$/, roles: MEMBER },

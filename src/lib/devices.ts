@@ -20,14 +20,34 @@ export type UiDevice =
 export const KIND_LABEL: Record<DeviceKind, string> = { ac: "空調", ir: "IR", dehumidifier: "除濕機", sensor: "感應器" };
 export const KIND_ICON: Record<DeviceKind, LucideIcon> = { ac: AirVent, ir: Fan, dehumidifier: Droplets, sensor: Thermometer };
 
+/** Devices without a room are listed under this, after every room. */
+export const NO_ROOM = "其他";
+
+/** Sorts by the household's room order (the page's `rooms`); the order within a room is kept. */
+export function byRoom<T extends { location: string }>(page: DevicesPage | null, items: T[]): T[] {
+  const order = new Map((page?.rooms ?? []).map((room, i) => [room, i]));
+  const rank = (location: string) => order.get(location) ?? (location ? order.size : order.size + 1);
+  return items.map((item, i) => ({ item, i })).sort((a, b) => rank(a.item.location) - rank(b.item.location) || a.i - b.i).map((x) => x.item);
+}
+
 export function devicesOf(page: DevicesPage | null): UiDevice[] {
   if (!page) return [];
-  return [
+  return byRoom(page, [
     ...page.acs.map((ac) => ({ kind: "ac" as const, name: ac.name, location: ac.location, ac })),
     ...(page.dehumidifiers ?? []).map((d) => ({ kind: "dehumidifier" as const, name: d.name, location: d.location, dehumidifier: d })),
     ...page.irs.map((ir) => ({ kind: "ir" as const, name: ir.name, location: ir.location, ir })),
     ...page.sensors.map((sensor) => ({ kind: "sensor" as const, name: sensor.name, location: sensor.location, sensor })),
-  ];
+  ]);
+}
+
+/** Devices grouped by room, rooms in the household's order, devices without a room last. */
+export function roomGroups(devices: UiDevice[]): [string, UiDevice[]][] {
+  const groups = new Map<string, UiDevice[]>();
+  for (const d of devices) {
+    const room = d.location || NO_ROOM;
+    groups.set(room, [...(groups.get(room) ?? []), d]);
+  }
+  return [...groups];
 }
 
 const seconds = (iso: string) => Date.parse(iso) / 1000;

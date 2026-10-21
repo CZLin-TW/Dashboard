@@ -157,6 +157,8 @@ export interface HaAutomationRule { id: string; name: string; enabled: boolean |
 
 export interface DevicesPage {
   generated_at: string;
+  /** Every room the devices are in, in the household's order (shared by the family, set on the devices page). */
+  rooms: string[];
   home_assistant: { connected: boolean; online: boolean; received_at: number | null; age_seconds: number | null;
     stale_after_seconds: number; capabilities: string[] };
   acs: Ac[];

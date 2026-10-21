@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { LayoutGrid, Activity, Cpu, Clapperboard, RefreshCw, Zap } from "lucide-react";
+import { LayoutGrid, Activity, ArrowUpDown, Cpu, Clapperboard, RefreshCw, Zap } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
+import { useUser } from "@/hooks/use-user";
 import { PinButton, ClimateReadout, PANEL_BASE } from "@/components/ui/device-controls";
 import { DeviceController } from "@/components/ui/device-controller";
 import { ComputerCard } from "@/components/devices/computer-card";
@@ -15,12 +16,13 @@ import { Card } from "@/components/ui/card";
 import { HomeAssistantPanel } from "@/components/devices/home-assistant-panel";
 import { SensorChart } from "@/components/devices/lazy-charts";
 import { ScheduleSection } from "@/components/devices/schedule-section";
+import { RoomOrderEditor } from "@/components/devices/room-order-editor";
 import { validSocTemperature } from "@/lib/computer";
 import type { TheaterFlagKey, TheaterSummary } from "@/lib/theater";
 import { computeSensorDomains } from "@/lib/sensor";
 import { HB, ago, send, type DevicesPage as PageData, type History } from "@/lib/api";
-import { KIND_ICON, acSegments, automationsOf, computerOf, dehumidifierSegmentsAt, devicesOf, presenceOf, sensorHistory,
-  type UiDevice } from "@/lib/devices";
+import { KIND_ICON, acSegments, automationsOf, byRoom, computerOf, dehumidifierSegmentsAt, devicesOf, presenceOf, roomGroups,
+  sensorHistory } from "@/lib/devices";
 import { schedulesFor } from "@/lib/schedule";
 
 function DeviceScrollTarget({
@@ -58,7 +60,10 @@ export default function DevicesPage() {
   const devices = devicesOf(data);
   const pin = usePinnedDevices();
   const deviceRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const sensors = data?.sensors ?? [];
+  const sensors = byRoom(data, data?.sensors ?? []);
+  const { currentUser } = useUser();
+  const canOrderRooms = !!currentUser && currentUser.role !== "kid" && (data?.rooms ?? []).length > 1;
+  const [orderingRooms, setOrderingRooms] = useState(false);
   const controllable = devices.filter((d) => d.kind !== "sensor");
   const computers = (data?.computers ?? []).map((c) => computerOf(c, history)).sort((a, b) => a.ip.localeCompare(b.ip));
   const automations = automationsOf(data);
@@ -118,10 +123,21 @@ export default function DevicesPage() {
 
       {/* ── 裝置控制 ── */}
       <section className="space-y-3">
-        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
-          <LayoutGrid className="h-4 w-4" strokeWidth={2} />
-          裝置控制
-        </h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
+            <LayoutGrid className="h-4 w-4" strokeWidth={2} />
+            裝置控制
+          </h1>
+          {canOrderRooms && !orderingRooms && (
+            <button type="button" onClick={() => setOrderingRooms(true)}
+              className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-foreground/5">
+              <ArrowUpDown className="h-3.5 w-3.5" />房間順序
+            </button>
+          )}
+        </div>
+        {orderingRooms && data && (
+          <RoomOrderEditor rooms={data.rooms} onSaved={page.refetch} onClose={() => setOrderingRooms(false)} />
+        )}
         <p className="px-1 text-xs text-mute">{data ? `${ago(data.generated_at)}更新${page.isStale ? " · 資料可能過時，重試中" : ""}` : page.loading ? "載入中…" : "暫時無法讀取裝置"}</p>
         <div className="flex items-center justify-between px-1">
           <p className="text-xs text-mute">
@@ -138,58 +154,49 @@ export default function DevicesPage() {
         </div>
 
       {/* 房間分群：每個房間一個子標題，下方直接展開裝置 grid */}
-      {(() => {
-        const groups: Record<string, UiDevice[]> = {};
-        controllable.forEach(d => {
-          const loc = d.location || "其他";
-          if (!groups[loc]) groups[loc] = [];
-          groups[loc].push(d);
-        });
+      {roomGroups(controllable).map(([location, devs]) => (
+        <div key={location} className="space-y-3">
+          {/* 房間子標題：對比樣式（uppercase + 細底線），跟新的 section h1（小灰字）不打架 */}
+          <h2 className="border-b border-line pb-1.5 text-xs font-semibold uppercase tracking-wider text-mute">
+            {location}
+          </h2>
+          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {devs.map((device) => {
+              const TypeIcon = KIND_ICON[device.kind];
+              const pinned = pin.isDevicePinned(device.name);
+              const canPin = pinned || pin.canPinMore;
 
-        return Object.entries(groups).map(([location, devs]) => (
-          <div key={location} className="space-y-3">
-            {/* 房間子標題：對比樣式（uppercase + 細底線），跟新的 section h1（小灰字）不打架 */}
-            <h2 className="border-b border-line pb-1.5 text-xs font-semibold uppercase tracking-wider text-mute">
-              {location}
-            </h2>
-            <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {devs.map((device) => {
-                const TypeIcon = KIND_ICON[device.kind];
-                const pinned = pin.isDevicePinned(device.name);
-                const canPin = pinned || pin.canPinMore;
-
-                return (
-                  <div
-                    key={device.name}
-                    ref={(el) => { deviceRefs.current[device.name] = el; }}
-                    className={PANEL_BASE}
-                  >
-                    {/* panel-head */}
-                    <div className="flex items-center justify-between gap-2.5">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="grid h-5 w-5 place-items-center text-mute">
-                          <TypeIcon className="h-5 w-5" strokeWidth={1.8} />
-                        </span>
-                        <span className="truncate text-[22px] font-bold tracking-[-0.01em] text-foreground">{device.name}</span>
-                      </div>
-                      <PinButton
-                        pinned={pinned}
-                        disabled={!canPin}
-                        onClick={() => pin.togglePinDevice(device.name)}
-                        title={pinned ? "已釘選至首頁" : canPin ? "釘選至首頁" : `已達上限 ${pin.MAX_PINNED_DEVICES} 個`}
-                      />
+              return (
+                <div
+                  key={device.name}
+                  ref={(el) => { deviceRefs.current[device.name] = el; }}
+                  className={PANEL_BASE}
+                >
+                  {/* panel-head */}
+                  <div className="flex items-center justify-between gap-2.5">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="grid h-5 w-5 place-items-center text-mute">
+                        <TypeIcon className="h-5 w-5" strokeWidth={1.8} />
+                      </span>
+                      <span className="truncate text-[22px] font-bold tracking-[-0.01em] text-foreground">{device.name}</span>
                     </div>
-
-                    {data && <DeviceController device={device} page={data} onChanged={page.refetch} history={history} />}
-                    {data && <ScheduleSection device={device} page={data} schedules={schedulesFor(data, device.name)} allDevices={controllable}
-                      onSchedulesChange={() => void page.refetch()} autoOff={data.auto_off.find((a) => a.name === device.name)} />}
+                    <PinButton
+                      pinned={pinned}
+                      disabled={!canPin}
+                      onClick={() => pin.togglePinDevice(device.name)}
+                      title={pinned ? "已釘選至首頁" : canPin ? "釘選至首頁" : `已達上限 ${pin.MAX_PINNED_DEVICES} 個`}
+                    />
                   </div>
-                );
-              })}
-            </div>
+
+                  {data && <DeviceController device={device} page={data} onChanged={page.refetch} history={history} />}
+                  {data && <ScheduleSection device={device} page={data} schedules={schedulesFor(data, device.name)} allDevices={controllable}
+                    onSchedulesChange={() => void page.refetch()} autoOff={data.auto_off.find((a) => a.name === device.name)} />}
+                </div>
+              );
+            })}
           </div>
-        ));
-      })()}
+        </div>
+      ))}
       </section>
 
       <HomeAssistantPanel data={presence} error={page.error} loading={page.loading} updatedAt={page.updatedAt} isStale={page.isStale} refetch={page.refetch} />

@@ -25,6 +25,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 裝置頁一次一個請求（`/v2/devices`，只讀資料庫與 HA 最新狀態），每 7 秒重讀；每張卡顯示「幾秒／分鐘前更新」。
   圖表歷史另一個請求（`/v2/history`），每 5 分鐘。首頁沒展開設備時 30 秒一次。
 - `src/lib/devices.ts` 把裝置頁的回應整理成一個設備清單與各圖表要的序列；圖表元件本身沒改。
+- **房間順序（v1.79.0）**：裝置頁回應的 `rooms` 是後端排好的房間清單（每戶一份、全家共用，存在 HomeButler 的 `rooms` 表；沒排過的房間依名稱接在後面）。
+  前端只照它排（`byRoom`、`roomGroups`），**不要在前端另存順序**（例如 localStorage），否則每支手機各排一份、家人看到的不一樣。
+  成員用裝置控制標題列的「房間順序」以上下鍵調整，存檔是 `PUT rooms/order`（只限成員）；不用拖曳，因為手機上捲動時容易誤觸。
+  「房間」就是設備的位置文字（試算表「智能居家」的位置，空白時用 HA 區域），改名後的房間會被當成新房間排在後面。
 - Vercel 函式跑在 Portland（`vercel.json` 的 `regions`），靠近 Oregon 的後端。
 
 # 空調控制與排程

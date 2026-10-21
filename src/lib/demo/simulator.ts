@@ -84,6 +84,14 @@ export function createSimulator(initial = createDemoState(), persist: (state: De
       return json({ status: "success", message: "已送出" });
     }
 
+    // ── room order ──
+    if (p === "rooms/order" && method === "PUT") {
+      const rooms = Array.isArray(b.rooms) ? b.rooms.map(r => str(r).trim()) : null;
+      if (!rooms || rooms.some(r => !r) || new Set(rooms).size !== rooms.length) return error("房間名稱不可空白或重複", 422);
+      state.roomOrder = rooms;
+      return json({ rooms });
+    }
+
     // ── dehumidifiers ──
     m = p.match(/^dehumidifiers\/(.+)\/(control|rule)$/);
     if (m) {

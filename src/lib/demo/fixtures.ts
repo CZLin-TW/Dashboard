@@ -63,6 +63,8 @@ export interface DemoState {
   schedules: Schedule[]; autoOff: AutoOff[];
   todos: (Todo & { owner: string })[]; templates: (TodoTemplate & { active: boolean })[]; food: Food[];
   areas: DemoArea[]; theater: TheaterSummary;
+  /** The saved room order; absent in tabs saved before it existed. */
+  roomOrder?: string[];
 }
 
 const DEMO_MEMBER = "測試成員";
@@ -157,10 +159,19 @@ export function createDemoState(scenario: Scenario = "normal", now = Date.now())
   };
 }
 
+/** Like HomeButler: the saved order first, then rooms never placed, by name. */
+function roomsOf(state: DemoState): string[] {
+  const saved = state.roomOrder ?? [];
+  const all = [...new Set([...state.acs, ...state.irs, ...state.sensors, ...state.dehumidifiers].map(d => d.location).filter(Boolean))];
+  const rank = (room: string) => saved.includes(room) ? saved.indexOf(room) : saved.length;
+  return all.sort((a, b) => rank(a) - rank(b) || (a < b ? -1 : a > b ? 1 : 0));
+}
+
 export function devicesPage(state: DemoState, now = Date.now()): DevicesPage {
   const online = state.scenario !== "offline";
   return {
     generated_at: new Date(now).toISOString(),
+    rooms: roomsOf(state),
     home_assistant: { connected: online, online, received_at: now / 1000 - (online ? 2 : 180), age_seconds: online ? 2 : 180,
       stale_after_seconds: 90, capabilities: online ? ["climate_control", "ir_control", "hue_control", "theater_relay"] : [] },
     acs: state.acs, irs: state.irs, sensors: state.sensors, presence: presence(state.scenario, now) as unknown as Row[],
