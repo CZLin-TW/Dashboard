@@ -13,46 +13,42 @@
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 
-# 目前的空調控制與排程（系統 v1.57.0）
+# 和 HomeButler 的連線（v2，2026-10 重寫）
 
-空調目標一律整數 16–30°C（v1.58.0 起）。半度舒適目標、室溫回饋補償與防黴送風已從後端移除，不是停用——Dashboard 沒有對應面板，simulator 也不再模擬。
-以 HA 為狀態來源；失聯顯示未知並停用控制，命令結果未知**不可自動重送**。
-SwitchBot Cloud 仍走雲端，IR 狀態是最後指令而非實體回讀。
+- 瀏覽器只呼叫本站的 `/api/hb/<路徑>`，由 `src/app/api/hb/[...path]/route.ts` 轉給 HomeButler 的 `/v2/<路徑>`。
+  能過去的路徑與身分列在 `src/lib/hb-rules.ts`：**預設拒絕**，遙控器（`role: kid`）只到裝置頁用得到的那幾條。
+  新增功能時在那張表加一列；`proxy.ts` 對遙控器放行 `/api/hb/*`，實際的允許與否由那張表決定。
+- 呼叫時帶兩樣東西，都只在伺服器端：Dashboard 自己的金鑰（`HOME_BUTLER_DASHBOARD_KEY`），以及代表誰在操作的短效簽章
+  （`DASHBOARD_ASSERTION_KEY` 簽的 HS256，60 秒，成員用 LINE ID、遙控器用遙控器編號）。瀏覽器送來的同名標頭一律不轉。
+  任一個沒設定就回 503，不會用空金鑰簽。
+- 資料以編號操作（待辦、食品、排程、照明區域），不再用名稱或列號定位。型別在 `src/lib/api.ts`。
+- 裝置頁一次一個請求（`/v2/devices`，只讀資料庫與 HA 最新狀態），每 7 秒重讀；每張卡顯示「幾秒／分鐘前更新」。
+  圖表歷史另一個請求（`/v2/history`），每 5 分鐘。首頁沒展開設備時 30 秒一次。
+- `src/lib/devices.ts` 把裝置頁的回應整理成一個設備清單與各圖表要的序列；圖表元件本身沒改。
+- Vercel 函式跑在 Portland（`vercel.json` 的 `regions`），靠近 Oregon 的後端。
 
-排程分三種來源，別讀成「HA 空調沒有排程」：
+# 空調控制與排程
 
-| 來源 | 產生方式 | 在 Dashboard 能做什麼 |
-| --- | --- | --- |
-| 使用者（HA） | v1.55.0 起，使用者新增或明確編輯的一次性排程 | 新增、改時間／參數、刪除 |
-| 自動（HA） | v1.57.0，HB 依 Sheet「自動關機小時數」在空調開機後產生 | 改時間／同一台空調的參數或刪除；未知／失敗結果不可編輯 |
-| 自動、防黴（舊來源） | v1.58.0 已從後端移除；Sheet 殘留列到期標成已過期 | 不可編輯，simulator 會拒絕 |
+空調目標一律整數 16–30°C。以 HA 為狀態來源；HA 斷線或上次指令未確認時顯示未知並停用控制，**指令結果未知不可自動重送**。
+指令送出後 HomeButler 在 HA 確認後才回應，所以送出後重讀一次就是最新狀態，不需要輪詢猜測。
 
-**「舊自動排程停用」指的是舊來源「自動」「防黴」已經移除**，
-不是說 HA 空調沒有自動關機——新來源「自動（HA）」是啟用的。兩者不要混為一談。
-首頁排程已有成功讀取資料時，背景更新與讀取失敗會保留排程區、新增／編輯表單及未儲存草稿，載入／重試提示另行顯示。首次讀取成功前不顯示表單。
-首頁展開設備控制面板與裝置頁停留前景時，每 15 秒自動讀取排程；回到分頁立即更新。首頁面板收合或分頁在背景時不輪詢排程。
-從 Dashboard 送出的空調指令，HB 會在指令成功時就建立／取消自動關機排程，所以指令完成後那次立即重讀就看得到（2026-10-11 起）。其他入口（Apple Home、遙控器、HA 自動化、LINE）的開關仍要等 HB 每 60 秒的觀察與下一次讀取。
+排程有兩種來源：`user`（家人建立）與 `auto_off`（HomeButler 依「智能居家」的「自動關機小時數／暫緩時段」在空調開機後建立的本輪關機）。
+自動關機那筆可以改時間、改成別的動作（只限同一台空調）或刪除；刪除後這一輪不會補回。
+失敗與待確認的排程留在列表上，只能「移除紀錄」，不能編輯或重送。
 
-排程區在空調卡多一行唯讀的「自動關機」設定摘要（v1.74.0），資料來自 `/api/ac/auto-off`：後端對 Sheet「自動關機小時數」「自動關機暫緩時段」的解讀、填錯時的警告，以及「若現在開機會排在幾點關」。
-預覽時間由後端用建立排程的同一段計算算出，**不要在前端重算**；`autoOffSummary`（`src/lib/ac.ts`）只負責排字。舊版後端沒有 `problems` 欄位時整行不顯示。這不是設定面板，設定仍只在 Sheet 改。
+排程區的「自動關機」摘要來自裝置頁回應的 `auto_off`：後端對兩個儲存格的解讀、填錯的警告，以及「若現在開機會排在幾點關」。
+預覽時間由後端計算，**不要在前端重算**；`autoOffSummary`（`src/lib/ac.ts`）只負責排字。設定仍只在試算表改。
 
-時數只在 Sheet 管理，Dashboard 沒有時數設定面板。這不會建立或修改 HA 自動化。
-Sheet 回應的觸發時間可能省略前導零；`schedule.ts` 在編輯、排序與時間比較前補齊日期／小時，
-不做 UTC 換算。API 定位保留原始字串，僅格式差異不送 `trigger_time_new`。
-列表與編輯表單使用同一穩定排程 key，避免其他列增刪或補零格式更新重設草稿。
+# 已退役的功能
 
-# 相容端點與已退役功能
-
-- `src/app/api/lighting/auto/**` 是 v1.53.0 夜燈退役後**刻意保留**給舊客戶端的 BFF，
-  後端回 410／`retired`，新照明頁不呼叫。**不要當成死碼刪除**；說明見 README 的 API 表。
-- HB 自動夜燈引擎已移除，夜燈在 HA 設定；待辦燈光提醒仍由 HB 決定時機、經 HA 執行。
-- ToDo 新增／編輯及週期建立可複選照明區域（`light_area_ids`），固定呼吸提醒、每區域每分鐘最多一次。舊單一 ID 與同欄 JSON 陣列皆須讀取，未修改選取時不覆寫。通知效果編輯器與 HA 區域統一仍未實作。
+- v2 起舊的四十幾支 BFF 路由（`/api/devices`、`/api/todos`……）與夜燈退役後保留的 `/api/lighting/auto/**` 都已移除；
+  舊客戶端在切換後重新整理即可。
+- 待辦燈光提醒可複選照明區域（`light_area_ids`，照明區域的編號）。預設區域由照明區域的 `is_default` 決定。
 
 # 空間感測與資料新鮮度
 
-v1.45.0 空間感測：`home-assistant-panel.tsx` 只讀 HA 的選定觀測，一般成員可見、
-kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
-`age_seconds` 加瀏覽器本次讀取後經過時間判斷過期，不比較兩台電腦的絕對時鐘；
+空間感測的資料在裝置頁回應的 `presence`（HA 的選定觀測）；**遙控器拿不到**，`/api/hb` 會把它從回應裡拿掉。
+`age_seconds` 加瀏覽器本次讀取後經過的時間判斷是否過期，不比較兩台電腦的絕對時鐘；
 失敗、過期、unavailable 均顯示未知，不能把 false／0 與缺值混淆。
 
 # 區域編輯入口（v1.72.0）
@@ -63,7 +59,7 @@ kid 不開放。BFF 驗證 session；資料只在 query store 記憶體保存。
 票 60 秒過期、對方只收一次、只含 iss／aud／iat／exp／jti 與本站網址 `ret`，**不含使用者身分**。
 票放在 fragment，不進任何伺服器記錄；不要改成 query 參數。
 Dashboard 不代理影像或設定——那些只在家中主機與瀏覽器之間。兩個環境變數缺一即整個關閉，
-`/api/home-assistant/observations` 回應裡的 `zone_editor` 為 false、按鈕不顯示。
+裝置頁回應裡的 `zone_editor`（由 `/api/hb` 依本站設定加上）為 false、按鈕不顯示。
 更早另一套經雲端轉送的設計（`/vision` 頁、`src/lib/vision-*`、`src/components/vision/*`、`/api/vision/v1/*`）
 已於 2026-10-10 整個移除；需要參考時從 git 歷史取回，不要重建。
 
@@ -73,8 +69,8 @@ Dashboard 不代理影像或設定——那些只在家中主機與瀏覽器之�
 
 | 身分 | 怎麼登入 | 效期 | 資格（延長前向後端確認） |
 | --- | --- | --- | --- |
-| 成員（`role: member`） | 登入頁顯示六位數字，在 LINE 傳給管家 | 30 天 | `GET /api/auth/member`：「家庭成員」分頁中啟用 |
-| 遙控器（`role: kid`，受限，只能用裝置頁） | 登入頁「遙控器模式」輸入密碼 | 14 天 | `GET /api/auth/remote/status`：「遙控器」分頁那個名稱的列仍啟用 |
+| 成員（`role: member`） | 登入頁顯示六位數字，在 LINE 傳給管家 | 30 天 | `POST /v2/sign-in/member`：成員仍啟用 |
+| 遙控器（`role: kid`，受限，只能用裝置頁） | 登入頁「遙控器模式」輸入密碼 | 14 天 | `GET /v2/sign-in/remote/<編號>`：那台遙控器仍啟用 |
 
 `role` 的值 `kid` 是沿用的舊名，指的就是遙控器。原本另有經 LINE「配對兒童」取得受限身分的入口（`?kid=1`），
 使用者 2026-10-11 決定移除，因為兩條路做同一件事、而且那條在 iOS 主畫面圖示下本來就不可靠。**不要加回來。**
@@ -87,7 +83,8 @@ Dashboard 不代理影像或設定——那些只在家中主機與瀏覽器之�
 - 開著不重新整理的頁面靠 `use-user.ts` 的 `keepSessionAlive`（每 6 小時、或畫面切回前景時）再打一次 `/api/auth/me`。
   少了它，一直亮著的遙控器平板會在 14 天後於使用中被登出。它只把明確的 401 當成登出，網路錯誤不動畫面。
 - 沒有簽發時間的舊 session（v1.75.0 之前簽的）視為需要重簽，下次載入就升級成新效期。
-- 遙控器只改密碼不會讓已登入的失效，要取消那一列的「啟用」或改名稱。
+- 遙控器只改密碼不會讓已登入的失效，要取消那一列的「啟用」。session 裡記著遙控器編號（`remoteId`）；v2 之前簽的遙控器 session 沒有編號，第一次檢查就結束，請用密碼重新登入。
+- 配對的瀏覽器密語（device_token）只放在 POST 內容裡，不出現在網址。
 - `lineUserId` 不是 `remote` 的受限 session 是移除前由「配對兒童」簽的，第一次檢查就結束，請使用者改用密碼登入。
 - 配對（`device-poll`）只簽成員；後端若回別的角色就拒絕，不降級處理。
 
@@ -101,7 +98,7 @@ Dashboard 不代理影像或設定——那些只在家中主機與瀏覽器之�
 - 不要假設前一個 session 的本機伺服器、瀏覽器分頁或測試資料仍存在。需要時重新啟動；連接埠已占用時先確認服務身分，不要任意停止其他程序。
 - 不移除正式環境的憑證來遷就 demo；改用獨立 checkout。不可用 query、cookie、通用密碼或修改正式登入流程來繞過驗證。
 - demo 只驗證 UI 與模擬資料互動；不能據此宣稱真實家電、登入權限、後端排程或推播已通過測試。手機 viewport 檢查也不等於 iPhone Safari 實機測試。
-- 新增或修改 API 資料格式時，同步更新 `src/lib/demo/fixtures.ts`、`src/lib/demo/simulator.ts` 與 `tests/demo.test.ts`；未知 API 應維持拒絕，不得退回真實後端。
+- 測試模式模擬的是 HomeButler v2 經 `/api/hb` 的回應。新增或修改 API 資料格式時，同步更新 `src/lib/demo/fixtures.ts`、`src/lib/demo/simulator.ts` 與 `tests/demo.test.ts`；未知 API 應維持拒絕，不得退回真實後端。
 - 修改 demo／API 契約後執行 `npm run test:demo`；程式變更依範圍執行 lint、build 與相關 UI 操作檢查。純文件修改不需重跑應用測試，也不 bump 版本。
 
 # 版本管理
@@ -137,24 +134,24 @@ Vercel 推 `main` 就建置並部署，**不會等 GitHub 的 CI**。所以 `ver
 
 如果當下環境有 GitHub MCP 工具（`mcp__github__*`），直接切過去用；沒有就回報「這個環境沒有 push 權限」由 User 處理。
 
-# 資料快取與私人待辦邊界
+# 資料快取與私人資料邊界
 
-- `useCachedFetch` 透過 `query-store.ts` 共用同一使用者／URL 的讀取與狀態；替換請求會取消前次，過期結果不能覆蓋新資料。失敗保留上次成功資料與時間，頁面上方顯示重試提示；首次失败不記成成功空資料。
-- 快取按 LINE ID 與獨立 CACHE_SCHEMA 分區。待辦、週期規則及含待辦的 dashboard 只存記憶體。登出、跨分頁登出與私人端點 401／403 會清除身分和資料；舊版未分帳號快取會移除。其他資料可保存供快速顯示，過期時標示並可重試。
-- 私人 routes 使用 `request-user.ts` 驗證 session，再由 butler helpers 加 `X-Dashboard-User`；不要直接轉送瀏覽器提供的同名 header，也不要把姓名前綴當授權。建立 Request 包裝只複製 URL／headers，不能消耗原始 mutation body。
-- 待辦修改／完成傳後端「待辦ID」，同名事項不能靠畫面 index 選取。新增 schema 請同步 demo fixtures／simulator。部署順序先 home-butler 再 Dashboard；回復時先退 Dashboard。
-- `npm run test:demo` 現在執行 tests 目錄所有測試，含 query store 並行、失敗、登出隔離及真實 route 的 JWT 邊界測試（後端呼叫為 fake）。
+- `useCachedFetch` 透過 `query-store.ts` 共用同一使用者／網址的讀取與狀態；替換請求會取消前次，過期結果不能覆蓋新資料。失敗保留上次成功資料與時間，頁面上方顯示重試提示；首次失敗不記成成功空資料。
+- 快取按 LINE ID 與 `CACHE_SCHEMA` 分區。待辦、首頁、裝置頁（含誰在哪個房間）只存記憶體；其他可保存供快速顯示，過期時標示並可重試。登出、跨分頁登出與私人端點 401／403 會清除身分和資料。
+- 誰能看哪些待辦由後端決定（自己的與公開的）；Dashboard 不再自己過濾，也不送任何「使用者是誰」的標頭，只送簽章。
+- 部署順序先 HomeButler 再 Dashboard；回復時先退 Dashboard。
+- `npm run test:demo` 執行 tests 目錄所有測試，含 query store、`/api/hb` 的白名單與簽章、登入延長（後端呼叫為 fake）。
 
 # 「自動化」區塊（v1.76.0）
 
 裝置頁原本的「劇院」區塊改名為「自動化」：在背景依規則自己動作的東西都放這裡，目前是 Home Assistant 卡與劇院 Agent 卡。
 用意是家人看到某個東西自己動了，只有一個地方要找（使用者 2026-10-11 的決定；區塊名稱用「自動化」而不是「Agent」，因為後者是開發用語）。
 
-- **Home Assistant 卡**（`automation-card.tsx`）一直顯示，資料來自 `/api/home-assistant/automations`：最近的執行記錄與全部規則的上次執行時間。
+- **Home Assistant 卡**（`automation-card.tsx`）一直顯示，資料來自裝置頁回應的 `automations`：最近的執行記錄與全部規則的上次執行時間。
   空清單一定要說明原因（後端未設定／HA 未勾選分享／HA 離線／HA 重啟後還沒執行過），不能讓「沒接上」看起來像「今天沒事發生」。
-- **純顯示。** 那支路由只有 GET，測試會檢查它沒有匯出其他方法。之後若要加「暫停／恢復某條規則」的開關，位置預留在規則清單每一列右側；
+- **純顯示。** 後端沒有改動自動化的路徑，`hb-rules.ts` 也沒有。之後若要加「暫停／恢復某條規則」的開關，位置預留在規則清單每一列右側；
   那是開關不是編輯，但仍要走後端的白名單指令，不是讓 Dashboard 直接碰 HA。
-- 遙控器看得到這張卡（`proxy.ts` 白名單有這支 API）；`/api/home-assistant/observations` 仍然只給成員。
+- 遙控器看得到這張卡；空間感測仍然只給成員。
 - 劇院卡的顯示規則沒有變，只是從自己的區塊搬進這個區塊（見下一節）。
 
 # 劇院整合
