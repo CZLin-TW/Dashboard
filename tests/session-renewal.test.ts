@@ -95,8 +95,14 @@ test("a remote slides for 14 days while its row is enabled, and is signed out on
   assert.equal(fresh.body.role, "kid");
   assert.equal(fresh.cookie, "");
   // A remote session signed before v2 has no remote id: it ends, and the tablet signs in with its password again.
-  const old = await visit(await token({ lineUserId: "remote", role: "kid", name: "客廳 平板" }, 3 * DAY, 14 * DAY), () => { throw new Error("must not be called"); });
-  assert.equal(old.response.status, 401);
+  // Renewed less than a day ago makes no difference (2026-10-22: a phone kept such a session and was never asked to sign in).
+  for (const ago of [3 * DAY, 600]) {
+    const old = await token({ lineUserId: "remote", role: "kid", name: "客廳 平板" }, ago, 14 * DAY);
+    const result = await visit(old, () => { throw new Error("must not be called"); });
+    assert.equal(result.response.status, 401);
+    assert.match(result.cookie, /dashboard_session=;/);
+    assert.equal(await verifyToken(old), null);          // so the gate sends pages to /login and APIs get 401
+  }
 });
 
 test("a restricted session from the removed LINE pairing ends without asking the backend", async () => {

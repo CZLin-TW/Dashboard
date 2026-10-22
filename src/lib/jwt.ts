@@ -44,11 +44,19 @@ export function assertCanIssueSession(): void {
   }
 }
 
-/** 驗證 session JWT（驗簽 + 驗 exp）。有效回 user、無效/過期/設定不安全回 null。edge 與 node 皆可用。 */
+/** A tablet session without a remote id was signed before v2 (or by the removed LINE pairing): HomeButler
+ *  cannot tell which tablet it is, so nothing would work. It counts as signed out everywhere, at once,
+ *  instead of waiting for the daily check. */
+export function usable(user: SessionUser): boolean {
+  return user.role !== "kid" || typeof user.remoteId === "number";
+}
+
+/** 驗證 session JWT（驗簽 + 驗 exp）。有效回 user、無效/過期/設定不安全/無法使用（見 usable）回 null。edge 與 node 皆可用。 */
 export async function verifyToken(
   token: string | undefined,
 ): Promise<SessionUser | null> {
-  return (await verifySession(token))?.user ?? null;
+  const user = (await verifySession(token))?.user ?? null;
+  return user && usable(user) ? user : null;
 }
 
 /** 同 verifyToken，另外回簽發時間（秒）；加上簽發時間之前的舊 session 回 null。延長 session 用。 */

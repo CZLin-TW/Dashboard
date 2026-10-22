@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSession, getSession, getSessionCookieOptions, SESSION_RENEW_AFTER } from "@/lib/auth";
 import { hb } from "@/lib/hb";
 import { isDemoMode } from "@/lib/demo/config";
-import { verifySession, type SessionUser } from "@/lib/jwt";
+import { usable, verifySession, type SessionUser } from "@/lib/jwt";
 
 type Standing = { active?: unknown; name?: unknown } | null;
 
@@ -11,8 +11,6 @@ async function standing(user: SessionUser): Promise<Standing> {
   if (user.role !== "kid") {
     return hb("POST", "/v2/sign-in/member", { body: { line_user_id: user.lineUserId } }).then((v) => v as Standing).catch(() => null);
   }
-  // 受限身分只有遙控器密碼一條路；沒有遙控器編號的是 v2 之前簽的 session，請重新以密碼登入。
-  if (!user.remoteId) return { active: false };
   return hb("GET", `/v2/sign-in/remote/${user.remoteId}`).then((v) => v as Standing).catch(() => null);
 }
 
@@ -26,6 +24,12 @@ export async function GET(request: Request) {
   const session = await verifySession(token);
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  // 沒有遙控器編號的遙控器 session（v2 之前簽的）不管多新都結束，清掉 cookie，請重新以密碼登入。
+  if (!usable(session.user)) {
+    const ended = NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    ended.cookies.delete(cookie.name);
+    return ended;
   }
   let user = session.user;
   const age = session.issuedAt === null ? Infinity : Date.now() / 1000 - session.issuedAt;
