@@ -5,11 +5,10 @@ import { requestError, sessionUser, RequestError } from "@/lib/request-user";
 import { zoneEditorConfig } from "@/lib/zone-editor";
 import type { SessionUser } from "@/lib/jwt";
 
-/** The page's view of a response: the tablet does not get presence; the page learns whether the zone editor is set up. */
+/** The page learns whether the zone editor is set up (HomeButler itself leaves presence out for the tablet). */
 function shape(path: string, data: unknown, user: SessionUser): unknown {
   if (path !== "devices" || !data || typeof data !== "object") return data;
-  const page: Record<string, unknown> = { ...(data as Record<string, unknown>), zone_editor: user.role !== "kid" && !!zoneEditorConfig() };
-  if (user.role === "kid") delete page.presence;
+  const page: Record<string, unknown> = { ...(data as Record<string, unknown>), zone_editor: user.role !== "remote" && !!zoneEditorConfig() };
   return page;
 }
 
@@ -19,7 +18,7 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
     const segments = (await context.params).path ?? [];
     if (segments.some((s) => !s || s === "." || s === "..")) throw new RequestError("not found", 404);
     const path = segments.map(encodeURIComponent).join("/");
-    const rule = findRule(method, segments.join("/"), user.role === "kid" ? "kid" : "member");
+    const rule = findRule(method, segments.join("/"), user.role === "remote" ? "remote" : "member");
     if (rule === null) throw new RequestError("not found", 404);
     if (rule === "forbidden") throw new RequestError("forbidden", 403);
     let body: unknown = undefined;

@@ -5,12 +5,12 @@ import { isDemoMode } from "@/lib/demo/config";
 
 const PUBLIC_PATHS = ["/login", "/api/auth", "/api/debug", "/api/version", "/manifest.webmanifest", "/icons"];
 
-// 遙控器（role==="kid"，受限身分）只准用裝置頁 + 它實際 fetch 的這些 API；其餘一律擋。
+// 遙控器（role "remote"，受限身分）只准用裝置頁 + 它實際 fetch 的這些 API；其餘一律擋。
 // 預設拒絕（allowlist），不是黑名單——新功能不會無意間對兒童開放。
 // ⚠️ 維護點：這份清單 = /devices 子樹真正呼叫的端點集合。裝置頁日後新增資料來源／
 // 控制端點時，要同步加進來，否則兒童頁那個區塊會壞掉（API 被 403）。
-const KID_ALLOWED_PAGES = ["/devices"];
-const KID_ALLOWED_APIS = [
+const REMOTE_ALLOWED_PAGES = ["/devices"];
+const REMOTE_ALLOWED_APIS = [
   "/api/devices",              // 裝置清單
   "/api/devices/options",      // 溫度/模式/風速等選項
   "/api/devices/status",       // 即時狀態輪詢
@@ -27,7 +27,7 @@ const KID_ALLOWED_APIS = [
   "/api/home-assistant/automations", // 「自動化」區塊的 HA 卡（唯讀記錄）
 ];
 
-function kidPathAllowed(pathname: string): boolean {
+function remotePathAllowed(pathname: string): boolean {
   // Everything HomeButler serves goes through /api/hb, whose own table (src/lib/hb-rules.ts) says per
   // path whether the tablet may use it; that table is deny-by-default too.
   if (pathname.startsWith("/api/hb/")) return true;
@@ -35,7 +35,7 @@ function kidPathAllowed(pathname: string): boolean {
   // 光是放行 /api/devices 就會把整個 /api/devices/* 子樹（含日後新增的端點）一起打開，
   // 違背這份清單「預設拒絕、新功能不會無意間對兒童開放」的用意。
   const pageOk = (p: string) => pathname === p || pathname.startsWith(p + "/");
-  return KID_ALLOWED_PAGES.some(pageOk) || KID_ALLOWED_APIS.includes(pathname);
+  return REMOTE_ALLOWED_PAGES.some(pageOk) || REMOTE_ALLOWED_APIS.includes(pathname);
 }
 
 export async function proxy(request: NextRequest) {
@@ -72,7 +72,7 @@ export async function proxy(request: NextRequest) {
 
   // 遙控器：server 端強制只能用裝置頁 + 其所需 API。這層是真正的權限閘門，
   // 前端藏導覽列只是化妝——Dashboard 是公開 URL，光藏 UI 擋不住直接打 API。
-  if (user.role === "kid" && !kidPathAllowed(pathname)) {
+  if (user.role === "remote" && !remotePathAllowed(pathname)) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }

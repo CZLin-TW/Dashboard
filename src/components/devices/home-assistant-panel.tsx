@@ -10,7 +10,7 @@ import { PANEL_BASE } from "@/components/ui/device-controls";
 export function HomeAssistantPanel({ data, error, loading, updatedAt, isStale, refetch }: { data: HaSnapshot | null; error: string | null;
   loading: boolean; updatedAt: number | null; isStale: boolean; refetch: () => Promise<void> }) {
   const { currentUser } = useUser();
-  const allowed = !!currentUser && currentUser.role !== "kid";
+  const allowed = !!currentUser && currentUser.role !== "remote";
   const [now, setNow] = useState(0);
   useEffect(() => {
     const tick = () => setNow(Date.now());

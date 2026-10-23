@@ -23,7 +23,7 @@ export type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 /** Who the request is for, as HomeButler names it. */
 export function subject(user: SessionUser): { sub: string; role: "member" | "remote" } | null {
-  if (user.role === "kid") return user.remoteId ? { sub: String(user.remoteId), role: "remote" } : null;
+  if (user.role === "remote") return user.remoteId ? { sub: String(user.remoteId), role: "remote" } : null;
   return user.lineUserId ? { sub: user.lineUserId, role: "member" } : null;
 }
 

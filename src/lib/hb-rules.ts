@@ -2,10 +2,10 @@ import type { Method } from "./hb";
 
 // The one door from the browser to HomeButler. Only what is listed here passes, each with the roles
 // that may use it (deny by default: something new is never opened to the wall tablet by accident).
-// "kid" is the remote tablet's role; it gets the devices page and nothing else, as before.
-export type Role = "member" | "kid";
+// "remote" is the wall tablet's role; it gets the devices page and nothing else.
+export type Role = "member" | "remote";
 interface Rule { method: Method; path: RegExp; roles: Role[]; timeoutMs?: number }
-const BOTH: Role[] = ["member", "kid"];
+const BOTH: Role[] = ["member", "remote"];
 const MEMBER: Role[] = ["member"];
 const NAME = "[^/]+";
 

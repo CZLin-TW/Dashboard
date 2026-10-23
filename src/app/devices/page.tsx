@@ -62,7 +62,7 @@ export default function DevicesPage() {
   const deviceRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const sensors = byRoom(data, data?.sensors ?? []);
   const { currentUser } = useUser();
-  const canOrderRooms = !!currentUser && currentUser.role !== "kid" && (data?.rooms ?? []).length > 1;
+  const canOrderRooms = !!currentUser && currentUser.role !== "remote" && (data?.rooms ?? []).length > 1;
   const [orderingRooms, setOrderingRooms] = useState(false);
   const controllable = devices.filter((d) => d.kind !== "sensor");
   const computers = (data?.computers ?? []).map((c) => computerOf(c, history)).sort((a, b) => a.ip.localeCompare(b.ip));

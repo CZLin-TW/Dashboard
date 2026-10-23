@@ -16,7 +16,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 # 和 HomeButler 的連線（v2，2026-10 重寫）
 
 - 瀏覽器只呼叫本站的 `/api/hb/<路徑>`，由 `src/app/api/hb/[...path]/route.ts` 轉給 HomeButler 的 `/v2/<路徑>`。
-  能過去的路徑與身分列在 `src/lib/hb-rules.ts`：**預設拒絕**，遙控器（`role: kid`）只到裝置頁用得到的那幾條。
+  能過去的路徑與身分列在 `src/lib/hb-rules.ts`：**預設拒絕**，遙控器（`role: remote`）只到裝置頁用得到的那幾條。
   新增功能時在那張表加一列；`proxy.ts` 對遙控器放行 `/api/hb/*`，實際的允許與否由那張表決定。
 - 呼叫時帶兩樣東西，都只在伺服器端：Dashboard 自己的金鑰（`HOME_BUTLER_DASHBOARD_KEY`），以及代表誰在操作的短效簽章
   （`DASHBOARD_ASSERTION_KEY` 簽的 HS256，60 秒，成員用 LINE ID、遙控器用遙控器編號）。瀏覽器送來的同名標頭一律不轉。
@@ -58,7 +58,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 # 區域編輯入口（v1.72.0）
 
 裝置頁「空間感測」標題列的「編輯區域」是一般連結，指向 `/api/zone-editor/enter`。
-該路由用 `requestUser` 擋未登入與 kid（`proxy.ts` 的 kid 白名單也沒有它），以
+該路由用 `requestUser` 擋未登入與遙控器（`proxy.ts` 的遙控器白名單也沒有它），以
 `ZONE_EDITOR_SIGNING_KEY` 簽一張 ES256 通行票後 302 到 `ZONE_EDITOR_URL/enter#ticket=…`。
 票 60 秒過期、對方只收一次、只含 iss／aud／iat／exp／jti 與本站網址 `ret`，**不含使用者身分**。
 票放在 fragment，不進任何伺服器記錄；不要改成 query 參數。
@@ -74,9 +74,9 @@ Dashboard 不代理影像或設定——那些只在家中主機與瀏覽器之�
 | 身分 | 怎麼登入 | 效期 | 資格（延長前向後端確認） |
 | --- | --- | --- | --- |
 | 成員（`role: member`） | 登入頁顯示六位數字，在 LINE 傳給管家 | 30 天 | `POST /v2/sign-in/member`：成員仍啟用 |
-| 遙控器（`role: kid`，受限，只能用裝置頁） | 登入頁「遙控器模式」輸入密碼 | 14 天 | `GET /v2/sign-in/remote/<編號>`：那台遙控器仍啟用 |
+| 遙控器（`role: remote`，受限，只能用裝置頁） | 登入頁「遙控器模式」輸入密碼 | 14 天 | `GET /v2/sign-in/remote/<編號>`：那台遙控器仍啟用 |
 
-`role` 的值 `kid` 是沿用的舊名，指的就是遙控器。原本另有經 LINE「配對兒童」取得受限身分的入口（`?kid=1`），
+`role` 的值在 2026-10-23 之前叫 `kid`（兒童入口時代的舊名）；`jwt.ts` 讀到舊名一律當 `remote`，平板不必重登，下次延長時就換成新名。「平板看不到誰在哪個房間」由 HomeButler 的 `/v2/devices` 自己處理，Dashboard 不再過濾。原本另有經 LINE「配對兒童」取得受限身分的入口（`?kid=1`），
 使用者 2026-10-11 決定移除，因為兩條路做同一件事、而且那條在 iOS 主畫面圖示下本來就不可靠。**不要加回來。**
 
 延長做在 `/api/auth/me`：session 簽發超過 `SESSION_RENEW_AFTER`（一天）時確認資格再重簽。

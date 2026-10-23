@@ -11,16 +11,16 @@ const COOKIE_NAME = "dashboard_session";
 // 放著超過期限沒開的才要重登。重簽前向後端確認資格，所以在試算表停用之後最慢一天內失效；
 // 另一個作廢途徑是輪替 SESSION_JWT_SECRET（全家重登）。
 // - member（家庭成員）：30 天；資格＝「家庭成員」分頁中啟用。
-// - kid（遙控器，受限身分；role 的值沿用舊名）：14 天；資格＝「遙控器」分頁那一列仍啟用。
+// - remote（遙控器，受限身分）：14 天；資格＝「遙控器」分頁那一列仍啟用。
 const MEMBER_MAX_AGE = 60 * 60 * 24 * 30; // 30 天
-const KID_MAX_AGE = 60 * 60 * 24 * 14; // 14 天
+const REMOTE_MAX_AGE = 60 * 60 * 24 * 14; // 14 天
 /** session 簽發超過這麼久就重簽一次（同時重新確認資格）。 */
 export const SESSION_RENEW_AFTER = 60 * 60 * 24; // 1 天
 /** 遙控器 session 的 lineUserId；它不是任何成員。 */
 export const REMOTE_USER_ID = "remote";
 
 function maxAgeFor(role: SessionUser["role"]): number {
-  return role === "kid" ? KID_MAX_AGE : MEMBER_MAX_AGE;
+  return role === "remote" ? REMOTE_MAX_AGE : MEMBER_MAX_AGE;
 }
 
 export type { SessionUser };
@@ -48,6 +48,6 @@ export function getSessionCookieOptions(role?: SessionUser["role"]) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax" as const,
     path: "/",
-    maxAge: maxAgeFor(role), // kid（遙控器）: 14 天；member: 30 天
+    maxAge: maxAgeFor(role), // remote（遙控器）: 14 天；member: 30 天
   };
 }

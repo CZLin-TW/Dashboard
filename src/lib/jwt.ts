@@ -4,16 +4,16 @@
 
 import { jwtVerify } from "jose";
 
-// role 決定權限分級：member = 完整 Dashboard；kid = 兒童遙控器，proxy.ts 只放行裝置頁。
+// role 決定權限分級：member = 完整 Dashboard；remote = 牆上的遙控器平板，proxy.ts 只放行裝置頁。
 // 選填 + 缺省當 member，讓加這欄之前簽出的舊 session 仍視為完整權限（向下相容）。
-export type SessionRole = "member" | "kid";
+export type SessionRole = "member" | "remote";
 
 export interface SessionUser {
   lineUserId: string;
   name: string;
   picture?: string;
   role?: SessionRole;
-  /** A remote tablet's id in HomeButler (role "kid"). Sessions signed before v2 lack it and must sign in again. */
+  /** A remote tablet's id in HomeButler (role "remote"). Sessions signed before v2 lack it and must sign in again. */
   remoteId?: number;
 }
 
@@ -48,7 +48,7 @@ export function assertCanIssueSession(): void {
  *  cannot tell which tablet it is, so nothing would work. It counts as signed out everywhere, at once,
  *  instead of waiting for the daily check. */
 export function usable(user: SessionUser): boolean {
-  return user.role !== "kid" || typeof user.remoteId === "number";
+  return user.role !== "remote" || typeof user.remoteId === "number";
 }
 
 /** 驗證 session JWT（驗簽 + 驗 exp）。有效回 user、無效/過期/設定不安全/無法使用（見 usable）回 null。edge 與 node 皆可用。 */
@@ -72,7 +72,8 @@ export async function verifySession(
         lineUserId: payload.lineUserId as string,
         name: payload.name as string,
         picture: payload.picture as string | undefined,
-        role: payload.role === "kid" ? "kid" : "member",
+        // 2026-10-23 之前簽的遙控器 session 寫的是舊名 "kid"（兒童入口時代留下的）；讀成 remote，平板不必重登。
+        role: payload.role === "remote" || payload.role === "kid" ? "remote" : "member",
         ...(typeof payload.remoteId === "number" ? { remoteId: payload.remoteId } : {}),
       },
       issuedAt: typeof payload.iat === "number" ? payload.iat : null,

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requestUser, requestError, RequestError } from "@/lib/request-user";
 import { zoneEditorConfig, zoneEditorEntry } from "@/lib/zone-editor";
 
-// 一般成員才拿得到票（requestUser 擋未登入與 kid；proxy.ts 的 kid 白名單也沒有這條路徑）。
+// 一般成員才拿得到票（requestUser 擋未登入與遙控器；proxy.ts 的遙控器白名單也沒有這條路徑）。
 // 回應是導向，不是資料：瀏覽器直接被帶到家中主機的編輯工具。
 export async function GET(request: Request) {
   try {

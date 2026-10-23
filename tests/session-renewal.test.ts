@@ -77,12 +77,12 @@ test("an unreachable or confused backend neither extends nor revokes", async () 
 });
 
 test("a remote slides for 14 days while its row is enabled, and is signed out once it is not", async () => {
-  const remote = () => token({ lineUserId: "remote", role: "kid", name: "客廳 平板", remoteId: 7 }, 3 * DAY, 14 * DAY);
+  const remote = () => token({ lineUserId: "remote", role: "remote", name: "客廳 平板", remoteId: 7 }, 3 * DAY, 14 * DAY);
   const kept = await visit(await remote(), () => Response.json({ active: true, name: "ignored" }));
   assert.equal(kept.response.status, 200);
   assert.ok(kept.seen[0].url.endsWith("/v2/sign-in/remote/7"));
   const claims = issued(kept.cookie);
-  assert.deepEqual([claims.role, claims.name, claims.lineUserId, claims.remoteId], ["kid", "客廳 平板", "remote", 7]);
+  assert.deepEqual([claims.role, claims.name, claims.lineUserId, claims.remoteId], ["remote", "客廳 平板", "remote", 7]);
   assert.ok(Math.abs(claims.exp! - now() - 14 * DAY) < 5);
   assert.match(kept.cookie, /Max-Age=1209600/i);
   const off = await visit(await remote(), () => Response.json({ active: false }));
@@ -91,9 +91,14 @@ test("a remote slides for 14 days while its row is enabled, and is signed out on
   const unsure = await visit(await remote(), () => new Response("bad gateway", { status: 502 }));
   assert.equal(unsure.response.status, 200);
   assert.equal(unsure.cookie, "");
-  const fresh = await visit(await token({ lineUserId: "remote", role: "kid", name: "客廳 平板", remoteId: 7 }, 600, 14 * DAY), () => { throw new Error("must not be called"); });
-  assert.equal(fresh.body.role, "kid");
+  const fresh = await visit(await token({ lineUserId: "remote", role: "remote", name: "客廳 平板", remoteId: 7 }, 600, 14 * DAY), () => { throw new Error("must not be called"); });
+  assert.equal(fresh.body.role, "remote");
   assert.equal(fresh.cookie, "");
+  // Tablet sessions signed before 2026-10-23 carry the old role name "kid": they read as remote and renew as such.
+  const renamed = await visit(await token({ lineUserId: "remote", role: "kid", name: "客廳 平板", remoteId: 7 }, 3 * DAY, 14 * DAY),
+    () => Response.json({ active: true }));
+  assert.equal(renamed.response.status, 200);
+  assert.equal(issued(renamed.cookie).role, "remote");
   // A remote session signed before v2 has no remote id: it ends, and the tablet signs in with its password again.
   // Renewed less than a day ago makes no difference (2026-10-22: a phone kept such a session and was never asked to sign in).
   for (const ago of [3 * DAY, 600]) {
@@ -124,8 +129,8 @@ test("expired and missing sessions are never renewed", async () => {
 test("new sessions carry an issue time: members 30 days, remotes 14", async () => {
   const member = decodeJwt(await createSession({ lineUserId: "a", name: "A", role: "member" }));
   assert.ok(member.iat && member.exp! - member.iat === 30 * DAY);
-  const kid = decodeJwt(await createSession({ lineUserId: "remote", name: "平板", role: "kid" }));
-  assert.ok(kid.exp! - kid.iat! === 14 * DAY);
+  const tablet = decodeJwt(await createSession({ lineUserId: "remote", name: "平板", role: "remote" }));
+  assert.ok(tablet.exp! - tablet.iat! === 14 * DAY);
   assert.equal((await verifyToken(await token({}, null)))?.lineUserId, "alice-id");
 });
 
@@ -146,7 +151,7 @@ test("pairing signs in members only and refuses any other role from the backend"
     assert.deepEqual(JSON.parse(String(bodies[1])), { device_token: "t" });   // the secret travels in the body, never a URL
     assert.equal(ok.status, 200);
     assert.equal(issued(ok.headers.get("set-cookie")!).role, "member");
-    answer = { status: "approved", user: { lineUserId: "parent-id", name: "Parent", role: "kid" } };
+    answer = { status: "approved", user: { lineUserId: "parent-id", name: "Parent", role: "remote" } };
     const refused = await poll();
     assert.equal(refused.status, 500);
     assert.equal(refused.headers.get("set-cookie"), null);

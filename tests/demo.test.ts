@@ -145,14 +145,14 @@ test("fetch interception never forwards unknown API paths, external calls or abo
 });
 
 test("the door to HomeButler lists every path and role; the tablet gets the devices page only", () => {
-  assert.notEqual(findRule("GET", "devices", "kid"), null);
-  assert.notEqual(findRule("POST", "devices/ac/客廳冷氣", "kid"), "forbidden");
-  assert.equal(findRule("GET", "todos", "kid"), "forbidden");
-  assert.equal(findRule("PATCH", "lighting/areas/1", "kid"), "forbidden");
+  assert.notEqual(findRule("GET", "devices", "remote"), null);
+  assert.notEqual(findRule("POST", "devices/ac/客廳冷氣", "remote"), "forbidden");
+  assert.equal(findRule("GET", "todos", "remote"), "forbidden");
+  assert.equal(findRule("PATCH", "lighting/areas/1", "remote"), "forbidden");
   assert.equal(findRule("GET", "system/status", "member"), null);
   assert.equal(findRule("DELETE", "devices", "member"), null);
   assert.notEqual(findRule("PUT", "rooms/order", "member"), "forbidden");
-  assert.equal(findRule("PUT", "rooms/order", "kid"), "forbidden");
+  assert.equal(findRule("PUT", "rooms/order", "remote"), "forbidden");
   assert.equal(findRule("PATCH", "todos/abc", "member"), null);
 });
 
@@ -201,14 +201,15 @@ test("the door signs who is asking and never passes on what the browser claims",
     const claims = (await jwtVerify(seen[0].headers.get("X-Dashboard-Assertion")!, new TextEncoder().encode(ASSERTION))).payload;
     assert.deepEqual([claims.sub, claims.role, claims.aud], ["alice-id", "member", "homebutler"]);
     assert.ok((claims.exp! - claims.iat!) <= 300);
-    const tablet = await session({ lineUserId: "remote", name: "平板", role: "kid", remoteId: 3 });
+    const tablet = await session({ lineUserId: "remote", name: "平板", role: "remote", remoteId: 3 });
     const asTablet = (path: string[]) => GET(new Request(origin + "/api/hb/" + path.join("/"), { headers: { cookie: `dashboard_session=${tablet}` } }), ctx(...path));
     assert.equal((await asTablet(["todos"])).status, 403);
     const devices = await (await asTablet(["devices"])).json();
-    assert.equal(devices.presence, undefined);                     // who is where stays with members
+    assert.equal(devices.zone_editor, false);                      // presence is left out by HomeButler itself
+    assert.equal((await jwtVerify(seen.at(-1)!.headers.get("X-Dashboard-Assertion")!, new TextEncoder().encode(ASSERTION))).payload.role, "remote");
     assert.equal((await jwtVerify(seen.at(-1)!.headers.get("X-Dashboard-Assertion")!, new TextEncoder().encode(ASSERTION))).payload.sub, "3");
     assert.equal((await asTablet(["..", "system"])).status, 404);
-    const oldTablet = await session({ lineUserId: "remote", name: "平板", role: "kid" });
+    const oldTablet = await session({ lineUserId: "remote", name: "平板", role: "remote" });
     assert.equal((await GET(new Request(origin + "/api/hb/devices", { headers: { cookie: `dashboard_session=${oldTablet}` } }), ctx("devices"))).status, 401);
     assert.equal(seen.every(s => s.headers.get("Authorization") === "Bearer test-dashboard-key"), true);
     delete process.env.DASHBOARD_ASSERTION_KEY;

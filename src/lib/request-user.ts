@@ -8,7 +8,7 @@ export async function requestUser(request: Request): Promise<string> {
   const token = new NextRequest(request.url, { headers: request.headers }).cookies.get("dashboard_session")?.value;
   const user = await verifyToken(token);
   if (!user?.lineUserId) throw new RequestError("請先登入。", 401);
-  if (user.role === "kid") throw new RequestError("此帳號無法存取生活資料。", 403);
+  if (user.role === "remote") throw new RequestError("此帳號無法存取生活資料。", 403);
   return user.lineUserId;
 }
 /** The signed-in person or tablet, whatever its role (the BFF decides what each role may reach). */

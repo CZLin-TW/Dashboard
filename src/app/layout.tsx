@@ -55,16 +55,16 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // 遙控器（role kid）：藏掉所有導覽（去其他頁的入口）。純化妝——真正的閘門在 proxy.ts，
-  // 即使這裡誤渲染，middleware 仍會把兒童擋在裝置頁外。
+  // 遙控器（role remote）：藏掉所有導覽（去其他頁的入口）。純化妝——真正的閘門在 proxy.ts，
+  // 即使這裡誤渲染，middleware 仍會把遙控器擋在裝置頁外。
   const session = await getSession();
-  const isKid = session?.role === "kid";
+  const isRemote = session?.role === "remote";
   const demo = isDemoMode();
   const content = <>
-    {!isKid && <DesktopNav />}
-    {!isKid && <MobileHeader />}
+    {!isRemote && <DesktopNav />}
+    {!isRemote && <MobileHeader />}
     <main className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8 pb-24 md:pb-8"><QueryStatus />{children}</main>
-    {!isKid && <MobileNav />}
+    {!isRemote && <MobileNav />}
   </>;
 
   return (

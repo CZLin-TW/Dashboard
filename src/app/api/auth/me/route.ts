@@ -8,7 +8,7 @@ type Standing = { active?: unknown; name?: unknown } | null;
 
 /** 向後端問這個身分還算不算數。連不上或回錯誤一律當「沒有答案」（null）。 */
 async function standing(user: SessionUser): Promise<Standing> {
-  if (user.role !== "kid") {
+  if (user.role !== "remote") {
     return hb("POST", "/v2/sign-in/member", { body: { line_user_id: user.lineUserId } }).then((v) => v as Standing).catch(() => null);
   }
   return hb("GET", `/v2/sign-in/remote/${user.remoteId}`).then((v) => v as Standing).catch(() => null);
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     }
     if (answer?.active === true) {
       // 成員改名後跟著名單走；遙控器的名稱就是查詢用的鍵，不會變。
-      if (user.role !== "kid" && typeof answer.name === "string" && answer.name) user = { ...user, name: answer.name };
+      if (user.role !== "remote" && typeof answer.name === "string" && answer.name) user = { ...user, name: answer.name };
       const renewed = NextResponse.json(user);
       const options = getSessionCookieOptions(user.role);
       renewed.cookies.set(options.name, await createSession(user), options);

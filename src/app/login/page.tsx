@@ -184,7 +184,7 @@ function LoginContent() {
     }, 1800);
   }, [loginCommand]);
 
-  // 遙控器模式：用共用密碼換取受限的 kid session，成功後直接落在裝置頁。
+  // 遙控器模式：用共用密碼換取受限的遙控器 session，成功後直接落在裝置頁。
   const submitRemote = useCallback(async () => {
     if (!pw || remoteBusy) return;
     setRemoteBusy(true);
