@@ -35,6 +35,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 空調目標一律整數 16–30°C。以 HA 為狀態來源；HA 斷線或上次指令未確認時顯示未知並停用控制，**指令結果未知不可自動重送**。
 指令送出後 HomeButler 在 HA 確認後才回應，所以送出後重讀一次就是最新狀態，不需要輪詢猜測。
+送出成功後要等重讀完成才清掉畫面上調整中的值（v1.79.2）；先清掉會在重讀回來前短暫顯示舊設定。
 
 排程有兩種來源：`user`（家人建立）與 `auto_off`（HomeButler 依「智能居家」的「自動關機小時數／暫緩時段」在空調開機後建立的本輪關機）。
 自動關機那筆可以改時間、改成別的動作（只限同一台空調）或刪除；刪除後這一輪不會補回。
@@ -51,7 +52,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # 空間感測與資料新鮮度
 
-空間感測的資料在裝置頁回應的 `presence`（HA 的選定觀測）；**遙控器拿不到**，`/api/hb` 會把它從回應裡拿掉。
+空間感測的資料在裝置頁回應的 `presence`（HA 的選定觀測）；**遙控器拿不到**，HomeButler 的 `/v2/devices` 對遙控器不回這一欄。
 `age_seconds` 加瀏覽器本次讀取後經過的時間判斷是否過期，不比較兩台電腦的絕對時鐘；
 失敗、過期、unavailable 均顯示未知，不能把 false／0 與缺值混淆。
 

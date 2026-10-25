@@ -59,14 +59,17 @@ function AcControl({ ac, page, onChanged }: { ac: Ac; page: DevicesPage; onChang
   async function submit() {
     setSending(true);
     setNotice(null);
+    let sent = false;
     try {
       await send("POST", `devices/ac/${encodeURIComponent(ac.name)}`,
         p.power ? { power: "on", temperature: p.temperature, mode: p.mode, fan_speed: p.fan } : { power: "off" });
-      setDraft(null);
+      sent = true;
     } catch (error) {
       setNotice(failureText(error));
     } finally {
       await onChanged();
+      // The draft goes only once the page is read again: dropping it earlier showed the old settings until then.
+      if (sent) setDraft(null);
       setSending(false);
     }
   }
