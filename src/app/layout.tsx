@@ -7,6 +7,7 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { getSession } from "@/lib/auth";
 import { isDemoMode } from "@/lib/demo/config";
 import { DemoProvider } from "@/components/demo/provider";
+import { SessionProvider } from "@/hooks/use-user";
 import "./globals.css";
 
 // Inter 給數字（用 .num class 觸發），Noto Sans TC 給內文。
@@ -60,12 +61,14 @@ export default async function RootLayout({
   const session = await getSession();
   const isRemote = session?.role === "remote";
   const demo = isDemoMode();
-  const content = <>
+  // Only what the page shows about the person; the session itself stays in its HttpOnly cookie.
+  const user = session ? { lineUserId: session.lineUserId, name: session.name, picture: session.picture, role: session.role } : null;
+  const content = <SessionProvider user={user}>
     {!isRemote && <DesktopNav />}
     {!isRemote && <MobileHeader />}
     <main className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8 pb-24 md:pb-8"><QueryStatus />{children}</main>
     {!isRemote && <MobileNav />}
-  </>;
+  </SessionProvider>;
 
   return (
     <html lang="zh-TW" data-demo={demo ? "true" : undefined} className={`h-full antialiased ${inter.variable} ${notoTC.variable}`}>

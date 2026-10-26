@@ -137,7 +137,7 @@ export default function FoodPage() {
           <CardTitle>庫存列表</CardTitle>
           <span className="num text-xs text-mute">{hasData ? `${filtered.length} 項` : "—"}</span>
         </CardHeader>
-        {loading ? (
+        {loading && !hasData ? (
           <p className="text-sm text-mute">載入中...</p>
         ) : !hasData ? (
           <p className="text-sm text-mute">尚未取得食品資料，請重新讀取。</p>

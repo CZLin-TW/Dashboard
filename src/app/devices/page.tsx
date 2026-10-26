@@ -138,7 +138,7 @@ export default function DevicesPage() {
         {orderingRooms && data && (
           <RoomOrderEditor rooms={data.rooms} onSaved={page.refetch} onClose={() => setOrderingRooms(false)} />
         )}
-        <p className="px-1 text-xs text-mute">{data ? `${ago(data.generated_at)}更新${page.isStale ? " · 資料可能過時，重試中" : ""}` : page.loading ? "載入中…" : "暫時無法讀取裝置"}</p>
+        <p className="px-1 text-xs text-mute">{data ? `${ago(data.generated_at)}更新${page.error ? " · 資料可能過時，重試中" : page.isStale ? " · 更新中" : ""}` : page.loading ? "載入中…" : "暫時無法讀取裝置"}</p>
         <div className="flex items-center justify-between px-1">
           <p className="text-xs text-mute">
             釘選最多 {pin.MAX_PINNED_DEVICES} 個到首頁（已選 {pin.pinnedDevices.length}）
@@ -190,7 +190,7 @@ export default function DevicesPage() {
 
                   {data && <DeviceController device={device} page={data} onChanged={page.refetch} history={history} />}
                   {data && <ScheduleSection device={device} page={data} schedules={schedulesFor(data, device.name)} allDevices={controllable}
-                    onSchedulesChange={() => void page.refetch()} autoOff={data.auto_off.find((a) => a.name === device.name)} />}
+                    onSchedulesChange={() => void page.refetch()} autoOff={data.auto_off.find((a) => a.name === device.name)} waiting={page.isStale} />}
                 </div>
               );
             })}

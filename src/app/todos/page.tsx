@@ -365,7 +365,7 @@ export default function TodosPage() {
           <CardTitle>待辦事項</CardTitle>
           <span className="num text-xs text-mute">{hasData ? `${filteredTodos.length} 項` : "—"}</span>
         </CardHeader>
-        {loading ? (
+        {loading && !hasData ? (
           <p className="text-sm text-mute">載入中...</p>
         ) : !hasData ? (
           <p className="text-sm text-mute">尚未取得待辦資料，請重新讀取。</p>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCachedFetch } from "@/hooks/use-cached-fetch";
+import { HB } from "@/lib/api";
 import {
   Home,
   Lightbulb,
@@ -101,8 +103,6 @@ export default function LightingPage() {
   const [draftBri, setDraftBri] = useState<Record<string, number>>({});
   const [selectedScenes, setSelectedScenes] = useState<Record<string, string>>({});
   const [selectedEffects, setSelectedEffects] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [savingId, setSavingId] = useState("");
   const [applyingKey, setApplyingKey] = useState("");
   const [notice, setNotice] = useState("");
@@ -110,58 +110,53 @@ export default function LightingPage() {
   // A synchronous lock also catches blur + click in the same browser event turn.
   const commandInFlight = useRef(false);
 
-  const loadAreas = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/hb/lighting", { cache: "no-store" });
-      if (!res.ok) throw new Error(await readError(res));
-      const data = { agent_id: "home_assistant", ...(await res.json()) } as LightingPayload;
-      setPayload(data);
-      const nextDrafts: Record<string, string> = {};
-      for (const area of data.areas ?? []) {
-        nextDrafts[area.id] = area.display_name || area.hue_name || area.id;
-      }
-      setDraftNames(nextDrafts);
-      setDraftBri({});
-      setSelectedScenes((prev) => {
-        const nextScenes: Record<string, string> = {};
-        for (const area of data.areas ?? []) {
-          const scenes = Array.isArray(area.scenes) ? area.scenes : [];
-          const current = prev[area.id];
-          if (current && scenes.some((scene) => scene.id === current)) {
-            nextScenes[area.id] = current;
-          } else if (scenes[0]?.id) {
-            nextScenes[area.id] = scenes[0].id;
-          }
-        }
-        return nextScenes;
-      });
-      setSelectedEffects((prev) => {
-        const nextEffects: Record<string, string> = {};
-        for (const area of data.areas ?? []) {
-          const effects = Array.isArray(area.effects) ? area.effects : [];
-          const current = prev[area.id];
-          if (current && effects.some((effect: LightingEffect) => effect.key === current)) {
-            nextEffects[area.id] = current;
-            continue;
-          }
-          const firstEffect = effects.find((effect: LightingEffect) => effect.key !== "no_effect") ?? effects[0];
-          if (firstEffect?.key) nextEffects[area.id] = firstEffect.key;
-        }
-        return nextEffects;
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
+  // Read through the shared cache like every other page: the last answer shows at once, a fresh one
+  // replaces it (2026-10-26). Drafts and selections follow each new answer.
+  const lighting = useCachedFetch<LightingPayload | null>(HB("lighting"), null);
+  const loading = lighting.loading && !lighting.hasData;
+  const error = lighting.error ?? "";
+  const loadAreas = lighting.refetch;
+  const applyPayload = useCallback((fetched: LightingPayload) => {
+    const data: LightingPayload = { ...fetched, agent_id: fetched.agent_id || "home_assistant" };
+    setPayload(data);
+    const nextDrafts: Record<string, string> = {};
+    for (const area of data.areas ?? []) {
+      nextDrafts[area.id] = area.display_name || area.hue_name || area.id;
     }
-  }, []);
+    setDraftNames(nextDrafts);
+    setDraftBri({});
+    setSelectedScenes((prev) => {
+      const nextScenes: Record<string, string> = {};
+      for (const area of data.areas ?? []) {
+        const scenes = Array.isArray(area.scenes) ? area.scenes : [];
+        const current = prev[area.id];
+        if (current && scenes.some((scene) => scene.id === current)) {
+          nextScenes[area.id] = current;
+        } else if (scenes[0]?.id) {
+          nextScenes[area.id] = scenes[0].id;
+        }
+      }
+      return nextScenes;
+    });
+    setSelectedEffects((prev) => {
+      const nextEffects: Record<string, string> = {};
+      for (const area of data.areas ?? []) {
+        const effects = Array.isArray(area.effects) ? area.effects : [];
+        const current = prev[area.id];
+        if (current && effects.some((effect: LightingEffect) => effect.key === current)) {
+          nextEffects[area.id] = current;
+          continue;
+        }
+        const firstEffect = effects.find((effect: LightingEffect) => effect.key !== "no_effect") ?? effects[0];
+        if (firstEffect?.key) nextEffects[area.id] = firstEffect.key;
+      }
+      return nextEffects;
+    });  }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load
-    void loadAreas();
-  }, [loadAreas]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- each new answer resets drafts and selections
+    if (lighting.data) applyPayload(lighting.data);
+  }, [lighting.data, applyPayload]);
 
   const areas = useMemo(
     () =>
@@ -325,7 +320,7 @@ export default function LightingPage() {
         </div>
         <button type="button" onClick={loadAreas} disabled={busy}
           className="inline-flex h-[38px] items-center gap-2 rounded-full border border-line bg-surface px-3 text-[13px] font-medium text-soft hover:bg-elevated disabled:opacity-50">
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />重新整理
+          <RefreshCw className={`h-4 w-4 ${lighting.loading ? "animate-spin" : ""}`} />重新整理
         </button>
       </header>
 

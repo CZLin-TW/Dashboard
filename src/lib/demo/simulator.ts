@@ -308,6 +308,10 @@ export function demoFetch(simulator: ReturnType<typeof createSimulator>, origin:
     if (url.origin !== origin) return error("測試模式禁止外部 fetch", 403);
     if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
       const request = input instanceof Request ? new Request(input, init) : new Request(url, init);
+      // Optional: sessionStorage "demo-latency-ms" delays every API answer, to judge how the pages
+      // behave over a slow phone connection (the live API is in the US). Unset, answers are immediate.
+      const latency = typeof sessionStorage === "undefined" ? 0 : Number(sessionStorage.getItem("demo-latency-ms") || 0);
+      if (latency > 0 && latency <= 10_000) await new Promise(resolve => setTimeout(resolve, latency));
       return simulator.handle(request);
     }
     return original(input, init);

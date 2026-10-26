@@ -37,9 +37,10 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
           if (parsed.schema === 3 && Array.isArray(parsed.acs) && SCENARIOS.some(s => s.value === parsed.scenario)) state = parsed;
         } catch { /* corrupted demo data: restore synthetic defaults */ }
       }
-      if (!saved) seedPins(state);
+      // Page caches survive a reload in the same demo tab, as on the live site (each page shows its last
+      // copy at once); a new demo state starts without them.
+      if (!saved) { seedPins(state); clearCaches(); }
       save(state);
-      clearCaches();
       window.fetch = demoFetch(createSimulator(state, save), window.location.origin, original);
       // eslint-disable-next-line react-hooks/set-state-in-effect -- gate children until browser-only mock installation completes
       setScenario(state.scenario);

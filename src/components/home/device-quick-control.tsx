@@ -21,6 +21,8 @@ interface Props {
   history?: History | null;
   allDevices: UiDevice[];
   onExpandedChange?: (expanded: boolean) => void;
+  /** Showing the last saved copy while a fresh one is read (see ScheduleSection). */
+  waiting?: boolean;
 }
 
 /**
@@ -33,7 +35,7 @@ interface Props {
  * 會清空。實際 UX：使用者「展開 → 改 → 收合 → 再展開」會看到原本草稿
  * 消失。可接受（draft 跨 collapse 持久不是必要功能）。
  */
-export function DeviceQuickControl({ devices, page, onChanged, history = null, allDevices, onExpandedChange }: Props) {
+export function DeviceQuickControl({ devices, page, onChanged, history = null, allDevices, onExpandedChange, waiting = false }: Props) {
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
   // 實際渲染面板的設備。切換到另一台時先設 null 讓舊面板收合，
   // 收合動畫結束（onExitComplete）再換成新設備展開，呈現「收起 → 展開」的換過去感。
@@ -78,7 +80,7 @@ export function DeviceQuickControl({ devices, page, onChanged, history = null, a
         {page && <DeviceController device={device} page={page} onChanged={onChanged} history={history} />}
         {page && (
           <ScheduleSection device={device} page={page} schedules={schedulesFor(page, device.name)} allDevices={allDevices}
-            onSchedulesChange={() => void onChanged()} autoOff={page.auto_off.find((a) => a.name === device.name)} />
+            onSchedulesChange={() => void onChanged()} autoOff={page.auto_off.find((a) => a.name === device.name)} waiting={waiting} />
         )}
       </div>
     );

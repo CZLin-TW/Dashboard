@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
-import { clearQueryCache, setQueryScope } from "@/lib/query-store";
+import { createContext, createElement, useCallback, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { clearQueryCache, queryKey, querySnapshot, refreshQuery, setQueryScope } from "@/lib/query-store";
 
 export interface SessionUser {
   lineUserId: string;
@@ -127,12 +127,53 @@ function getServerSnapshot(): SessionState {
   return INITIAL;
 }
 
+// ── 伺服器先給的身分（2026-10-26）───────────────────────────────────────────
+// 版面在伺服器端本來就讀了 session；把結果（只有名稱類欄位）交給頁面，頁面就不必先等
+// /api/auth/me 來回一趟才知道是誰、才拿得出快取、才開始抓資料（以前整頁都卡在這裡）。
+// 這是每個請求自己的 props，不是 module 狀態，所以沒有上面 SSR 那段說的洩漏問題。
+// /api/auth/me 照常在背景跑（延長 session、更新名稱）；它一回來就以它為準，包括「已登出」。
+const SeededSession = createContext<SessionUser | null | undefined>(undefined);
+
+export function SessionProvider({ user, children }: { user: SessionUser | null; children: ReactNode }) {
+  useState(() => {
+    // Client only, once: scope the device cache to this person before any page reads it.
+    if (typeof window !== "undefined" && !state.isLoaded) setQueryScope(user?.lineUserId || null);
+    return null;
+  });
+  usePrefetchMainPages(user);
+  return createElement(SeededSession.Provider, { value: user }, children);
+}
+
+// The two pages used most (devices, to-dos) are read in the background shortly after any page opens,
+// so moving to them shows fresh data instead of the device's last copy. Skipped when read in the last
+// minute; a remote only ever sees the devices page.
+const MAIN_PAGES = ["/api/hb/devices", "/api/hb/todos"];
+const PREFETCH_DELAY_MS = 1500;
+const FRESH_ENOUGH_MS = 60_000;
+function usePrefetchMainPages(user: SessionUser | null) {
+  const id = user?.lineUserId;
+  const remote = user?.role === "remote";
+  useEffect(() => {
+    if (!id) return;
+    const timer = setTimeout(() => {
+      for (const url of remote ? MAIN_PAGES.slice(0, 1) : MAIN_PAGES) {
+        const key = queryKey(id, url);
+        const last = querySnapshot(key).updatedAt;
+        if (!last || Date.now() - last > FRESH_ENOUGH_MS) void refreshQuery(key, url);
+      }
+    }, PREFETCH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [id, remote]);
+}
+
 export function useUser() {
-  const { currentUser, isLoaded } = useSyncExternalStore(
+  const live = useSyncExternalStore(
     subscribe,
     getSnapshot,
     getServerSnapshot,
   );
+  const seeded = useContext(SeededSession);
+  const { currentUser, isLoaded } = live.isLoaded || seeded === undefined ? live : { currentUser: seeded, isLoaded: true };
 
   const logout = useCallback(async () => {
     sessionGeneration++;

@@ -6,13 +6,13 @@ import { queryKey, querySnapshot, refreshQuery, subscribeQuery, type QueryState 
 const EMPTY: QueryState = { data: undefined, hasData: false, loading: false, error: null, updatedAt: null, isStale: false };
 const serverSnapshot = () => EMPTY;
 
-/** User-scoped shared queries. Private life data is held in memory only. */
+/** User-scoped shared queries. The last answer is kept on this device (who is in which room excepted) and shown at once while a fresh one is read. */
 export function useCachedFetch<T>(url: string, fallback: T, enabled = true) {
   const { currentUser, isLoaded } = useUser();
   const active = enabled && !!currentUser;
   const key = queryKey(currentUser?.lineUserId || "", url);
-  const subscribe = useCallback((listener: () => void) => active ? subscribeQuery(key, url, listener) : () => {}, [key, url, active]);
-  const snapshot = useCallback(() => active ? querySnapshot(key, url) : EMPTY, [key, url, active]);
+  const subscribe = useCallback((listener: () => void) => active ? subscribeQuery(key, listener) : () => {}, [key, active]);
+  const snapshot = useCallback(() => active ? querySnapshot(key) : EMPTY, [key, active]);
   const state = useSyncExternalStore(subscribe, snapshot, serverSnapshot);
   useEffect(() => { if (active) void refreshQuery(key, url); }, [key, url, active]);
   const refetch = useCallback(() => active ? refreshQuery(key, url, true) : Promise.resolve(), [key, url, active]);

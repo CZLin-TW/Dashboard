@@ -324,7 +324,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 | Hook | 說明 |
 |------|------|
 | use-user.ts | 取得當前使用者 Session、登出功能。**模組層共享 store（`useSyncExternalStore`）**：ScheduleSection 是每張裝置卡各一份，各自 fetch 的話裝置頁一掛載就會發出 N+1 個重複的 `/api/auth/me`，跟真正要用的裝置資料搶資源；現在整頁只打一次 |
-| use-cached-fetch.ts | 使用者／URL 共用 query store；取消被替換的請求、保留上次成功資料及過時標記。快取版本用 `CACHE_SCHEMA`，私人生活資料只存記憶體。 |
+| use-cached-fetch.ts | 使用者／URL 共用 query store；取消被替換的請求、保留上次成功資料及過時標記。快取版本用 `CACHE_SCHEMA`；每頁的上次資料存在裝置上（裝置頁不存誰在哪個房間），v1.80.0 起。 |
 | use-pinned-devices.ts | 管理釘選設備清單（localStorage 儲存），支援釘選感測器 / 釘選裝置 / 全部重置 |
 | use-complete-todo.ts | 待辦勾選完成的樂觀更新邏輯（包含動畫 + refetch 同步避免閃爍），首頁 + todos 頁共用 |
 
@@ -467,7 +467,7 @@ inset shadow 不破 row 的 `rounded-[12px]`。
 - **iOS 風 spring**：tile 點按 scale 0.95 + spring 回彈；展開/收合 ease curve（為避免 CSS Grid `gap` 在 unmount 瞬間造成 snap，panel 刻意渲染在 grid 外）
 - **icon 全 lucide**：所有 emoji 換成 SVG（含天氣、設備、狀態指示燈），strokeWidth 統一
 - **操作回饋**：待辦完成等操作保留樂觀動畫；劇院開關採儲存鎖與完成後回讀，不預先宣稱已成功。空調、除濕機各自有命令確認流程。
-- **快取與隱私**：使用者／URL 共用 query store，快取格式使用獨立 `CACHE_SCHEMA`，不隨 `APP_VERSION` 清除。待辦、週期規則及含待辦的 dashboard 只存記憶體；其餘可存 localStorage，demo 改用 sessionStorage。失敗／過時有提示；登出與身分失效清除快取。
+- **快取與隱私**：使用者／URL 共用 query store，快取格式使用獨立 `CACHE_SCHEMA`，不隨 `APP_VERSION` 清除。每一頁（v1.80.0 起含待辦與首頁）都存 localStorage、打開先顯示，裝置頁不存誰在哪個房間；demo 改用 sessionStorage。失敗／過時有提示；登出與身分失效清除快取。
 - **統一裝置狀態同步**：首頁與裝置頁每 60 秒刷新 `/api/devices/status`，PWA 或分頁回到前景時立即刷新並在 5 秒後補抓背景更新結果；後端先回 in-memory cache，再以 single-flight 背景更新雲端裝置
 - **空調命令確認**：IR 沒法回讀，POST 後輪詢 `/api/devices/status?name=...` 10 秒等 home-butler 的 last-command cache 到位，以 POST 回傳 state.lastTemperature 為接受目標，匹配才清 pending、解鎖 UI（避免 B→A→B 閃爍 + 期間 disable 防連發 race）
 - **除濕機狀態輪詢**：手動操作後每秒輪詢單一設備、最多 30 秒，匹配雲端真實狀態後才解鎖 UI；自動模式 ON/OFF 後立即刷新統一裝置狀態
@@ -496,7 +496,7 @@ Dashboard 是 home-butler 的**視覺化前端**，兩者共用同一套後端 A
 ## v1.37.0 資料與私人待辦
 
 - `useCachedFetch` 透過 `query-store.ts` 共用同一使用者／URL 的讀取與狀態；替換請求會取消前次，過期結果不能覆蓋新資料。失敗保留上次成功資料與時間，頁面上方顯示重試提示；首次失败不記成成功空資料。
-- 快取按 LINE ID 與獨立 CACHE_SCHEMA 分區。待辦、週期規則及含待辦的 dashboard 只存記憶體。登出、跨分頁登出與私人端點 401／403 會清除身分和資料；舊版未分帳號快取會移除。其他資料可保存供快速顯示，過期時標示並可重試。
+- 快取按 LINE ID 與獨立 CACHE_SCHEMA 分區。每頁上次的資料都存在裝置上（v1.80.0 起），裝置頁不存誰在哪個房間。登出、跨分頁登出與私人端點 401／403 會清除身分和資料；舊版未分帳號快取會移除。其他資料可保存供快速顯示，過期時標示並可重試。
 - 私人 routes 使用 `request-user.ts` 驗證 session，再由 butler helpers 加 `X-Dashboard-User`；不要直接轉送瀏覽器提供的同名 header，也不要把姓名前綴當授權。建立 Request 包裝只複製 URL／headers，不能消耗原始 mutation body。
 - 待辦修改／完成傳後端「待辦ID」，同名事項不能靠畫面 index 選取。新增 schema 請同步 demo fixtures／simulator。部署順序先 home-butler 再 Dashboard；回復時先退 Dashboard。
 - `npm run test:demo` 現在執行 tests 目錄所有測試，含 query store 並行、失敗、登出隔離及真實 route 的 JWT 邊界測試（後端呼叫為 fake）。

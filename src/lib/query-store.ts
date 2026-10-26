@@ -20,13 +20,22 @@ function expireOldData() {
 
 function emit(entry: Entry) { entry.listeners.forEach(fn => fn()); statusVersion++; statusListeners.forEach(fn => fn()); }
 export function queryKey(user: string, url: string) { return `cache:${CACHE_SCHEMA}:${encodeURIComponent(user)}:${url}`; }
-// Private data (to-dos, the home summary, the devices page with who is in which room) stays in memory only.
-function persistent(url: string) { return !/^\/api\/hb\/(todos|home|devices)(?:[/?]|$)/.test(url); }
-function entryFor(key: string, url: string): Entry {
+// Every page keeps its last answer on this device, per signed-in person, so it can show at once and
+// refresh behind (owner's decision, 2026-10-26; before that to-dos, the home summary and the devices
+// page stayed in memory only). Sign-out clears it all. Who is in which room is never written down.
+// A 403 on these means the session no longer reaches them, not a missing permission on one item.
+function sessionScoped(url: string) { return /^\/api\/hb\/(todos|home|devices)(?:[/?]|$)/.test(url); }
+function storable(url: string, data: unknown): unknown {
+  if (!/^\/api\/hb\/devices(?:\?|$)/.test(url) || !data || typeof data !== "object") return data;
+  const rest = { ...(data as Record<string, unknown>) };
+  delete rest.presence;
+  return rest;
+}
+function entryFor(key: string): Entry {
   let entry = entries.get(key);
   if (!entry) {
     let state = EMPTY;
-    if (typeof window !== "undefined" && persistent(url)) {
+    if (typeof window !== "undefined") {
       try {
         const cached = JSON.parse(appStorage().getItem(key) || "null");
         if (cached && typeof cached.updatedAt === "number") state = { ...EMPTY, data: cached.data, hasData: true, isStale: true, updatedAt: cached.updatedAt };
@@ -70,9 +79,9 @@ export function setQueryScope(user: string | null) {
   }
   scope = user;
 }
-export function querySnapshot(key: string, url: string) { return entryFor(key, url).state; }
-export function subscribeQuery(key: string, url: string, listener: () => void) {
-  const entry = entryFor(key, url); entry.listeners.add(listener);
+export function querySnapshot(key: string) { return entryFor(key).state; }
+export function subscribeQuery(key: string, listener: () => void) {
+  const entry = entryFor(key); entry.listeners.add(listener);
   if (!staleTimer && typeof window !== "undefined") staleTimer = setInterval(expireOldData, 30_000);
   return () => {
     entry.listeners.delete(listener);
@@ -84,7 +93,7 @@ export function subscribeQuery(key: string, url: string, listener: () => void) {
   };
 }
 export function refreshQuery(key: string, url: string, replace = false): Promise<void> {
-  const entry = entryFor(key, url);
+  const entry = entryFor(key);
   if (entry.pending && !replace) return entry.pending;
   entry.controller?.abort();
   const generation = ++entry.generation;
@@ -94,7 +103,7 @@ export function refreshQuery(key: string, url: string, replace = false): Promise
   entry.pending = fetch(url, { signal: controller.signal })
     .then(async response => {
       if (entry.generation !== generation) return;
-      if (response.status === 401 || (response.status === 403 && !persistent(url))) {
+      if (response.status === 401 || (response.status === 403 && sessionScoped(url))) {
         entry.state = EMPTY;
         if (typeof window !== "undefined") window.dispatchEvent(new Event("session:expired"));
       }
@@ -104,8 +113,8 @@ export function refreshQuery(key: string, url: string, replace = false): Promise
     .then(data => {
       if (entry.generation !== generation) return;
       entry.state = { data, hasData: true, loading: false, error: null, updatedAt: Date.now(), isStale: false };
-      if (persistent(url) && typeof window !== "undefined") {
-        try { appStorage().setItem(key, JSON.stringify({ data, updatedAt: entry.state.updatedAt })); } catch { /* Full storage. */ }
+      if (typeof window !== "undefined") {
+        try { appStorage().setItem(key, JSON.stringify({ data: storable(url, data), updatedAt: entry.state.updatedAt })); } catch { /* Full storage. */ }
       }
     })
     .catch(error => {

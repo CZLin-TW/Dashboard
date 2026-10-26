@@ -64,6 +64,7 @@ export default function HomePage() {
         history={history.data}
         allDevices={controllable}
         onExpandedChange={setDeviceExpanded}
+        waiting={devices.isStale}
       />
       <div className="grid items-start gap-4 lg:grid-cols-2 md:gap-5">
         <TodoListCard todos={todos} onCompleted={home.refetch} statusText={lifeStatus} />

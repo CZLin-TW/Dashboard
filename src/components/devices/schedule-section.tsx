@@ -23,9 +23,12 @@ interface Props {
   allDevices: UiDevice[];
   onSchedulesChange: () => void;
   autoOff?: AutoOff;
+  /** The page shows its last saved copy and a fresh one is on the way: schedules depend on the current
+   *  state and time, so adding, editing and removing wait for it (device commands do not). */
+  waiting?: boolean;
 }
 
-export function ScheduleSection({ device, page, schedules, allDevices, onSchedulesChange, autoOff }: Props) {
+export function ScheduleSection({ device, page, schedules, allDevices, onSchedulesChange, autoOff, waiting = false }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -70,7 +73,7 @@ export function ScheduleSection({ device, page, schedules, allDevices, onSchedul
     <ControlDetails title="排程" keepMounted summary={attentionCount ? `${attentionCount} 筆待確認` : schedules.length ? `${schedules.length} 筆` : "尚未設定"}>
       <div className="flex min-w-0 items-center justify-between gap-2">
         <p className="text-xs text-mute">指定時間執行一次</p>
-        {!showAdd && <button type="button" disabled={deleting} onClick={() => { setEditId(null); setShowAdd(true); }}
+        {!showAdd && <button type="button" disabled={deleting || waiting} title={waiting ? "更新中" : undefined} onClick={() => { setEditId(null); setShowAdd(true); }}
           className="inline-flex h-[38px] shrink-0 items-center gap-1 rounded-full bg-cool px-3 text-[13px] font-medium text-white hover:bg-cool/85 disabled:opacity-50">
           <Plus className="h-3.5 w-3.5" />新增排程
         </button>}
@@ -119,9 +122,9 @@ export function ScheduleSection({ device, page, schedules, allDevices, onSchedul
                 <span className={`mr-auto flex-shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${s.status === "failed" ? "bg-warm-bg text-warm" : "bg-amber-bg text-amber"}`}>
                   {attention ? s.status_label : isPastTrigger(s) ? "即將執行" : "待執行"}
                 </span>
-                {s.editable && <IconActionButton onClick={() => { setShowAdd(false); setEditId(s.id); }} title="編輯" disabled={deleting}
+                {s.editable && <IconActionButton onClick={() => { setShowAdd(false); setEditId(s.id); }} title="編輯" disabled={deleting || waiting}
                   icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />} />}
-                {s.status !== "claimed" && <IconActionButton onClick={() => void handleDelete(s)} tone="danger" disabled={deleting}
+                {s.status !== "claimed" && <IconActionButton onClick={() => void handleDelete(s)} tone="danger" disabled={deleting || waiting}
                   title={attention ? "移除紀錄" : "刪除"} icon={<X className="h-3.5 w-3.5" strokeWidth={2} />} />}
               </div>
             );
