@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import { LightColorControl } from "@/components/light-color-control";
 import type { LightColorState, LightStateCommand } from "@/lib/light-color";
-import { Toggle2, Dropdown, Field, StatusLine, ControlDetails, PANEL_BASE } from "@/components/ui/device-controls";
+import { Dropdown, Field, ControlDetails, PANEL_BASE, SettingRow, Switch } from "@/components/ui/device-controls";
+import { CompactTile, PanelHeader, TileGrid, type TileTone } from "@/components/ui/tile-grid";
 
 interface LightingScene {
   id: string;
@@ -79,6 +80,15 @@ function areaIcon(kind: string) {
   if (kind === "房間") return Home;
   if (kind === "區域") return MapPinned;
   return Lightbulb;
+}
+
+/** The tile's state: a lit lamp is amber with its brightness; colour or white temperature after it. */
+function areaTile(area: LightingArea, connected: boolean): { tone: TileTone; lit: boolean; value: string | null; text: string } {
+  if (!connected || typeof area.on !== "boolean") return { tone: "unknown", lit: false, value: null, text: "狀態未知" };
+  if (!area.on) return { tone: "off", lit: false, value: null, text: "關閉" };
+  const color = area.color_control;
+  const light = color?.mode === "color" ? "彩色" : color?.mode === "temperature" && color.kelvin ? `${color.kelvin} K` : "已開啟";
+  return { tone: "amber", lit: true, value: typeof area.brightness === "number" ? `${Math.round(area.brightness)}%` : null, text: `· ${light}` };
 }
 
 function clampBrightness(n: number) {
@@ -304,6 +314,7 @@ export default function LightingPage() {
   }
 
   const busy = loading || !!applyingKey || !!savingId;
+  const [expandedArea, setExpandedArea] = useState<string | null>(null);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -332,82 +343,96 @@ export default function LightingPage() {
       ) : areas.length === 0 ? (
         <div className={PANEL_BASE}><p className="text-sm text-mute">{error ? "無法讀取照明，請重新整理。" : "目前沒有可用區域"}</p></div>
       ) : (
-        <section aria-label="照明區域" className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {areas.map((area) => {
-            const Icon = areaIcon(area.kind);
-            const name = area.display_name || area.hue_name || area.id;
-            const draft = draftNames[area.id] ?? name;
-            const bri = brightnessValue(area);
-            const scenes = area.scenes ?? [];
-            const effects = area.effects ?? [];
-            const known = typeof area.on === "boolean" && !error;
-            const disabled = busy || !known;
-            return (
-              <article key={area.id} aria-label={name} className={`${PANEL_BASE} min-w-0`}>
-                <div className="flex items-center gap-2">
-                  <Icon className="h-[18px] w-[18px] shrink-0 text-mute" strokeWidth={1.8} />
-                  <h2 className="min-w-0 truncate text-base font-semibold">{name}</h2>
-                  <span className="ml-auto shrink-0 text-xs text-mute">{area.light_count ?? "—"} 盞燈</span>
-                </div>
-                <StatusLine tone={!known ? "waiting" : area.on ? "running" : "off"}
-                  text={!known ? "狀態未知" : `${area.on ? "已開啟" : "關閉"}${area.on && typeof area.brightness === "number" ? ` · 亮度 ${Math.round(area.brightness)}%` : ""}`} />
-                <div className="flex items-end justify-between gap-4">
-                  <Field label="電源"><Toggle2 value={area.on === true} onChange={(on) => { void sendState(area, { on }); }} disabled={disabled} /></Field>
-                  <Field label="亮度">
-                    <div className="flex h-[38px] items-center gap-1">
-                      <input type="number" min={1} max={100} inputMode="numeric" value={bri} disabled={disabled}
-                        aria-label={`${name}亮度數值`}
+        // 和裝置頁同一套：每個區域一個小方塊（開著的燈亮成琥珀色），點了才在那一排下面展開控制。
+        <section aria-label="照明區域">
+          <TileGrid items={areas} keyOf={(area) => area.id} expanded={expandedArea}
+            renderTile={(area, active) => {
+              const tile = areaTile(area, !error);
+              return (
+                <CompactTile icon={areaIcon(area.kind)} tone={tile.tone} lit={tile.lit} title={area.display_name || area.hue_name || area.id}
+                  value={tile.value} text={tile.text} onClick={() => setExpandedArea(active ? null : area.id)} active={active} dataKey={area.id} />
+              );
+            }}
+            renderPanel={(area) => {
+              const name = area.display_name || area.hue_name || area.id;
+              const draft = draftNames[area.id] ?? name;
+              const bri = brightnessValue(area);
+              const scenes = area.scenes ?? [];
+              const effects = area.effects ?? [];
+              const known = typeof area.on === "boolean" && !error;
+              const disabled = busy || !known;
+              const tile = areaTile(area, !error);
+              return (
+                <article aria-label={name} className={`${PANEL_BASE} min-w-0`}>
+                  <PanelHeader icon={areaIcon(area.kind)} tone={tile.tone} title={name} value={tile.value}
+                    text={`${tile.text} · ${area.light_count ?? "—"} 盞燈`} onClose={() => setExpandedArea(null)} />
+                  <div className="rounded-[18px] bg-surface-2">
+                    <SettingRow label="電源">
+                      <Switch value={area.on === true} onChange={(on) => { void sendState(area, { on }); }} disabled={disabled} label={`${name}電源`} />
+                    </SettingRow>
+                    <div className={`space-y-2 border-t border-line/60 px-3.5 pb-4 pt-3 ${area.on === false ? "opacity-60" : ""}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[14px] font-medium text-soft">亮度</span>
+                        <span className="flex items-center gap-1">
+                          <input type="number" min={1} max={100} inputMode="numeric" value={bri} disabled={disabled}
+                            aria-label={`${name}亮度數值`}
+                            onChange={(e) => setDraftBri(prev => ({ ...prev, [area.id]: Number(e.target.value) }))}
+                            onBlur={() => commitBrightness(area)}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                            className="num h-9 w-14 rounded-full bg-surface px-2 text-center text-base font-semibold text-foreground shadow-[0_1px_4px_-2px_rgba(31,36,43,0.25)] disabled:opacity-50" />
+                          <span className="text-xs text-mute">%</span>
+                        </span>
+                      </div>
+                      <input type="range" min={1} max={100} step={1} value={bri} disabled={disabled}
+                        aria-label={`${name}亮度`}
                         onChange={(e) => setDraftBri(prev => ({ ...prev, [area.id]: Number(e.target.value) }))}
-                        onBlur={() => commitBrightness(area)}
-                        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                        className="num h-[38px] w-16 rounded-full border border-line/70 bg-elevated px-2 text-center text-base font-medium text-soft disabled:opacity-50" />
-                      <span className="text-xs text-mute">%</span>
+                        onPointerUp={() => commitBrightness(area)}
+                        onKeyUp={(e) => { if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(e.key)) commitBrightness(area); }}
+                        className="h-5 w-full min-w-0 cursor-pointer accent-cool disabled:opacity-40" />
                     </div>
-                  </Field>
-                </div>
-                <input type="range" min={1} max={100} step={1} value={bri} disabled={disabled}
-                  aria-label={`${name}亮度`}
-                  onChange={(e) => setDraftBri(prev => ({ ...prev, [area.id]: Number(e.target.value) }))}
-                  onPointerUp={() => commitBrightness(area)}
-                  onKeyUp={(e) => { if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(e.key)) commitBrightness(area); }}
-                  className="h-5 w-full min-w-0 cursor-pointer accent-cool disabled:opacity-40" />
-                {area.color_control && <LightColorControl name={name} value={area.color_control}
-                  total={area.light_count ?? 0} disabled={disabled} onSend={body => sendState(area, body)} />}
-                  <Field label="特效">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Dropdown ariaLabel={`${name}效果`} options={effects.map(effect => ({ value: effect.key, label: `${effect.label}${effect.partial ? " · 部分燈具" : ""}` }))}
-                        value={selectedEffects[area.id]} onSelect={value => setSelectedEffects(prev => ({ ...prev, [area.id]: value }))}
-                        disabled={disabled || !effects.length} placeholder="無效果" className="min-w-0 flex-1" />
-                      <button type="button" className={ACTION_BUTTON} disabled={disabled || !selectedEffects[area.id]} onClick={() => applyEffect(area)}>套用</button>
-                    </div>
-                  </Field>
-                <Field label="場景">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Dropdown ariaLabel={`${name}場景`} options={scenes.map(scene => ({ value: scene.id, label: `${scene.name || scene.id}${scene.resource_type === "smart_scene" ? " · 全天" : ""}` }))}
-                      value={selectedScenes[area.id]} onSelect={(value) => setSelectedScenes(prev => ({ ...prev, [area.id]: value }))}
-                      disabled={disabled || !scenes.length} placeholder="無場景" className="min-w-0 flex-1" />
-                    <button type="button" className={ACTION_BUTTON} disabled={disabled || !selectedScenes[area.id]} onClick={() => applyScene(area)}>
-                      {applyingKey === `scene:${area.id}` && <Loader2 className="h-3.5 w-3.5 animate-spin" />}套用
-                    </button>
                   </div>
-                </Field>
-                <ControlDetails title="區域設定" summary="名稱">
-                  <Field label="顯示名稱">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <input value={draft} aria-label={`${name}顯示名稱`} disabled={busy}
-                        onChange={e => setDraftNames(prev => ({ ...prev, [area.id]: e.target.value }))}
-                        onKeyDown={e => { if (e.key === "Enter" && draft.trim() !== name.trim()) void saveName(area); }}
-                        className="h-[38px] min-w-0 flex-1 rounded-full border border-line/70 bg-elevated px-3 text-base text-soft" />
-                      <button type="button" className={ACTION_BUTTON} disabled={busy || draft.trim() === name.trim()} onClick={() => saveName(area)}>
-                        {savingId === area.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}儲存
-                      </button>
+                  {area.color_control && (
+                    <div className="rounded-[18px] bg-surface-2 px-3.5 py-3">
+                      <LightColorControl name={name} value={area.color_control} total={area.light_count ?? 0} disabled={disabled} onSend={body => sendState(area, body)} />
                     </div>
-                  </Field>
-                  <p className="text-xs text-mute">Hue 名稱：{area.hue_name || "未命名"}</p>
-                </ControlDetails>
-              </article>
-            );
-          })}
+                  )}
+                  <div className="space-y-3 rounded-[18px] bg-surface-2 px-3.5 py-3">
+                    <Field label="場景">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Dropdown ariaLabel={`${name}場景`} options={scenes.map(scene => ({ value: scene.id, label: `${scene.name || scene.id}${scene.resource_type === "smart_scene" ? " · 全天" : ""}` }))}
+                          value={selectedScenes[area.id]} onSelect={(value) => setSelectedScenes(prev => ({ ...prev, [area.id]: value }))}
+                          disabled={disabled || !scenes.length} placeholder="無場景" className="min-w-0 flex-1" />
+                        <button type="button" className={ACTION_BUTTON} disabled={disabled || !selectedScenes[area.id]} onClick={() => applyScene(area)}>
+                          {applyingKey === `scene:${area.id}` && <Loader2 className="h-3.5 w-3.5 animate-spin" />}套用
+                        </button>
+                      </div>
+                    </Field>
+                    <Field label="特效">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Dropdown ariaLabel={`${name}效果`} options={effects.map(effect => ({ value: effect.key, label: `${effect.label}${effect.partial ? " · 部分燈具" : ""}` }))}
+                          value={selectedEffects[area.id]} onSelect={value => setSelectedEffects(prev => ({ ...prev, [area.id]: value }))}
+                          disabled={disabled || !effects.length} placeholder="無效果" className="min-w-0 flex-1" />
+                        <button type="button" className={ACTION_BUTTON} disabled={disabled || !selectedEffects[area.id]} onClick={() => applyEffect(area)}>套用</button>
+                      </div>
+                    </Field>
+                  </div>
+                  <ControlDetails title="區域設定" summary="名稱">
+                    <Field label="顯示名稱">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <input value={draft} aria-label={`${name}顯示名稱`} disabled={busy}
+                          onChange={e => setDraftNames(prev => ({ ...prev, [area.id]: e.target.value }))}
+                          onKeyDown={e => { if (e.key === "Enter" && draft.trim() !== name.trim()) void saveName(area); }}
+                          className="h-[38px] min-w-0 flex-1 rounded-full border border-line/70 bg-elevated px-3 text-base text-soft" />
+                        <button type="button" className={ACTION_BUTTON} disabled={busy || draft.trim() === name.trim()} onClick={() => saveName(area)}>
+                          {savingId === area.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}儲存
+                        </button>
+                      </div>
+                    </Field>
+                    <p className="text-xs text-mute">Hue 名稱：{area.hue_name || "未命名"}</p>
+                  </ControlDetails>
+                </article>
+              );
+            }} />
         </section>
       )}
     </div>
