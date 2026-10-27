@@ -14,9 +14,37 @@ import { Collapse } from "./collapse";
 /** Field label（小字、mute 色、輕微字距）。 */
 export const FIELD_LABEL = "text-xs font-medium text-mute";
 
-/** 設備 panel 容器 className：圓角 22px、surface 底、預設 column flex + gap。 */
+/** 設備 panel 容器 className：與小方塊同一套圓角與陰影（v1.82.0），預設 column flex + gap。 */
 export const PANEL_BASE =
-  "rounded-[22px] border border-line/80 bg-surface p-4 md:p-5 flex flex-col gap-4";
+  "rounded-[24px] border border-line/40 bg-surface p-4 md:p-5 flex flex-col gap-4 shadow-[0_8px_28px_-14px_rgba(31,36,43,0.3)]";
+
+/** iOS 式開關（裝置面板用）：開＝fresh 綠，關＝elevated 灰。 */
+export function Switch({ value, onChange, disabled, label }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={value} aria-label={label} disabled={disabled} onClick={() => onChange(!value)}
+      className={`relative h-[30px] w-[50px] shrink-0 rounded-full transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-45 ${value ? "bg-fresh" : "bg-line-strong/70"}`}>
+      <span className={`absolute top-[3px] h-6 w-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.18)] transition-[left] duration-200 ${value ? "left-[23px]" : "left-[3px]"}`} />
+    </button>
+  );
+}
+
+/** 一組設定列（圓角淺底，列與列之間細線），裡面放 SettingRow。 */
+export function SettingGroup({ children }: { children: React.ReactNode }) {
+  return <div className="divide-y divide-line/60 overflow-hidden rounded-[18px] bg-surface-2">{children}</div>;
+}
+
+/** 設定列：左邊名稱（可加說明），右邊控制元件。 */
+export function SettingRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-[52px] items-center justify-between gap-3 px-3.5 py-2">
+      <span className="min-w-0">
+        <span className="block text-[14px] font-medium text-soft">{label}</span>
+        {hint && <span className="block text-[11.5px] leading-snug text-mute">{hint}</span>}
+      </span>
+      {children}
+    </div>
+  );
+}
 
 /** ON 綠、OFF 中性灰；紅色保留給失敗。整組高 38px，與下拉選單對齊。 */
 export function Toggle2({
@@ -480,11 +508,12 @@ export function IconActionButton({
 export function ControlDetails({ title, summary, children, keepMounted = false }: { title: string; summary?: string; children: React.ReactNode; keepMounted?: boolean }) {
   const [open, setOpen] = useState(false);
   const id = useId();
-  return <div className="border-t border-line/80 pt-1">
-    <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(v => !v)} className="flex min-h-9 w-full items-center justify-between gap-3 rounded-lg py-2 text-left text-sm">
-      <span className="font-medium text-soft">{title}</span>
+  // 圓角淺底的一列（與 SettingGroup 同一套），展開的內容接在同一塊底色裡。
+  return <div className="rounded-[18px] bg-surface-2">
+    <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(v => !v)} className="flex min-h-[48px] w-full items-center justify-between gap-3 rounded-[18px] px-3.5 py-2 text-left text-sm">
+      <span className="text-[14px] font-medium text-soft">{title}</span>
       <span className="flex min-w-0 items-center gap-2 text-xs text-mute"><span className="truncate">{summary}</span><ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} /></span>
     </button>
-    <Collapse id={id} open={open} keepMounted={keepMounted}><div className="space-y-4 pb-2 pt-3">{children}</div></Collapse>
+    <Collapse id={id} open={open} keepMounted={keepMounted}><div className="space-y-4 border-t border-line/60 px-3.5 pb-3.5 pt-3">{children}</div></Collapse>
   </div>;
 }

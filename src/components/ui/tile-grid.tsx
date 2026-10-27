@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Collapse } from "@/components/ui/collapse";
 
@@ -82,6 +82,34 @@ export function CompactTile({ icon: Icon, tone, lit, title, value, text, note, b
   );
 }
 
+/** An open panel's header: the same icon circle and state line as its tile, so the panel reads as the tile opened up. */
+export function PanelHeader({ icon: Icon, tone, title, value, text, actions, onClose }: { icon: LucideIcon; tone: TileTone; title: string;
+  value?: string | null; text?: ReactNode; actions?: ReactNode; onClose: () => void }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-full ${ICON_TONE[tone]}`}>
+        <Icon className="h-[22px] w-[22px]" strokeWidth={1.8} />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-[17px] font-semibold leading-tight text-foreground">{title}</span>
+        {(value || text) && (
+          <span className="mt-1 flex min-w-0 items-baseline gap-1 text-[13px] leading-tight text-mute">
+            {value && <span className="num shrink-0 font-semibold text-foreground">{value}</span>}
+            {text && <span className="truncate">{text}</span>}
+          </span>
+        )}
+      </span>
+      <span className="flex shrink-0 items-center gap-2">
+        {actions}
+        <button type="button" onClick={onClose} aria-label="收合" title="收合"
+          className="grid h-9 w-9 place-items-center rounded-full bg-elevated text-mute transition-colors hover:text-soft">
+          <X className="h-4 w-4" strokeWidth={2.2} />
+        </button>
+      </span>
+    </div>
+  );
+}
+
 /** The corner mark: a red one for something to check, a quiet one for information (e.g. a schedule). */
 export function TileBadge({ icon: Icon, alert }: { icon: LucideIcon; alert: boolean }) {
   return (
@@ -151,9 +179,10 @@ export function TileGrid<T>({ items, keyOf, expanded, renderTile, renderPanel, c
                       height: { duration: reduceMotion ? 0 : 0.28, ease: [0.32, 0.72, 0, 1] },
                       opacity: { duration: reduceMotion ? 0 : 0.18, ease: "easeOut" },
                     }}
-                    className="overflow-hidden"
+                    // 動畫要 overflow-hidden；四周多留一點空間，面板的陰影才不會被切成一條硬邊。
+                    className="-mx-3 -mb-6 overflow-hidden px-3"
                   >
-                    <div className="mt-3">{renderPanel(open)}</div>
+                    <div className="pb-6 pt-3">{renderPanel(open)}</div>
                   </motion.div>
                 )}
               </AnimatePresence>

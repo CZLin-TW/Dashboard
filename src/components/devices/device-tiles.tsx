@@ -1,11 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AlertTriangle, ChevronUp, Clock } from "lucide-react";
+import { AlertTriangle, Clock } from "lucide-react";
 import { PANEL_BASE } from "@/components/ui/device-controls";
 import { DeviceController } from "@/components/ui/device-controller";
 import { ScheduleSection } from "@/components/devices/schedule-section";
-import { CompactTile, TileBadge, TileGrid, type TileTone } from "@/components/ui/tile-grid";
+import { CompactTile, PanelHeader, TileBadge, TileGrid, type TileTone } from "@/components/ui/tile-grid";
 import type { DevicesPage, History } from "@/lib/api";
 import { KIND_ICON, type UiDevice } from "@/lib/devices";
 import { isAttention, schedulesFor } from "@/lib/schedule";
@@ -36,25 +36,11 @@ export function DeviceTiles({ devices, page, onChanged, history = null, allDevic
   panelActions }: Props) {
 
   function renderPanel(device: UiDevice) {
-    const Icon = KIND_ICON[device.kind];
+    const state = compactState(device);
     return (
       <div className={PANEL_BASE}>
-        <div className="flex items-center justify-between gap-2.5">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="grid h-4 w-4 place-items-center text-mute">
-              <Icon className="h-4 w-4" strokeWidth={1.8} />
-            </span>
-            <span className="truncate text-sm font-semibold text-foreground">{device.name}</span>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {panelActions?.(device)}
-            <button type="button" onClick={() => onSelect(null)}
-              className="flex min-h-9 items-center gap-1 rounded-full bg-elevated px-3 text-xs text-mute hover:text-soft">
-              收合
-              <ChevronUp className="h-3.5 w-3.5" strokeWidth={2} />
-            </button>
-          </div>
-        </div>
+        <PanelHeader icon={KIND_ICON[device.kind]} tone={state.tone} title={device.name} value={state.value} text={state.text}
+          actions={panelActions?.(device)} onClose={() => onSelect(null)} />
         {page && <DeviceController device={device} page={page} onChanged={onChanged} history={history} />}
         {page && (
           <ScheduleSection device={device} page={page} schedules={schedulesFor(page, device.name)} allDevices={allDevices}

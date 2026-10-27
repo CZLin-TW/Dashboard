@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState, Suspense, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { LayoutGrid, Activity, AlertTriangle, ArrowUpDown, ChevronUp, Cpu, Clapperboard, Droplet, House, Pin, RefreshCw, Thermometer, User, Zap,
+import { LayoutGrid, Activity, AlertTriangle, ArrowUpDown, Cpu, Clapperboard, Droplet, House, Pin, RefreshCw, Thermometer, User, Zap,
   type LucideIcon } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import { useUser } from "@/hooks/use-user";
 import { PinButton, PANEL_BASE } from "@/components/ui/device-controls";
-import { CompactTile, ExpandRow, TileBadge, TileGrid, type TileTone } from "@/components/ui/tile-grid";
+import { CompactTile, ExpandRow, PanelHeader, TileBadge, TileGrid, type TileTone } from "@/components/ui/tile-grid";
 import { DeviceTiles } from "@/components/devices/device-tiles";
 import { ComputerCard } from "@/components/devices/computer-card";
 import { TheaterSection } from "@/components/devices/theater-section";
@@ -175,7 +175,7 @@ export default function DevicesPage() {
                   const canPin = pinned || pin.canPinMore;
                   return (
                     <>
-                      {!canPin && <span className="text-[11px] text-mute">首頁已釘滿 {pin.MAX_PINNED_DEVICES} 個</span>}
+                      {!canPin && <span className="text-[11px] text-mute">首頁已釘滿</span>}
                       <PinButton pinned={pinned} disabled={!canPin} onClick={() => pin.togglePinDevice(device.name)}
                         title={pinned ? "已釘選至首頁" : canPin ? "釘選至首頁" : `已達上限 ${pin.MAX_PINNED_DEVICES} 個`} />
                     </>
@@ -211,20 +211,12 @@ export default function DevicesPage() {
               const pinned = pin.isSensorPinned(s.name);
               return (
                 <div className={PANEL_BASE}>
-                  <div className="flex items-center justify-between gap-2.5">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <KIND_ICON.sensor className="h-4 w-4 shrink-0 text-mute" strokeWidth={1.8} />
-                      <span className="truncate text-sm font-semibold text-foreground">{s.name || s.location}</span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      <PinButton pinned={pinned} onClick={() => pin.setPinnedSensor(pinned ? null : s.name)}
-                        title={pinned ? "已釘選至首頁" : "釘選至首頁（只能一個）"} />
-                      <button type="button" onClick={() => setExpandedSensor(null)}
-                        className="flex min-h-9 items-center gap-1 rounded-full bg-elevated px-3 text-xs text-mute hover:text-soft">
-                        收合<ChevronUp className="h-3.5 w-3.5" strokeWidth={2} />
-                      </button>
-                    </span>
-                  </div>
+                  <PanelHeader icon={KIND_ICON.sensor} tone={s.available ? "temp" : "unknown"} title={s.name || s.location}
+                    value={s.available && s.temperature != null ? `${s.temperature}°` : null}
+                    text={s.available ? [s.humidity != null ? `${s.humidity}%` : null, s.co2 != null ? `CO₂ ${s.co2} ppm` : null].filter(Boolean).join(" · ") : "沒有讀數"}
+                    actions={<PinButton pinned={pinned} onClick={() => pin.setPinnedSensor(pinned ? null : s.name)}
+                      title={pinned ? "已釘選至首頁" : "釘選至首頁（只能一個）"} />}
+                    onClose={() => setExpandedSensor(null)} />
                   {!s.available && <p className="px-1 text-xs text-mute">目前沒有讀數（Home Assistant 未回報）</p>}
                   {points.length > 0 ? (
                     <SensorChart

@@ -89,7 +89,7 @@ export function ScheduleSection({ device, page, schedules, allDevices, onSchedul
       )}
 
       {showAdd && (
-        <div className="min-w-0 rounded-[14px] border border-line/70 bg-surface-2 p-3">
+        <div className="min-w-0 rounded-[14px] border border-line/70 bg-surface p-3">
           <ScheduleForm mode="add" devices={allDevices} options={page.options} lockedDevice={device.name}
             onSubmit={handleAdd} onCancel={() => setShowAdd(false)} />
         </div>
@@ -101,14 +101,14 @@ export function ScheduleSection({ device, page, schedules, allDevices, onSchedul
             const attention = isAttention(s);
             if (editId === s.id) {
               return (
-                <div key={s.id} className="min-w-0 rounded-[14px] border border-line/70 bg-surface-2 p-3">
+                <div key={s.id} className="min-w-0 rounded-[14px] border border-line/70 bg-surface p-3">
                   <ScheduleForm key={s.id} mode="edit" initial={toFormInitial(s)} devices={allDevices} options={page.options}
                     lockedDevice={device.name} onSubmit={(state) => handleEdit(s, state)} onCancel={() => setEditId(null)} />
                 </div>
               );
             }
             return (
-              <div key={s.id} className="flex min-w-0 flex-wrap items-center gap-2 rounded-[14px] border border-line/70 bg-surface-2 p-3">
+              <div key={s.id} className="flex min-w-0 flex-wrap items-center gap-2 rounded-[14px] border border-line/70 bg-surface p-3">
                 <div className="min-w-0 w-full">
                   <p className="text-[13px] text-foreground">
                     {scheduleText(s.params)}{s.source === "auto_off" && <span className="ml-2 text-xs text-mute">· 自動產生</span>}
