@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, Suspense, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { LayoutGrid, Activity, AlertTriangle, ArrowUpDown, Cpu, Clapperboard, Droplet, House, Pin, RefreshCw, Thermometer, User, Zap,
+import { Activity, AlertTriangle, ArrowUpDown, Cpu, Clapperboard, Droplet, House, Pin, RefreshCw, Thermometer, User, Zap,
   type LucideIcon } from "lucide-react";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
@@ -10,6 +10,7 @@ import { usePinnedDevices } from "@/hooks/use-pinned-devices";
 import { useUser } from "@/hooks/use-user";
 import { PinButton, PANEL_BASE } from "@/components/ui/device-controls";
 import { CompactTile, ExpandRow, PanelHeader, TileBadge, TileGrid, type TileTone } from "@/components/ui/tile-grid";
+import { PageHeader } from "@/components/ui/page-header";
 import { DeviceTiles } from "@/components/devices/device-tiles";
 import { ComputerCard } from "@/components/devices/computer-card";
 import { TheaterSection } from "@/components/devices/theater-section";
@@ -132,18 +133,12 @@ export default function DevicesPage() {
 
       {/* ── 裝置控制：每個房間一個標題（附那個房間的溫濕度與有沒有人），下面是設備方塊，點了才展開控制 ── */}
       <section className="space-y-5">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
-            <LayoutGrid className="h-4 w-4" strokeWidth={2} />
-            裝置控制
-          </h1>
-          {canOrderRooms && !orderingRooms && (
-            <button type="button" onClick={() => setOrderingRooms(true)}
-              className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-foreground/5">
-              <ArrowUpDown className="h-3.5 w-3.5" />房間順序
-            </button>
-          )}
-        </div>
+        <PageHeader title="裝置" actions={canOrderRooms && !orderingRooms ? (
+          <button type="button" onClick={() => setOrderingRooms(true)}
+            className="inline-flex h-[38px] items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-[13px] font-medium text-soft transition-colors hover:bg-elevated">
+            <ArrowUpDown className="h-4 w-4" />房間順序
+          </button>
+        ) : undefined} />
         {orderingRooms && data && (
           <RoomOrderEditor rooms={data.rooms} onSaved={page.refetch} onClose={() => setOrderingRooms(false)} />
         )}
@@ -157,7 +152,7 @@ export default function DevicesPage() {
           return (
             <div key={location} className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-1">
-                <h2 className="text-[19px] font-semibold tracking-tight text-foreground">{location}</h2>
+                <h3 className="text-[19px] font-semibold tracking-tight text-foreground">{location}</h3>
                 {summary.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {summary.map(({ key, text, Icon, tone }) => (
@@ -190,10 +185,10 @@ export default function DevicesPage() {
 
       {/* ── 環境感測：每個感測器一個小方塊（當下讀數），點了才展開 24 小時圖與釘選 ── */}
       <section className="space-y-3">
-        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
+        <h2 className="flex items-center gap-2 pt-2 text-sm font-semibold text-mute">
           <Activity className="h-4 w-4" strokeWidth={2} />
           環境感測
-        </h1>
+        </h2>
         {sensors.length > 0 ? (
           <TileGrid items={sensors} keyOf={(s) => s.name} expanded={expandedSensor} cols={[2, 4]}
             renderTile={(s, active) => {
@@ -247,10 +242,10 @@ export default function DevicesPage() {
           「中繼壞掉」跟「這個家沒有劇院」長得一模一樣，那正是 v1.58.1 查了很久的症狀。
           收起來時有狀況要看得出來：摘要變紅、圖示變紅。 */}
       <section className="space-y-3">
-        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
+        <h2 className="flex items-center gap-2 pt-2 text-sm font-semibold text-mute">
           <Zap className="h-4 w-4" strokeWidth={2} />
           自動化
-        </h1>
+        </h2>
         <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
           <ExpandRow icon={House} {...automationSummary}>
             <Card>
@@ -296,10 +291,10 @@ export default function DevicesPage() {
 
       {/* ── 電腦：每台一行摘要，點了展開原本的卡（圖表、劇院） ── */}
       <section className="space-y-3">
-        <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
+        <h2 className="flex items-center gap-2 pt-2 text-sm font-semibold text-mute">
           <Cpu className="h-4 w-4" strokeWidth={2} />
           電腦
-        </h1>
+        </h2>
         {computers.length === 0 ? (
           <p className="px-1 text-sm text-mute">目前沒有電腦在線（agent 啟動後會自動出現）</p>
         ) : (

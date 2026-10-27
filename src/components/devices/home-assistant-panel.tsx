@@ -25,7 +25,7 @@ export function HomeAssistantPanel({ data, error, loading, updatedAt, isStale, r
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-mute">
+        <h2 className="flex items-center gap-2 pt-2 text-sm font-semibold text-mute">
           <House className="h-4 w-4" />空間感測
         </h2>
         <div className="flex items-center gap-3">

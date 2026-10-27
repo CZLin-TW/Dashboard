@@ -10,6 +10,7 @@ import { HB, type DevicesPage, type HomePage as HomeData, type Weather } from "@
 import { devicesOf } from "@/lib/devices";
 import { WeatherCard } from "@/components/home/weather-card";
 import { IndoorSensorCard } from "@/components/home/indoor-sensor-card";
+import { PageHeader } from "@/components/ui/page-header";
 import { DeviceQuickControl } from "@/components/home/device-quick-control";
 import { TodoListCard } from "@/components/home/todo-list-card";
 import { FoodAlertCard } from "@/components/home/food-alert-card";
@@ -46,13 +47,8 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 md:space-y-7">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-sm text-mute">{currentUser ? `你好，${currentUser.name}` : "歡迎回家"}</p>
-          <h1 className="text-[28px] font-semibold tracking-tight text-foreground md:text-[32px]">居家總覽</h1>
-        </div>
-        <span className="mb-1 text-xs text-mute">環境・設備・生活</span>
-      </div>
+      <PageHeader title="居家總覽" eyebrow={currentUser ? `你好，${currentUser.name}` : "歡迎回家"}
+        actions={<span className="text-xs text-mute">環境・設備・生活</span>} />
       <div className="grid grid-cols-2 items-start gap-3 md:gap-5">
         <WeatherCard weather={weather} loading={today.loading || tomorrow.loading} />
         <IndoorSensorCard sensor={pinnedSensor} page={devices.data} />

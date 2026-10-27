@@ -17,6 +17,7 @@ import { LightColorControl } from "@/components/light-color-control";
 import type { LightColorState, LightStateCommand } from "@/lib/light-color";
 import { Dropdown, Field, ControlDetails, PANEL_BASE, SettingRow, Switch } from "@/components/ui/device-controls";
 import { CompactTile, PanelHeader, TileGrid, type TileTone } from "@/components/ui/tile-grid";
+import { PageHeader } from "@/components/ui/page-header";
 
 interface LightingScene {
   id: string;
@@ -318,22 +319,16 @@ export default function LightingPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-2">
-          <h1 className="flex items-center gap-2 text-sm font-semibold text-mute">
-            <Lightbulb className="h-4 w-4" strokeWidth={2} />照明控制
-          </h1>
-          <p className="flex flex-wrap items-center gap-2 text-xs text-mute">
-            {payload.agent_id && !error ? <Wifi className="h-3.5 w-3.5 text-fresh" /> : <WifiOff className="h-3.5 w-3.5" />}
-            <span>{error ? "連線未確認" : payload.agent_id === "home_assistant" ? "Home Assistant" : payload.agent_id ? "家庭照明" : "等待照明連線"}</span>
-            <span>· {areas.length} 個區域</span>
-          </p>
-        </div>
-        <button type="button" onClick={loadAreas} disabled={busy}
+      <PageHeader title="照明"
+        subtitle={<>
+          {payload.agent_id && !error ? <Wifi className="h-3.5 w-3.5 text-fresh" /> : <WifiOff className="h-3.5 w-3.5" />}
+          <span>{error ? "連線未確認" : payload.agent_id === "home_assistant" ? "Home Assistant" : payload.agent_id ? "家庭照明" : "等待照明連線"}</span>
+          <span>· {areas.length} 個區域</span>
+        </>}
+        actions={<button type="button" onClick={loadAreas} disabled={busy}
           className="inline-flex h-[38px] items-center gap-2 rounded-full border border-line bg-surface px-3 text-[13px] font-medium text-soft hover:bg-elevated disabled:opacity-50">
           <RefreshCw className={`h-4 w-4 ${lighting.loading ? "animate-spin" : ""}`} />重新整理
-        </button>
-      </header>
+        </button>} />
 
       {(error || actionError) && <div role="alert" className="rounded-[14px] border border-warm/25 bg-warm-bg px-3.5 py-3 text-sm text-warm">{error || actionError}</div>}
       {notice && !error && !actionError && <div role="status" className="rounded-[14px] border border-fresh/20 bg-fresh-bg px-3.5 py-3 text-sm text-fresh">{notice}</div>}
