@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Lock, Pencil, X, Check, Lightbulb, Repeat } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
+import { ListRow } from "@/components/ui/list-row";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapse } from "@/components/ui/collapse";
 import {
@@ -39,6 +40,11 @@ const WEEKDAYS: { value: number; label: string }[] = [
 const MONTH_DAY_OPTIONS: { value: number; label: string }[] =
   Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: `${i + 1} 號` }));
 const VISIBILITY_LABEL = { private: "私人", public: "公開" } as const;
+
+/** "10/27" this year, the full date otherwise. */
+function shortDate(date: string): string {
+  return date.startsWith(`${new Date().getFullYear()}-`) ? date.slice(5).replace("-", "/") : date;
+}
 
 interface RecurState {
   type: RecurrenceRule;
@@ -457,17 +463,26 @@ export default function TodosPage() {
               // 已 highlight 的 row 不再加 hover bg（會 muddy 兩層底色）
               const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
 
+              const rel = relativeDateLabel(todo.due_date ?? "");
+              // 第二行：私人／公開、日期（相對日）時間、燈光區域、負責人、來源。手機上維持兩行，動作收在「⋯」。
+              const meta = [
+                todo.due_date ? `${shortDate(todo.due_date)}${rel ? `(${rel})` : ""}${todo.due_time ? ` ${todo.due_time}` : ""}` : null,
+                lightNotify && lightAreaName ? lightAreaName : null,
+                todo.assignee && todo.assignee !== myName ? todo.assignee : null,
+                todo.source === "notion" ? "來自 Notion" : null,
+              ].filter(Boolean).join(" · ");
+
               return (
-                <li
-                  key={todo.id}
-                  className={`flex items-center gap-3 rounded-[12px] px-3 py-2.5 transition-all duration-500 ${urgencyCls} ${hoverCls} ${
-                    completing ? "opacity-40 line-through scale-95" : ""
-                  }`}
-                >
+                <ListRow key={todo.id}
+                  className={`transition-all duration-500 ${urgencyCls} ${hoverCls} ${completing ? "opacity-40 line-through scale-95" : ""}`}
+                  actions={isReadonly ? undefined : [
+                    { label: "編輯", icon: <Pencil className="h-3.5 w-3.5" strokeWidth={2} />, onClick: () => startEdit(todo) },
+                    { label: "刪除", icon: <X className="h-3.5 w-3.5" strokeWidth={2} />, onClick: () => deleteTodo(todo), tone: "danger" },
+                  ]}>
                   <button
                     onClick={() => !completing && completeTodo(todo)}
                     disabled={completing}
-                    className={`flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors ${
+                    className={`flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center rounded-[6px] border-[1.5px] transition-colors ${
                       completing
                         ? "border-fresh bg-fresh text-white"
                         : "border-line-strong bg-surface hover:border-fresh hover:bg-fresh/15"
@@ -477,49 +492,20 @@ export default function TodosPage() {
                     {completing && <Check className="h-3 w-3" strokeWidth={3} />}
                   </button>
                   <div className="flex-1 min-w-0">
-                    <p className="flex items-center gap-1.5 text-sm text-foreground">
-                      {todo.title}
-                      {isReadonly && <Lock className="h-3 w-3 text-faint" strokeWidth={2} />}
-                      {lightNotify && <Lightbulb className="h-3 w-3 text-amber" strokeWidth={2} />}
+                    <p className="flex min-w-0 items-center gap-1.5 text-[15px] text-foreground">
+                      <span className="truncate">{todo.title}</span>
+                      {isReadonly && <Lock className="h-3 w-3 shrink-0 text-faint" strokeWidth={2} />}
+                      {lightNotify && <Lightbulb className="h-3 w-3 shrink-0 text-amber" strokeWidth={2} />}
                       {todo.template_id !== null && (
-                        <Repeat className="h-3 w-3 text-cool" strokeWidth={2} aria-label="週期任務" />
+                        <Repeat className="h-3 w-3 shrink-0 text-cool" strokeWidth={2} aria-label="週期任務" />
                       )}
                     </p>
-                    <p className="num text-xs text-mute">
-                      {todo.due_date}
-                      {(() => {
-                        const rel = relativeDateLabel(todo.due_date ?? "");
-                        return rel ? ` (${rel})` : "";
-                      })()}
-                      {todo.due_time && ` ${todo.due_time}`}
-                      {lightNotify && lightAreaName && ` · ${lightAreaName}`}
-                      {todo.assignee && todo.assignee !== myName && ` · ${todo.assignee}`}
-                      {todo.source === "notion" && " · 來自 Notion"}
+                    <p className="num mt-0.5 text-xs leading-snug text-mute">
+                      <span className={`mr-1.5 font-medium ${isPublic ? "text-mute" : "text-cool"}`}>{VISIBILITY_LABEL[todo.visibility]}</span>
+                      {meta}
                     </p>
                   </div>
-                  <span
-                    className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11.5px] font-medium ${
-                      isPublic ? "bg-elevated text-mute" : "bg-cool-bg text-cool"
-                    }`}
-                  >
-                    {VISIBILITY_LABEL[todo.visibility]}
-                  </span>
-                  {!isReadonly && (
-                    <div className="flex items-center gap-1">
-                      <IconActionButton
-                        onClick={() => startEdit(todo)}
-                        title="編輯"
-                        icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
-                      />
-                      <IconActionButton
-                        onClick={() => deleteTodo(todo)}
-                        tone="danger"
-                        title="刪除"
-                        icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
-                      />
-                    </div>
-                  )}
-                </li>
+                </ListRow>
               );
             })}
           </ul>

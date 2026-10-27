@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { Plus, Pencil, X } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
+import { ListRow } from "@/components/ui/list-row";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapse } from "@/components/ui/collapse";
 import {
   Field,
   PillButton,
-  IconActionButton,
 } from "@/components/ui/device-controls";
 import { expiryLabel, foodUrgency, urgencyRowClass } from "@/lib/types";
 import { useCachedFetch } from "@/hooks/use-cached-fetch";
@@ -205,34 +205,22 @@ export default function FoodPage() {
               const hoverCls = urgencyCls ? "" : "hover:bg-elevated/50";
 
               return (
-                <div
-                  key={item.id}
-                  className={`flex items-center gap-3 rounded-[12px] px-3 py-2.5 transition-colors ${urgencyCls} ${hoverCls}`}
-                >
+                <ListRow key={item.id} as="div" className={`transition-colors ${urgencyCls} ${hoverCls}`}
+                  trailing={<span className={`num flex-shrink-0 text-xs ${exp.cls}`}>{exp.text}</span>}
+                  actions={[
+                    { label: "編輯", icon: <Pencil className="h-3.5 w-3.5" strokeWidth={2} />, onClick: () => startEdit(item) },
+                    { label: "刪除", icon: <X className="h-3.5 w-3.5" strokeWidth={2} />, onClick: () => deleteFood(item), tone: "danger" },
+                  ]}>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground">
+                    <p className="truncate text-[15px] text-foreground">
                       <span className="font-semibold">{item.name}</span>
                       <span className="num ml-2 text-mute">
                         {item.quantity} {item.unit}
                       </span>
                     </p>
-                    {item.added_by && <p className="text-xs text-mute">{item.added_by} 新增</p>}
+                    {item.added_by && <p className="mt-0.5 text-xs text-mute">{item.added_by} 新增</p>}
                   </div>
-                  <span className={`num flex-shrink-0 text-xs ${exp.cls}`}>{exp.text}</span>
-                  <div className="flex items-center gap-1">
-                    <IconActionButton
-                      onClick={() => startEdit(item)}
-                      title="編輯"
-                      icon={<Pencil className="h-3.5 w-3.5" strokeWidth={2} />}
-                    />
-                    <IconActionButton
-                      onClick={() => deleteFood(item)}
-                      tone="danger"
-                      title="刪除"
-                      icon={<X className="h-3.5 w-3.5" strokeWidth={2} />}
-                    />
-                  </div>
-                </div>
+                </ListRow>
               );
             })}
           </div>
