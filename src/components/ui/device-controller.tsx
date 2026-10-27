@@ -76,9 +76,7 @@ function AcControl({ ac, page, onChanged }: { ac: Ac; page: DevicesPage; onChang
 
   return (
     <>
-      <p className="text-xs text-mute">
-        {ac.uncertain ? "上次指令結果未知，請先確認空調；可重新指定完整設定。" : `由 HA 管理 · 狀態為最後下達的設定 · ${ago(ac.updated_at)}更新`}
-      </p>
+      {ac.uncertain && <p className="text-xs text-warm">上次指令結果未知，請先確認空調；可重新指定完整設定。</p>}
       <StatusLine
         tone={sending ? "waiting" : ac.power === "on" ? "running" : "off"}
         text={sending ? (p.power ? `送出中：${p.temperature}°C ${label(options.modes, p.mode)} ${label(options.fan_speeds, p.fan)}` : "送出中：關閉")
@@ -252,8 +250,7 @@ function IrControl({ ir }: { ir: Ir }) {
           );
         })}
       </div>
-      {failed ? <p className="mt-2 text-xs text-warm">{failed.button}：{failed.message}</p>
-        : <p className="mt-2 text-xs text-mute">IR 為單向發送，不會回傳裝置狀態</p>}
+      {failed && <p className="mt-2 text-xs text-warm">{failed.button}：{failed.message}</p>}
     </Field>
   );
 }

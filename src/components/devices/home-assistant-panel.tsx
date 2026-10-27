@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { House, SquarePen, Sun, Users } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 import { haIsFresh, observationText, type HaSnapshot } from "@/lib/home-assistant";
-import { PANEL_BASE } from "@/components/ui/device-controls";
+import { CompactTile } from "@/components/ui/tile-grid";
 
 /** Presence from the devices page's own read (refreshed by the page every few seconds). */
 export function HomeAssistantPanel({ data, error, loading, updatedAt, isStale, refetch }: { data: HaSnapshot | null; error: string | null;
@@ -45,19 +45,16 @@ export function HomeAssistantPanel({ data, error, loading, updatedAt, isStale, r
       {!data?.observations.length && <p className="rounded-xl border border-line p-4 text-sm text-mute">
         {loading && !data ? "正在讀取感測器…" : fresh ? "請在 Home Assistant 的 Home Butler 設定選取要同步的感測器。" : "連接家庭中樞後，可在這裡查看各區域是否有人與目前亮度。"}
       </p>}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* 每個區域一個小方塊：有人的亮綠色，沒人的退成外框；亮度有讀數時亮起。 */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {data?.observations.map(item => {
-          const Icon = item.kind === "occupancy" ? Users : Sun;
-          return <div key={item.id} className={PANEL_BASE}>
-            <div className="flex items-center gap-2">
-              <Icon className="h-4 w-4 shrink-0 text-mute" />
-              <h3 className="min-w-0 break-words text-base font-semibold">{item.name}</h3>
-            </div>
-            <p className="text-xs text-mute">{item.area || "未指定空間"} · {item.kind === "occupancy" ? "存在感測" : "亮度"}</p>
-            <p className={`text-2xl font-semibold tabular-nums ${fresh && item.available ? "text-foreground" : "text-mute"}`}>
-              {observationText(item, fresh)}
-            </p>
-          </div>;
+          const text = observationText(item, fresh);
+          const known = fresh && item.available && item.value !== null;
+          const occupied = item.kind === "occupancy" && known && item.value === true;
+          return <CompactTile key={item.id} icon={item.kind === "occupancy" ? Users : Sun}
+            tone={!known ? "unknown" : item.kind === "occupancy" ? (occupied ? "fresh" : "off") : "amber"}
+            lit={occupied || (item.kind === "illuminance" && known)} title={item.name}
+            value={text} text={item.area ? `· ${item.area}` : undefined} />;
         })}
       </div>
       {!!data?.received_at && <p className="text-xs text-mute">

@@ -128,17 +128,21 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 
 一頁式總覽，快速掌握家庭狀態：
 - **環境摘要**：室外天氣與室內感測器並列，突出溫度、濕度與 CO₂；點擊室內數值可在下方展開全寬 24h 趨勢
-- **裝置快捷**：釘選設備 tile 網格（手機 2 欄、桌機 4 欄），直接顯示狀態與主要數值，點擊展開控制面板；冷氣數值註明「上次設定」，一般紅外線遙控器不推測電源狀態
+- **常用設備**：釘選設備的小方塊（手機 2 欄、桌機 4 欄，與裝置頁同一套 `DeviceTiles`），點擊在那一排下面展開控制面板；一般紅外線遙控器不推測電源狀態
 - **分層控制**：冷氣電源與溫度優先顯示，模式與風速可展開；除濕機電源／自動模式常駐，監控參數、手動模式與濕度趨勢按需展開
 - **今日待辦**：未來 5 天內 + 已過期的「自己 + 公開」項目（最多 5 筆），可勾選完成
 - **食品到期提醒**：5 天內 + 已過期項目，全列出
 
 ### 設備 `/devices`
 
-包括裝置控制、HA 空間感測、環境感測與電腦監控。**裝置控制排在最前面**：家電控制是這頁的主要用途，感測圖表與 PC 監控是輔助資訊，不該擋在它前面。
+包括裝置控制、HA 空間感測、環境感測、自動化與電腦監控。**裝置控制排在最前面**：家電控制是這頁的主要用途，感測圖表與 PC 監控是輔助資訊，不該擋在它前面。
+
+**版面（v1.81.0）**：全頁用同一種小方塊（`components/ui/tile-grid.tsx`，比照 Apple 家庭的小方塊：圓形圖示在左、名稱與狀態在右）。在運轉、有人、有狀況的方塊「亮起來」（實心＋上色圖示），關著的退成透明外框。控制、圖表、完整卡片都是點了才在下面展開；正常時不顯示「幾秒前更新」之類的說明，只在異常時出現。
 
 **裝置控制**（H1）
 - 按房間分群顯示所有可控設備；房間順序全家共用，成員按標題列的「房間順序」用上下鍵調整（遙控器看不到這個按鈕）。沒有位置的設備放最後的「其他」
+- 房間標題右邊是那個房間的小膠囊：溫度、濕度（該房間第一個有讀數的感測器）與有人／無人（空間感測，只有成員看得到）
+- 每台設備一個小方塊：狀態與主要數值（例如「26° 冷氣・自動」）；有排程時圖示角落有時鐘、待確認時是紅色驚嘆號。點了展開完整控制，全頁同時只展開一台
 - 空調：ON/OFF + 溫度調整（步幅 1°C，範圍依後端 options）+ 模式 + 風速 + 送出設定按鈕（dirty 才亮）
 - 除濕機：
   - 手動：電源 toggle / 模式 / 目標濕度（操作後每秒輪詢單台雲端狀態，最多 30 秒）
@@ -146,18 +150,16 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
   - 啟用期間電源 / 模式 / 感測器鎖住；自動模式開關、監控時間與目標濕度可調整，設定送出期間再暫時鎖定；手動的「目標濕度」segment 隱藏（連續除濕模式下沒意義）
   - 規則 phase 為 armed_above / armed_below / sensor_lost_warning 時顯示倒數提示
 - IR 設備：自訂按鈕面板
-- 每個 panel 右上 PinButton 釘選到首頁（最多 4 個）
+- 展開後的面板右上 PinButton 釘選到首頁（最多 4 個；釘滿時旁邊提示）
 
 **環境感測**（H1）
-- 感測器卡（grid，桌機 3 欄、手機 1 欄），依房間順序排列
-- 每張卡片標題 = sheet 裝置名稱
-- 卡片頂部大字 readout（°C · % · ppm），CO2 sensor 多顯示 ppm 欄
-- 24h chart：溫度（warm）+ 濕度（cool）+（可選）CO2（amber）三條獨立 panel 堆疊
+- 每個感測器一個小方塊（手機 2 欄、桌機 4 欄），依房間順序排列，顯示溫度、濕度，有 CO2 的多一行 ppm
+- 點方塊才展開 24h chart：溫度（warm）+ 濕度（cool）+（可選）CO2（amber）三條獨立 panel 堆疊
 - chart 背景疊該 sensor 位置對應的 AC on 區段色塊（看冷氣何時開）
-- 右上 PinButton 釘選一個到首頁
+- 展開後的面板右上 PinButton 釘選一個到首頁（被釘選的方塊角落有圖釘）
 
 **電腦**（H1）
-- 列出所有最近有 heartbeat 的 PC（依 IP 排序，桌機 2 欄、手機 1 欄）
+- 列出所有最近有 heartbeat 的 PC（依 IP 排序，桌機 2 欄、手機 1 欄）。每台平常收成一行摘要（CPU 使用率與溫度；離線紅色、記憶體壓力警告以上琥珀色），點了展開下面的完整卡片
 - 卡頭：hostname（缺值退回 IP）、IP + 在線指示燈（綠/灰）+ 「N 分鐘前回報」
 - 文字只有兩行：`CPU：型號  N%` / `GPU：型號  N%`，Windows 在右側另有各自的 `N°C`（CPU 深海藍、GPU 陶土，與圖上的線同色）。缺值顯示 unavailable，零值仍顯示 0%／0°C。其餘當下數值都看圖，不另外寫成文字
 - 折線圖 1（%）：CPU、GPU，以及第三條記憶體線——Windows／舊 agent 是 RAM 使用率，有 memory_pressure 的 Mac 是記憶體壓力百分比。三條線各用固定顏色（記憶體是青綠）。level-only 舊資料與回報中斷留空
@@ -285,6 +287,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 |------|------|
 | card.tsx | 通用 Card 容器（圓角 18px、surface 底） |
 | device-controls.tsx | 視覺 primitives：Toggle2 / Stepper / Segment / Field / PinButton / StatusLine / ClimateReadout / TabsPill / PillButton / IconActionButton + `PANEL_BASE` / `FIELD_LABEL` className |
+| tile-grid.tsx | `CompactTile`（小方塊）、`TileBadge`（圖示角落標記）、`ExpandRow`（點了在下面展開的一行）、`TileGrid`（方塊網格，展開的面板放在那一排下面，手機與寬螢幕各排一套） |
 | device-controller.tsx | `<DeviceController />` 整合 AC/DH/IR 完整控制邏輯（state + send + render fields），裝置頁跟首頁 device-quick-control 共用同一份；caller 只需提供 outer wrapper + 兩個 refetch callback |
 
 ### 頁面組合 (`components/home/`)
@@ -293,7 +296,7 @@ Dashboard 也提供基本 PWA 設定：`/manifest.webmanifest`、192/512/maskabl
 |------|------|
 | weather-card.tsx | 天氣總覽（用 ClimateReadout 顯示溫濕度，內含 `<WxIcon>` stable component） |
 | indoor-sensor-card.tsx | 室內感測器即時值（用 ClimateReadout） |
-| device-quick-control.tsx | 首頁釘選裝置 tile 網格 + 點擊展開 motion 動畫 panel（內部 compose `<DeviceController />` + `<ScheduleSection />`） |
+| device-quick-control.tsx | 首頁「常用設備」：標題與空狀態，方塊與展開面板用 `components/devices/device-tiles.tsx` |
 | todo-list-card.tsx | 我的待辦（用 useCompleteTodo hook；燈光提醒項目顯示燈泡 icon） |
 | food-alert-card.tsx | 即期食品 |
 
