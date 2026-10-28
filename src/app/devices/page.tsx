@@ -19,7 +19,7 @@ import { Card } from "@/components/ui/card";
 import { HomeAssistantPanel } from "@/components/devices/home-assistant-panel";
 import { SensorChart } from "@/components/devices/lazy-charts";
 import { RoomOrderEditor } from "@/components/devices/room-order-editor";
-import { memoryPressureDisplay, relativeFromHeartbeat, validSocTemperature, type ComputerPC } from "@/lib/computer";
+import { memoryPressureDisplay, relativeFromHeartbeat, validSocTemperature, watchdogSummary, watchdogViews, type ComputerPC } from "@/lib/computer";
 import { THEATER_TV_STATE_LABELS, type TheaterFlagKey, type TheaterSummary } from "@/lib/theater";
 import { computeSensorDomains } from "@/lib/sensor";
 import { HB, ago, send, type DevicesPage as PageData, type History } from "@/lib/api";
@@ -361,6 +361,11 @@ function computerSummary(pc: ComputerPC): RowSummary {
   const soc = validSocTemperature(pc.current?.smc_temperature?.tcmb_c);
   const temp = soc ?? pc.current?.cpu_temp_c ?? null;
   const parts = [pc.current?.cpu_pct != null ? `CPU ${Math.round(pc.current.cpu_pct)}%` : null, temp != null ? `${Math.round(temp)}°C` : null].filter(Boolean).join(" · ");
+  // 背景服務停了或暫停：收合的方塊上就要看得到，不必點開卡片。
+  const watchdogs = watchdogSummary(watchdogViews(pc.current?.watchdogs, pc.online) ?? []);
+  if (watchdogs && watchdogs.state !== "ok") {
+    return { title, tone: "amber", lit: true, text: <span className="text-amber">{watchdogs.text.replace(/^背景服務：/, "")}</span>, note: <span className="text-mute">{parts}</span> };
+  }
   const level = pc.current?.memory_pressure?.level;
   if (level === "warning" || level === "critical") {
     return { title, tone: "amber", lit: true, text: <span className="text-amber">記憶體壓力{memoryPressureDisplay(level).label}</span>, note: <span className="text-mute">{parts}</span> };

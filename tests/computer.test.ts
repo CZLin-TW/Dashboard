@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatComputerMetric, toChartHistory, validSocTemperature, memoryPressureDisplay, validMemoryPressure, memoryPressureColor, validSystemPower, powerAxisMax } from "../src/lib/computer";
+import { formatComputerMetric, toChartHistory, validSocTemperature, memoryPressureDisplay, validMemoryPressure, memoryPressureColor, validSystemPower, powerAxisMax, watchdogViews, watchdogSummary } from "../src/lib/computer";
 
 test("computer metrics distinguish unavailable from real zero and preserve history gaps", () => {
   for (const value of [null, undefined, NaN, Infinity]) {
@@ -58,4 +58,24 @@ test("whole-machine power charts on its own axis; invalid values and gaps are un
   assert.equal(powerAxisMax([{ power: 3.2 }, { power: null }]), 10);
   assert.equal(powerAxisMax([{ power: 12.1 }]), 15);
   assert.equal(powerAxisMax([{ power: 40 }]), 40);
+});
+
+test("watchdogs: named in Chinese, problems named in the summary, unknown when the computer is offline", () => {
+  assert.equal(watchdogViews(undefined, true), null);
+  assert.equal(watchdogViews(null, true), null);
+  const raw = [
+    { name: "funnel", healthy: true, last_action: "2026-10-26 04:12:05 turning the Funnel off and on" },
+    { name: "ha-core", healthy: false, paused: true },
+    { name: "ha-webhook-relay", healthy: false },
+    { name: "something-new", healthy: true },
+    { healthy: true },
+  ];
+  const views = watchdogViews(raw, true)!;
+  assert.deepEqual(views.map(v => [v.label, v.state, v.lastAction]), [
+    ["外網通道看門狗", "ok", "10/26 04:12"], ["HA 看門狗", "paused", null], ["SwitchBot 轉送", "down", null], ["something-new", "ok", null]]);
+  assert.deepEqual(watchdogSummary(views), { state: "down", text: "背景服務：HA 看門狗已暫停、SwitchBot 轉送沒在跑" });
+  assert.deepEqual(watchdogSummary(watchdogViews([raw[0], raw[3]], true)!), { state: "ok", text: "背景服務 2 個都正常" });
+  assert.equal(watchdogSummary(watchdogViews(raw, false)!)!.state, "unknown");
+  assert.ok(watchdogViews(raw, false)!.every(v => v.state === "unknown"));
+  assert.equal(watchdogSummary([]), null);
 });

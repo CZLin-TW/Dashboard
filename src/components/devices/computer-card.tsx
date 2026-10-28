@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
-import { Cpu } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronDown, Cpu } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Collapse } from "@/components/ui/collapse";
 import { TheaterSection } from "@/components/devices/theater-section";
 import { ComputerCharts } from "@/components/devices/lazy-charts";
 import {
@@ -12,6 +13,11 @@ import {
   type ComputerPC,
   relativeFromHeartbeat,
   toChartHistory,
+  watchdogDotClass,
+  watchdogStateLabel,
+  watchdogSummary,
+  watchdogViews,
+  type WatchdogView,
 } from "@/lib/computer";
 import type { TheaterFlagKey, TheaterSummary } from "@/lib/theater";
 
@@ -64,6 +70,47 @@ function MetricBlock({
   );
 }
 
+/** 背景服務：一行摘要，點開列出每一個。有狀況時摘要直接點名，不必點開也看得到。 */
+function WatchdogSection({ views }: { views: WatchdogView[] }) {
+  const [open, setOpen] = useState(false);
+  const summary = watchdogSummary(views);
+  if (!summary) return null;
+  return (
+    <div className="rounded-[12px] bg-elevated/40">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
+      >
+        <span className={`h-2 w-2 flex-shrink-0 rounded-full ${watchdogDotClass(summary.state)}`} aria-hidden />
+        <span className={summary.state === "paused" || summary.state === "down" ? "font-semibold text-foreground" : "text-mute"}>{summary.text}</span>
+        <ChevronDown className={`ml-auto h-4 w-4 flex-shrink-0 text-mute transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      <Collapse open={open}>
+        <ul className="space-y-2 px-3 pb-2.5">
+          {views.map((v) => (
+            <li key={v.name} className="flex items-start gap-2 text-sm">
+              <span className={`mt-[7px] h-1.5 w-1.5 flex-shrink-0 rounded-full ${watchdogDotClass(v.state)}`} aria-hidden />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="text-foreground">{v.label}</span>
+                  <span className="flex-shrink-0 text-xs text-mute">{watchdogStateLabel(v.state)}</span>
+                </span>
+                {(v.role || v.lastAction) && (
+                  <span className="block text-xs text-mute">
+                    {v.role}{v.role && v.lastAction ? " · " : ""}{v.lastAction && <span className="num">上次動手 {v.lastAction}</span>}
+                  </span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Collapse>
+    </div>
+  );
+}
+
 export function ComputerCard({
   pc,
   tempDomain,
@@ -84,6 +131,8 @@ export function ComputerCard({
   // 當下數值都在圖上；只有系統回報記憶體壓力異常時才用文字提示（折線顏色看不出等級）。
   const pressureLevel = pc.online ? pc.current?.memory_pressure?.level : null;
   const pressureAlert = pressureLevel === "warning" || pressureLevel === "critical" ? memoryPressureDisplay(pressureLevel) : null;
+  const rawWatchdogs = pc.current?.watchdogs;
+  const watchdogs = useMemo(() => watchdogViews(rawWatchdogs, pc.online), [rawWatchdogs, pc.online]);
 
   return (
     <Card>
@@ -129,6 +178,8 @@ export function ComputerCard({
       {pressureAlert && (
         <p className="px-1 text-sm text-mute">記憶體壓力：<span className={`font-semibold ${pressureAlert.color}`}>{pressureAlert.label}</span></p>
       )}
+
+      {watchdogs && <WatchdogSection views={watchdogs} />}
 
       {!hasHistory ? (
         <p className="px-1 text-sm text-mute">等待 agent heartbeat 累積資料...</p>

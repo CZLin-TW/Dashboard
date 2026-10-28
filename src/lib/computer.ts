@@ -15,7 +15,18 @@ export interface ComputerHistoryRaw {
   system_power_w?: number | null;
 }
 
+/** 主機上默默在跑的小服務（Mac：`~/Services/watchdogs` 的 `status --json`，經 HA 與 HomeButler 原樣轉來）。 */
+export interface WatchdogRaw {
+  name: string;
+  healthy: boolean;
+  last_line?: string | null;
+  /** 最近一次「動手」的那行紀錄（例如重開 Funnel、啟動 HA 核心），開頭是本機時間 `YYYY-MM-DD HH:MM:SS`。 */
+  last_action?: string | null;
+  paused?: boolean;
+}
+
 export interface ComputerCurrentRaw extends ComputerHistoryRaw {
+  watchdogs?: WatchdogRaw[] | null;
   fah?: {
     paused?: boolean | null;
     finish?: boolean | null;
@@ -141,4 +152,60 @@ export function validMemoryPressure(value: unknown): number | null {
 
 export function memoryPressureColor(level: unknown): string {
   return level === "normal" ? "#10b981" : level === "warning" ? "#f59e0b" : level === "critical" ? "#ef4444" : "#94a3b8";
+}
+
+// ── 背景服務（看門狗與轉送）────────────────────────────────────────────
+// 卡片上列出來，是為了讓人記得這些服務存在、看得出哪個停了。名稱不在表裡的照原名顯示。
+const WATCHDOG_INFO: Record<string, { label: string; role: string }> = {
+  "funnel": { label: "外網通道看門狗", role: "外網連不到時重開 Funnel" },
+  "ha-core": { label: "HA 看門狗", role: "HA 核心停了就把它啟動" },
+  "ha-webhook-relay": { label: "SwitchBot 轉送", role: "把 SwitchBot 的推送轉給 HA" },
+  "mac-metrics": { label: "Mac 監控", role: "讓 HA 讀這台的狀態" },
+};
+
+export type WatchdogState = "ok" | "paused" | "down" | "unknown";
+
+export interface WatchdogView {
+  name: string;
+  label: string;
+  role: string | null;
+  state: WatchdogState;
+  /** 上次動手的時間，例如「10/26 04:12」；沒動過手是 null。 */
+  lastAction: string | null;
+}
+
+const STAMP = /^\d{4}-(\d\d)-(\d\d) (\d\d):(\d\d)/;
+
+/** 沒有回報背景服務（例如 Windows）回 null；電腦離線時狀態一律是 unknown，不沿用舊的「正常」。 */
+export function watchdogViews(raw: unknown, online: boolean): WatchdogView[] | null {
+  if (!Array.isArray(raw)) return null;
+  return raw.filter((w): w is WatchdogRaw => typeof w?.name === "string" && w.name !== "").map((w) => {
+    const info = WATCHDOG_INFO[w.name];
+    const stamp = typeof w.last_action === "string" ? STAMP.exec(w.last_action) : null;
+    return {
+      name: w.name,
+      label: info?.label ?? w.name,
+      role: info?.role ?? null,
+      state: !online ? "unknown" : w.paused === true ? "paused" : w.healthy === true ? "ok" : "down",
+      lastAction: stamp ? `${Number(stamp[1])}/${Number(stamp[2])} ${stamp[3]}:${stamp[4]}` : null,
+    };
+  });
+}
+
+/** 卡片上的一行摘要：全部正常只說數量；有狀況就點名。 */
+export function watchdogSummary(views: WatchdogView[]): { state: WatchdogState; text: string } | null {
+  if (views.length === 0) return null;
+  if (views.some((v) => v.state === "unknown")) return { state: "unknown", text: "背景服務：電腦離線，狀態未知" };
+  const problems = views.filter((v) => v.state !== "ok");
+  if (problems.length === 0) return { state: "ok", text: `背景服務 ${views.length} 個都正常` };
+  const state = problems.some((v) => v.state === "down") ? "down" : "paused";
+  return { state, text: `背景服務：${problems.map((v) => `${v.label}${watchdogStateLabel(v.state)}`).join("、")}` };
+}
+
+export function watchdogStateLabel(state: WatchdogState): string {
+  return state === "ok" ? "正常" : state === "paused" ? "已暫停" : state === "down" ? "沒在跑" : "未知";
+}
+
+export function watchdogDotClass(state: WatchdogState): string {
+  return state === "ok" ? "bg-fresh" : state === "paused" ? "bg-amber-500" : state === "down" ? "bg-red-500" : "bg-mute";
 }

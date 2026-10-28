@@ -115,7 +115,13 @@ export function createDemoState(scenario: Scenario = "normal", now = Date.now())
         last_heartbeat_at: iso(offline ? 3600_000 : 30_000), current: { cpu_pct: 30, ram_pct: 42, gpu_pct: 35, cpu_temp_c: 50, gpu_temp_c: 55 } },
       { id: 2, hostname: "Mac mini (demo)", ip: "192.0.2.20", cpu_model: "Apple M6", gpu_model: "Apple M6 GPU", online: !offline,
         last_heartbeat_at: iso(offline ? 3600_000 : 30_000), current: { cpu_pct: 18, ram_pct: 56, gpu_pct: 22, cpu_temp_c: null, gpu_temp_c: null,
-          smc_temperature: { tcmb_c: 58, tcmz_c: null }, memory_pressure: { level: "normal", pct: 38 }, system_power_w: 4.2 } },
+          smc_temperature: { tcmb_c: 58, tcmz_c: null }, memory_pressure: { level: "normal", pct: 38 }, system_power_w: 4.2,
+          watchdogs: [
+            { name: "funnel", healthy: true, last_line: "2026-10-28 23:10:37 443:ok 8443:ok", last_action: "2026-10-26 04:12:05 turning the Funnel off and on", paused: false },
+            { name: "ha-core", healthy: true, last_line: "2026-10-28 23:10:44 ok", last_action: null, paused: false },
+            { name: "ha-webhook-relay", healthy: true, last_line: "2026-10-28 23:48:11 INFO forwarded 200", last_action: null, paused: false },
+            { name: "mac-metrics", healthy: true, last_line: "2026-10-28 23:05:34 INFO serving /metrics", last_action: null, paused: false },
+          ] } },
     ],
     schedules: empty ? [] : [
       schedule(1, "ac", "客廳冷氣", { power: "off" }, 1, "07:00", { source: "auto_off", created_by: "系統" }),
